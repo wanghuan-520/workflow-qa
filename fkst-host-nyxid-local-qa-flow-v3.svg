@@ -1,0 +1,308 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="2200" height="1900" viewBox="0 0 2200 1900" role="img" aria-labelledby="title desc">
+  <title id="title">FKST Host 经 NyxID 触发用户本地 QA 的评审整改版流程</title>
+  <desc id="desc">采用双阶段授权、用户电脑上的本地 Sandbox 执行、Plan Amendment、补偿式 Cleanup、质量裁决和 PQL 学习闭环的目标流程。</desc>
+
+  <defs>
+    <marker id="arrow" viewBox="0 0 12 12" refX="10" refY="6" markerWidth="9" markerHeight="9" orient="auto">
+      <path d="M 0 0 L 12 6 L 0 12 z" fill="#263238"/>
+    </marker>
+    <marker id="arrow-blue" viewBox="0 0 12 12" refX="10" refY="6" markerWidth="9" markerHeight="9" orient="auto">
+      <path d="M 0 0 L 12 6 L 0 12 z" fill="#315C9A"/>
+    </marker>
+    <marker id="arrow-orange" viewBox="0 0 12 12" refX="10" refY="6" markerWidth="9" markerHeight="9" orient="auto">
+      <path d="M 0 0 L 12 6 L 0 12 z" fill="#B66B13"/>
+    </marker>
+    <marker id="arrow-red" viewBox="0 0 12 12" refX="10" refY="6" markerWidth="9" markerHeight="9" orient="auto">
+      <path d="M 0 0 L 12 6 L 0 12 z" fill="#C94F3D"/>
+    </marker>
+    <marker id="arrow-purple" viewBox="0 0 12 12" refX="10" refY="6" markerWidth="9" markerHeight="9" orient="auto">
+      <path d="M 0 0 L 12 6 L 0 12 z" fill="#6D4C9C"/>
+    </marker>
+    <style>
+      .title { font: 700 44px -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif; fill: #17242B; }
+      .subtitle { font: 400 20px -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif; fill: #52636B; }
+      .lane-title { font: 700 22px -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif; fill: #263238; }
+      .frame-title { font: 700 21px -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif; fill: #244F87; }
+      .frame-body { font: 500 15px -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif; fill: #456B96; }
+      .node-title { font: 700 21px -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif; fill: #17242B; }
+      .node-body { font: 400 17px -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif; fill: #31434B; }
+      .node-small { font: 400 15px -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif; fill: #31434B; }
+      .node-tiny { font: 500 13px -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif; fill: #3F5058; }
+      .arrow-label { font: 600 15px -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif; fill: #455A64; }
+      .callout-title { font: 700 17px -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif; fill: #263238; }
+      .callout-body { font: 500 14px -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif; fill: #455A64; }
+      .repo-label { font: 600 12px -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif; fill: #60747D; }
+      .legend-text { font: 600 14px -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif; fill: #31434B; }
+      .arrow { fill: none; stroke: #263238; stroke-width: 3; marker-end: url(#arrow); }
+      .blue-arrow { fill: none; stroke: #315C9A; stroke-width: 3; marker-end: url(#arrow-blue); }
+      .asset-arrow { fill: none; stroke: #B66B13; stroke-width: 3; stroke-dasharray: 8 6; marker-end: url(#arrow-orange); }
+      .amend-arrow { fill: none; stroke: #C94F3D; stroke-width: 3; stroke-dasharray: 8 6; marker-end: url(#arrow-red); }
+      .return-arrow { fill: none; stroke: #6D4C9C; stroke-width: 4; marker-end: url(#arrow-purple); }
+      .join-line { fill: none; stroke: #6D4C9C; stroke-width: 4; }
+    </style>
+  </defs>
+
+  <rect width="2200" height="1900" fill="#FFFFFF"/>
+  <text x="1100" y="60" text-anchor="middle" class="title">FKST Host → NyxID → 用户本地自动化 QA</text>
+  <text x="1100" y="95" text-anchor="middle" class="subtitle">Review 整改版：双阶段授权、本地 Sandbox 执行、可恢复编排、质量裁决与 PQL 学习闭环</text>
+
+  <!-- Swimlanes -->
+  <rect x="36" y="120" width="2128" height="265" rx="8" fill="#F4F8FD" stroke="#BCD0E8" stroke-width="2"/>
+  <rect x="36" y="405" width="2128" height="220" rx="8" fill="#F1FAF9" stroke="#B9DDD9" stroke-width="2"/>
+  <rect x="36" y="645" width="2128" height="700" rx="8" fill="#F6FAF5" stroke="#C9DDC4" stroke-width="2"/>
+  <rect x="36" y="1365" width="2128" height="350" rx="8" fill="#F8F5FB" stroke="#D5C7E2" stroke-width="2"/>
+
+  <rect x="58" y="138" width="150" height="40" rx="6" fill="#DCEAF9"/>
+  <text x="133" y="165" text-anchor="middle" class="lane-title">云端控制面</text>
+  <rect x="58" y="423" width="200" height="40" rx="6" fill="#D8F1EE"/>
+  <text x="158" y="450" text-anchor="middle" class="lane-title">NyxID 设备通道</text>
+  <rect x="58" y="663" width="200" height="40" rx="6" fill="#E1F0DD"/>
+  <text x="158" y="690" text-anchor="middle" class="lane-title">用户本地执行面</text>
+  <rect x="58" y="1383" width="200" height="40" rx="6" fill="#E9DFF2"/>
+  <text x="158" y="1410" text-anchor="middle" class="lane-title">结果裁决与闭环</text>
+
+  <!-- Durable orchestration frame -->
+  <rect x="430" y="140" width="1710" height="1540" rx="12" fill="none" stroke="#315C9A" stroke-width="4" stroke-dasharray="13 9"/>
+  <rect x="465" y="132" width="1320" height="58" rx="7" fill="#E9F2FC" stroke="#315C9A" stroke-width="2"/>
+  <text x="485" y="157" class="frame-title">workflow-qa：覆盖整个 QA Run 的 Durable Orchestration</text>
+  <text x="485" y="181" class="frame-body">Create → Design Grant → Design → Approval → Execution Grant → Local Sandbox → Conditional Readiness → Execute → Evidence → Cleanup → Quality → Publish → Finalize</text>
+  <text x="2110" y="177" text-anchor="end" class="repo-label">Definition: fkst-packages-testing · Durable State: fkst-hosted</text>
+
+  <!-- Cloud control plane -->
+  <rect x="82" y="220" width="275" height="115" rx="8" fill="#FFFFFF" stroke="#527EB4" stroke-width="3"/>
+  <text x="219" y="254" text-anchor="middle" class="node-title">GitHub / 手动入口</text>
+  <text x="219" y="284" text-anchor="middle" class="node-body">PR · Issue · API · UI</text>
+  <text x="219" y="316" text-anchor="middle" class="repo-label">外部触发源</text>
+
+  <rect x="500" y="210" width="340" height="135" rx="8" fill="#FFFFFF" stroke="#2D6DA8" stroke-width="3"/>
+  <text x="670" y="246" text-anchor="middle" class="node-title">fkst-hosted</text>
+  <text x="670" y="277" text-anchor="middle" class="node-body">创建 Durable QA Run</text>
+  <text x="670" y="304" text-anchor="middle" class="node-small">锁定 repo / effective ref / profile / policy</text>
+  <text x="670" y="332" text-anchor="middle" class="repo-label">Repo: ChronoAIProject/fkst-hosted</text>
+
+  <rect x="915" y="205" width="600" height="145" rx="8" fill="#EDF4FC" stroke="#7FA5CE" stroke-width="2"/>
+  <text x="1215" y="239" text-anchor="middle" class="callout-title">workflow-qa 推进云端状态与 Checkpoint</text>
+  <text x="1215" y="269" text-anchor="middle" class="callout-body">先签发 Design-only Grant，仅允许读取、静态分析和生成 Structured Plan</text>
+  <text x="1215" y="296" text-anchor="middle" class="callout-body">Plan 经 Policy Gate 与用户批准后，再签发绑定 plan_digest 的 Execution Grant</text>
+  <text x="1215" y="324" text-anchor="middle" class="repo-label">重试、取消、防重放、断线恢复和终态均由同一 Durable Run 管理</text>
+
+  <rect x="1710" y="210" width="330" height="135" rx="8" fill="#FFFFFF" stroke="#17857E" stroke-width="3"/>
+  <text x="1875" y="246" text-anchor="middle" class="node-title">NyxID Cloud</text>
+  <text x="1875" y="277" text-anchor="middle" class="node-body">设备身份、用户批准、请求路由</text>
+  <text x="1875" y="304" text-anchor="middle" class="node-small">Grant、凭据代理与审计记录</text>
+  <text x="1875" y="332" text-anchor="middle" class="repo-label">Repo: ChronoAIProject/NyxID</text>
+
+  <path d="M 357 277 H 500" class="arrow"/>
+  <text x="428" y="257" text-anchor="middle" class="arrow-label">触发 QA Run</text>
+  <path d="M 840 277 H 915" class="blue-arrow"/>
+  <path d="M 1515 277 H 1710" class="blue-arrow"/>
+  <text x="1612" y="257" text-anchor="middle" class="arrow-label">请求用户授权</text>
+
+  <!-- NyxID device lane -->
+  <rect x="220" y="470" width="370" height="125" rx="8" fill="#FFFFFF" stroke="#258D83" stroke-width="3"/>
+  <text x="405" y="505" text-anchor="middle" class="node-title">NyxID Node（用户电脑）</text>
+  <text x="405" y="536" text-anchor="middle" class="node-body">保持出站连接 · 接收批准任务</text>
+  <text x="405" y="563" text-anchor="middle" class="node-small">只转发到本机 FKST Local QA Runtime</text>
+  <text x="405" y="587" text-anchor="middle" class="repo-label">Repo: ChronoAIProject/NyxID</text>
+
+  <path d="M 1875 345 V 438 H 405 V 470" class="arrow"/>
+  <rect x="780" y="414" width="440" height="36" rx="6" fill="#FFFFFF" stroke="#B9DDD9"/>
+  <text x="1000" y="438" text-anchor="middle" class="arrow-label">Node 主动建立安全反向连接，不暴露本地端口</text>
+
+  <rect x="710" y="470" width="690" height="125" rx="8" fill="#E6F6F3" stroke="#5CAAA3" stroke-width="2"/>
+  <text x="1055" y="503" text-anchor="middle" class="callout-title">双阶段授权边界</text>
+  <text x="1055" y="532" text-anchor="middle" class="callout-body">Design-only Grant：commit / device / read scope / TTL / nonce，不允许服务、测试和长期 Secret</text>
+  <text x="1055" y="558" text-anchor="middle" class="callout-body">Execution Grant：绑定 plan_digest / policy_digest / 文件 / 网络 / Secret / 资源上限</text>
+  <text x="1055" y="585" text-anchor="middle" class="repo-label">NyxID 负责身份、批准、通道、凭据和审计；不执行测试，也不判断 Pass / Fail</text>
+
+  <rect x="1480" y="475" width="550" height="115" rx="8" fill="#FFFFFF" stroke="#B9DDD9" stroke-width="2" stroke-dasharray="8 7"/>
+  <text x="1755" y="507" text-anchor="middle" class="callout-title">设备通道传输内容</text>
+  <text x="1755" y="536" text-anchor="middle" class="callout-body">下行：RunSpec / Grant / Policy · 上行：状态 / Receipt / Artifact 指针</text>
+  <text x="1755" y="566" text-anchor="middle" class="repo-label">Grant、Plan、Receipt、Evidence 均带 schema_version 与 content_digest</text>
+
+  <!-- Local execution plane -->
+  <rect x="72" y="770" width="320" height="260" rx="8" fill="#FFFFFF" stroke="#4C9445" stroke-width="3"/>
+  <text x="232" y="806" text-anchor="middle" class="node-title">FKST Local QA Runtime</text>
+  <text x="232" y="839" text-anchor="middle" class="node-small">NyxID QA Adapter 校验 Grant</text>
+  <text x="232" y="866" text-anchor="middle" class="node-small">锁定 Run / 管理 Checkpoint</text>
+  <text x="232" y="893" text-anchor="middle" class="node-small">启动本地 FKST Session 与 QA Sandbox</text>
+  <text x="232" y="920" text-anchor="middle" class="node-small">管理进程组、端口、超时和取消</text>
+  <text x="232" y="947" text-anchor="middle" class="node-small">调用 Runner Backend 与回传 Receipt</text>
+  <text x="232" y="976" text-anchor="middle" class="node-small">Runtime 重启后从 Checkpoint 恢复</text>
+  <text x="232" y="1014" text-anchor="middle" class="repo-label">App: fkst-packages-testing/apps/local-qa-runtime</text>
+
+  <path d="M 405 595 V 710 H 232 V 770" class="arrow"/>
+  <text x="315" y="700" text-anchor="middle" class="arrow-label">经 NyxID QA Adapter</text>
+
+  <rect x="450" y="710" width="1650" height="600" rx="8" fill="#FFFFFF" stroke="#8BAD83" stroke-width="2"/>
+  <text x="478" y="746" class="lane-title">本地 QA Run 主执行链</text>
+  <text x="2070" y="746" text-anchor="end" class="repo-label">Sandbox 位于用户电脑；PR 代码、Shell、浏览器和 Agent Action 均在其中执行</text>
+
+  <!-- Design sandbox -->
+  <rect x="495" y="775" width="300" height="205" rx="8" fill="#F4FAF2" stroke="#5B9A54" stroke-width="3"/>
+  <text x="645" y="810" text-anchor="middle" class="node-title">Local Design</text>
+  <text x="645" y="839" text-anchor="middle" class="node-small">读取本地 Workspace / exact ref</text>
+  <text x="645" y="866" text-anchor="middle" class="node-small">复用本地源码与依赖信息</text>
+  <text x="645" y="893" text-anchor="middle" class="node-small">testing-design 生成 Plan v1</text>
+  <text x="645" y="920" text-anchor="middle" class="node-small">此阶段只设计，不执行测试</text>
+  <text x="645" y="948" text-anchor="middle" class="repo-label">Design-only Grant</text>
+
+  <!-- Policy gate diamond -->
+  <polygon points="955,765 1090,875 955,985 820,875" fill="#FCE8E6" stroke="#C5221F" stroke-width="3"/>
+  <text x="955" y="835" text-anchor="middle" class="callout-title">Policy Gate</text>
+  <text x="955" y="863" text-anchor="middle" class="node-small">命令 / 文件 / 网络 / Secret</text>
+  <text x="955" y="889" text-anchor="middle" class="node-small">资源预算 / plan_digest</text>
+  <text x="955" y="916" text-anchor="middle" class="callout-title">用户批准</text>
+
+  <rect x="870" y="720" width="170" height="36" rx="6" fill="#FFF1EE" stroke="#C94F3D"/>
+  <text x="955" y="744" text-anchor="middle" class="node-tiny">拒绝 → Blocked + 审计</text>
+
+  <!-- Execution sandbox -->
+  <rect x="1145" y="775" width="300" height="205" rx="8" fill="#F4FAF2" stroke="#5B9A54" stroke-width="3"/>
+  <text x="1295" y="810" text-anchor="middle" class="node-title">Local QA Sandbox</text>
+  <text x="1295" y="839" text-anchor="middle" class="node-small">运行在用户电脑的 Container / VM</text>
+  <text x="1295" y="866" text-anchor="middle" class="node-small">挂载本次 Run Workspace / 安装依赖</text>
+  <text x="1295" y="893" text-anchor="middle" class="node-small">启动 Middleware / App / Browser Profile</text>
+  <text x="1295" y="920" text-anchor="middle" class="node-small">Readiness 按 Plan 条件执行</text>
+  <text x="1295" y="948" text-anchor="middle" class="repo-label">Execution Grant scope</text>
+
+  <!-- Runner -->
+  <rect x="1510" y="755" width="545" height="245" rx="8" fill="#F7FAF6" stroke="#4C9445" stroke-width="3"/>
+  <text x="1782" y="790" text-anchor="middle" class="node-title">testing-runner：按 Structured Plan 选择 Backend</text>
+  <rect x="1535" y="820" width="145" height="95" rx="6" fill="#FFFFFF" stroke="#6F8B77" stroke-width="2"/>
+  <text x="1607" y="850" text-anchor="middle" class="callout-title">Deterministic</text>
+  <text x="1607" y="877" text-anchor="middle" class="node-tiny">Shell / HTTP / CLI</text>
+  <rect x="1705" y="820" width="145" height="95" rx="6" fill="#FFFFFF" stroke="#258D83" stroke-width="2"/>
+  <text x="1777" y="850" text-anchor="middle" class="callout-title">Browser</text>
+  <text x="1777" y="877" text-anchor="middle" class="node-tiny">Playwright / Ego</text>
+  <rect x="1875" y="812" width="150" height="110" rx="6" fill="#FFF1EE" stroke="#C94F3D" stroke-width="3"/>
+  <text x="1950" y="844" text-anchor="middle" class="callout-title">Codex Agent</text>
+  <text x="1950" y="871" text-anchor="middle" class="node-tiny">只在批准 envelope 内</text>
+  <text x="1950" y="895" text-anchor="middle" class="node-tiny">探索 / 诊断 / Action</text>
+  <text x="1782" y="952" text-anchor="middle" class="node-small">最终 Pass / Fail 由 testing-runner 的结构化断言决定</text>
+  <text x="1782" y="980" text-anchor="middle" class="repo-label">不采信 Codex 自报结论</text>
+
+  <path d="M 392 890 H 495" class="arrow"/>
+  <path d="M 795 875 H 820" class="arrow"/>
+  <path d="M 1090 875 H 1145" class="arrow"/>
+  <text x="1118" y="853" text-anchor="middle" class="arrow-label">批准</text>
+  <path d="M 1445 875 H 1510" class="arrow"/>
+
+  <!-- PQL assets -->
+  <rect x="500" y="1035" width="500" height="220" rx="8" fill="#FFF8EC" stroke="#D58A20" stroke-width="3"/>
+  <text x="750" y="1070" text-anchor="middle" class="node-title">PQL：跨项目测试策略与资产层</text>
+  <text x="750" y="1103" text-anchor="middle" class="node-small">Product Map · Test Catalog · Regression Suite</text>
+  <text x="750" y="1130" text-anchor="middle" class="node-small">Project Pack · Fixture · Selector · Scope Policy</text>
+  <text x="750" y="1157" text-anchor="middle" class="node-small">版本化输入 testing-design；执行前已经存在</text>
+  <text x="750" y="1184" text-anchor="middle" class="node-small">Coverage Gap 经 Review 后生成新 Project Pack</text>
+  <text x="750" y="1213" text-anchor="middle" class="repo-label">Repo: YueZh127/product-quality-loop</text>
+  <text x="750" y="1238" text-anchor="middle" class="repo-label">自动生成的新用例先保持 design_only</text>
+  <path d="M 645 1035 V 980" class="asset-arrow"/>
+  <text x="720" y="1016" class="arrow-label">策略 / 资产输入</text>
+
+  <!-- Plan Amendment -->
+  <rect x="1060" y="1055" width="360" height="185" rx="8" fill="#FFF1EE" stroke="#C94F3D" stroke-width="3"/>
+  <text x="1240" y="1090" text-anchor="middle" class="node-title">Plan Amendment</text>
+  <text x="1240" y="1122" text-anchor="middle" class="node-small">超出 action envelope → amendment_required</text>
+  <text x="1240" y="1149" text-anchor="middle" class="node-small">生成 Plan vN + 结构化 Diff</text>
+  <text x="1240" y="1176" text-anchor="middle" class="node-small">暂停 Run / 保存 Checkpoint / 撤销旧 Grant</text>
+  <text x="1240" y="1203" text-anchor="middle" class="node-small">重新进入 Policy Gate 与用户审批</text>
+  <text x="1240" y="1228" text-anchor="middle" class="repo-label">新 Step、权限、网络、Secret 或预算必须重批</text>
+  <path d="M 1950 922 V 1025 H 1420 V 1145" class="amend-arrow"/>
+  <path d="M 1060 1145 H 1030 V 985 H 955" class="amend-arrow"/>
+
+  <!-- Evidence -->
+  <rect x="1480" y="1045" width="255" height="195" rx="8" fill="#F7F2FB" stroke="#7852A4" stroke-width="3"/>
+  <text x="1607" y="1080" text-anchor="middle" class="node-title">test-artifacts</text>
+  <text x="1607" y="1113" text-anchor="middle" class="node-small">Case Result / Assertions</text>
+  <text x="1607" y="1140" text-anchor="middle" class="node-small">日志 / 截图 / Trace</text>
+  <text x="1607" y="1167" text-anchor="middle" class="node-small">脱敏 / digest / access scope</text>
+  <text x="1607" y="1194" text-anchor="middle" class="node-small">retention / Artifact Pointer</text>
+  <text x="1607" y="1224" text-anchor="middle" class="repo-label">EvidenceManifest</text>
+
+  <!-- Cleanup -->
+  <rect x="1790" y="1035" width="265" height="210" rx="8" fill="#F4FAF2" stroke="#5B9A54" stroke-width="3"/>
+  <text x="1922" y="1070" text-anchor="middle" class="node-title">Compensation Cleanup</text>
+  <text x="1922" y="1103" text-anchor="middle" class="node-small">任意终态或恢复事件均触发</text>
+  <text x="1922" y="1130" text-anchor="middle" class="node-small">Succeeded / Failed / Cancelled</text>
+  <text x="1922" y="1157" text-anchor="middle" class="node-small">TimedOut / Lost / Runtime Restart</text>
+  <text x="1922" y="1184" text-anchor="middle" class="node-small">幂等、可单独重试、记录残留资源</text>
+  <text x="1922" y="1211" text-anchor="middle" class="repo-label">输出 Cleanup Receipt</text>
+
+  <path d="M 1782 1000 V 1018 H 1607 V 1045" class="arrow"/>
+  <path d="M 1735 1142 H 1790" class="arrow"/>
+  <rect x="1170" y="1260" width="720" height="38" rx="6" fill="#FFF1EE" stroke="#C94F3D"/>
+  <text x="1530" y="1285" text-anchor="middle" class="arrow-label">任意失败、取消、超时、断线或 Runtime 重启恢复，都直接进入补偿式 Cleanup</text>
+  <path d="M 392 970 H 430 V 1279 H 1170" class="amend-arrow"/>
+  <path d="M 1890 1279 H 1922 V 1245" class="amend-arrow"/>
+
+  <!-- Result return and quality -->
+  <path d="M 1607 1240 V 1330 H 625 V 1435" class="join-line"/>
+  <path d="M 1922 1245 V 1320 H 1607" class="join-line"/>
+  <rect x="900" y="1312" width="700" height="38" rx="6" fill="#FFFFFF" stroke="#D5C7E2"/>
+  <text x="1250" y="1337" text-anchor="middle" class="arrow-label">Case Result + EvidenceManifest + Cleanup Receipt + 独立 Outcome</text>
+
+  <rect x="500" y="1435" width="250" height="155" rx="8" fill="#FFFFFF" stroke="#258D83" stroke-width="3"/>
+  <text x="625" y="1472" text-anchor="middle" class="node-title">NyxID 回传</text>
+  <text x="625" y="1505" text-anchor="middle" class="node-small">状态 / Receipt / Artifact 指针</text>
+  <text x="625" y="1532" text-anchor="middle" class="node-small">execution / cleanup / evidence</text>
+  <text x="625" y="1559" text-anchor="middle" class="node-small">三个 Outcome 独立记录</text>
+  <text x="625" y="1582" text-anchor="middle" class="repo-label">Node → Cloud，关联设备与审计</text>
+
+  <rect x="810" y="1415" width="330" height="195" rx="8" fill="#F7F2FB" stroke="#7852A4" stroke-width="3"/>
+  <text x="975" y="1452" text-anchor="middle" class="node-title">quality-evaluation</text>
+  <text x="975" y="1484" text-anchor="middle" class="node-small">聚合 Case Result / Coverage / Evidence</text>
+  <text x="975" y="1511" text-anchor="middle" class="node-small">分类 product / test / environment / flaky</text>
+  <text x="975" y="1538" text-anchor="middle" class="node-small">policy_blocked / insufficient_evidence</text>
+  <text x="975" y="1565" text-anchor="middle" class="node-small">生成 Final Quality Outcome + dedup key</text>
+  <text x="975" y="1594" text-anchor="middle" class="repo-label">Publication 只消费 QualityEvaluation</text>
+
+  <rect x="1200" y="1435" width="270" height="155" rx="8" fill="#FFFFFF" stroke="#7852A4" stroke-width="3"/>
+  <text x="1335" y="1472" text-anchor="middle" class="node-title">test-publication</text>
+  <text x="1335" y="1505" text-anchor="middle" class="node-small">幂等 Check / Comment / Report</text>
+  <text x="1335" y="1532" text-anchor="middle" class="node-small">稳定 dedup key</text>
+  <text x="1335" y="1559" text-anchor="middle" class="node-small">重试不重复创建对象</text>
+  <text x="1335" y="1582" text-anchor="middle" class="repo-label">Repo: fkst-packages-testing</text>
+
+  <rect x="1530" y="1435" width="260" height="155" rx="8" fill="#FFFFFF" stroke="#527EB4" stroke-width="3"/>
+  <text x="1660" y="1472" text-anchor="middle" class="node-title">GitHub Adapter</text>
+  <text x="1660" y="1505" text-anchor="middle" class="node-small">PR Check / Comment / Run Summary</text>
+  <text x="1660" y="1532" text-anchor="middle" class="node-small">产品 Issue 仅限可复现缺陷</text>
+  <text x="1660" y="1559" text-anchor="middle" class="node-small">且 Evidence 充分</text>
+  <text x="1660" y="1582" text-anchor="middle" class="repo-label">Adapter owner: fkst-hosted</text>
+
+  <rect x="1840" y="1415" width="250" height="195" rx="8" fill="#FFF8EC" stroke="#D58A20" stroke-width="3"/>
+  <text x="1965" y="1452" text-anchor="middle" class="node-title">PQL Feedback</text>
+  <text x="1965" y="1484" text-anchor="middle" class="node-small">test_failure / coverage_gap</text>
+  <text x="1965" y="1511" text-anchor="middle" class="node-small">flaky / insufficient_evidence</text>
+  <text x="1965" y="1538" text-anchor="middle" class="node-small">Coverage Gap / Asset Proposal</text>
+  <text x="1965" y="1565" text-anchor="middle" class="node-small">Review → 新 Project Pack 版本</text>
+  <text x="1965" y="1594" text-anchor="middle" class="repo-label">产品缺陷不进入 PQL Issue</text>
+
+  <path d="M 750 1512 H 810" class="return-arrow"/>
+  <path d="M 1140 1512 H 1200" class="return-arrow"/>
+  <path d="M 1470 1512 H 1530" class="return-arrow"/>
+  <path d="M 975 1415 V 1398 H 1965 V 1415" class="asset-arrow"/>
+  <text x="1510" y="1392" text-anchor="middle" class="arrow-label">测试资产 / 覆盖 / Flaky / Evidence 问题</text>
+
+  <rect x="820" y="1625" width="650" height="42" rx="6" fill="#E9F2FC" stroke="#315C9A"/>
+  <text x="1145" y="1652" text-anchor="middle" class="frame-body">workflow-qa 校验 Checkpoint / Receipt，推进 Published / Failed / Cancelled / Finalized</text>
+
+  <path d="M 1965 1610 V 1692 H 455 V 1145 H 500" class="asset-arrow"/>
+  <text x="1290" y="1686" text-anchor="middle" class="arrow-label">Review 通过的新 Project Pack 进入下一轮回归</text>
+
+  <!-- Repository ownership legend -->
+  <text x="70" y="1775" class="lane-title">仓库归属</text>
+  <rect x="220" y="1748" width="350" height="42" rx="6" fill="#E5EFFA" stroke="#527EB4"/>
+  <text x="395" y="1775" text-anchor="middle" class="legend-text">ChronoAIProject/fkst-hosted</text>
+  <rect x="600" y="1748" width="300" height="42" rx="6" fill="#E0F3F1" stroke="#258D83"/>
+  <text x="750" y="1775" text-anchor="middle" class="legend-text">ChronoAIProject/NyxID</text>
+  <rect x="930" y="1748" width="520" height="42" rx="6" fill="#EEE7F5" stroke="#7852A4"/>
+  <text x="1190" y="1775" text-anchor="middle" class="legend-text">fkst-packages-testing（含 Local QA Runtime）</text>
+  <rect x="1480" y="1748" width="520" height="42" rx="6" fill="#FFF2DA" stroke="#D58A20"/>
+  <text x="1740" y="1775" text-anchor="middle" class="legend-text">YueZh127/product-quality-loop</text>
+
+  <rect x="350" y="1810" width="1500" height="38" rx="6" fill="#F5F7F8" stroke="#B0BEC5"/>
+  <text x="1100" y="1835" text-anchor="middle" class="node-tiny">统一数据契约：schema_version · content_digest · run_id · created_at · producer_version</text>
+  <text x="1100" y="1872" text-anchor="middle" class="subtitle">Host 管 Durable 状态 · NyxID 管授权与设备通道 · Local Runtime 管本地 Sandbox 与进程 · testing-runner 管断言 · quality-evaluation 管最终裁决</text>
+</svg>

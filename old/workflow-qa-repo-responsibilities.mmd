@@ -1,0 +1,49 @@
+graph LR
+  subgraph OWNER["GitHub / Owner Repo"]
+    CODE["Owner Project Code<br/>配置、契约、现有测试"]
+    TRIGGER["触发入口<br/>PR 合并或 fkst-qa Issue"]
+    RESULT["接收结果<br/>fkst-dev Issue + QA Summary"]
+  end
+
+  subgraph HOSTED["fkst-hosted：基础设施与生命周期"]
+    H1["识别待处理工作<br/>创建独立 QA Session / Sandbox"]
+    H2["附加 QA Profile<br/>注入允许的 Env / Secret"]
+    H3["Phase 2 Environment Bootstrap<br/>安装并启动预声明 Middleware"]
+    H4["TTL / idle-to-zero<br/>最终销毁 Sandbox"]
+  end
+
+  subgraph TESTING["fkst-packages-testing：测试领域"]
+    W["packages/workflow-qa<br/>Ledger、Stack Discovery、Case Proposal<br/>Owner Service 生命周期、结果分类"]
+    R["testing-runner<br/>受控命令执行、Receipt、进程清理"]
+    A["test-artifacts<br/>证据指针、Digest、Artifact Summary"]
+    P["test-publication<br/>Publication Handoff、trace_id、dedup_key"]
+  end
+
+  GP["github-proxy<br/>可信 GitHub Write Adapter<br/>Issue / Comment / Created Marker"]
+
+  TRIGGER -->|"待处理工作"| H1
+  CODE -->|"Checkout 到隔离 Sandbox"| H1
+  H1 --> H2
+  H2 --> H3
+  H3 -->|"Bootstrap Receipt / Middleware Ready"| W
+
+  W -->|"执行计划"| R
+  R -->|"Execution Receipt"| A
+  A -->|"Artifact Summary"| P
+  P -->|"Publication Request"| W
+
+  W -->|"去重的 Finding / Summary 请求"| GP
+  GP -->|"外部写入"| RESULT
+
+  W -->|"Terminal Marker + 关闭 fkst-qa"| H4
+  H4 -->|"Sandbox 已销毁"| RESULT
+
+  classDef owner fill:#E8F0FE,stroke:#3367D6,color:#102A43;
+  classDef hosted fill:#E6F4EA,stroke:#188038,color:#123524;
+  classDef testing fill:#FFF4E5,stroke:#B06000,color:#4A2A00;
+  classDef proxy fill:#FCE8E6,stroke:#C5221F,color:#5F1613;
+
+  class CODE,TRIGGER,RESULT owner;
+  class H1,H2,H3,H4 hosted;
+  class W,R,A,P testing;
+  class GP proxy;
