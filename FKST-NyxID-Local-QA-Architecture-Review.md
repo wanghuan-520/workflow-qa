@@ -1,6 +1,6 @@
 # FKST Host → NyxID → 用户本地自动化 QA 架构评审
 
-> 评审对象：`fkst-host-nyxid-local-qa-flow-v2.svg`  
+> 评审对象：历史 v2 流程图（旧产物已清理；当前版本见 `fkst-host-nyxid-local-qa-flow.svg`）  
 > 评审结论：**有条件通过（Conditional Pass）**  
 > 评审日期：2026-07-24
 
@@ -8,12 +8,10 @@
 
 这套结构的整体方向是对的，可以作为目标架构继续推进。
 
-当前最合理的地方，是已经把以下职责拆开：
+当前最合理的地方，是已经把以下职责拆成独立 Module：
 
-- `fkst-hosted`：云端 QA Run、状态持久化、调度、恢复和 GitHub Adapter。
+- `fkst-hosted` monorepo：云端 QA Run、状态持久化、调度、恢复、Local QA Runtime、testing modules 和 GitHub Adapter；云端控制面与本地 Runtime 是独立部署目标。
 - `NyxID`：设备身份、用户批准、安全反向连接、凭据代理和审计。
-- `FKST Local QA Runtime`：用户电脑上的进程、超时、取消、端口、Session 和 Codex 调用。
-- `fkst-packages-testing`：测试设计、环境准备、Runner、Evidence、质量裁决和发布能力。
 - `PQL`：跨项目测试策略、Project Pack、测试用例、Fixture、Selector 和回归资产。
 
 另外，`testing-runner` 而不是 Codex 负责最终 Pass/Fail，这一点必须保留。
@@ -371,13 +369,40 @@ producer_version: "..."
 
 ## 8. 仓库职责建议
 
-### `ChronoAIProject/fkst-hosted`
+### `ChronoAIProject/fkst-hosted` monorepo
+
+#### `apps/hosted-control-plane`
 
 - QA Run 持久状态。
+- Durable Orchestration 承载。
 - 调度与设备选择。
-- Checkpoint 和恢复。
-- 取消、终态和 TTL。
+- Checkpoint、恢复、取消、终态和 TTL。
+- Policy Gate 协调。
+- NyxID Cloud Adapter。
 - GitHub Adapter。
+
+#### `apps/local-qa-runtime`
+
+- NyxID Node Adapter 与 Grant 校验。
+- 本地 Run Lock 和 Checkpoint 恢复。
+- Local QA Sandbox 生命周期。
+- Workspace、进程组、端口、超时和取消。
+- Runner Backend 承载。
+- Evidence、ReadinessReceipt 和 CleanupReceipt 回传。
+
+#### `packages/`
+
+- `qa-contracts`：RunSpec、Plan、Grant、Receipt、Evidence 和 Outcome Schema。
+- `workflow-qa`：完整 QA Run 的 workflow 定义。
+- `testing-design`：生成 Structured Plan。
+- `testing-runner`：Backend 选择与结构化断言。
+- `backend-contract`：Deterministic、Browser 和 Codex Backend Interface。
+- `environment-factory`：Prepare、Readiness 和 Cleanup Interface。
+- `test-artifacts`：Case Result、EvidenceManifest 与脱敏。
+- `quality-evaluation`：失败分类与最终质量裁决。
+- `test-publication`：Publication Plan、Issue 路由和 dedup key。
+
+`apps/hosted-control-plane` 与 `apps/local-qa-runtime` 必须独立构建和发布；testing packages 不得依赖任何 `apps/` 实现。
 
 ### `ChronoAIProject/NyxID`
 
@@ -387,18 +412,6 @@ producer_version: "..."
 - Grant 传输。
 - 凭据代理。
 - 审计记录。
-
-### `ChronoAIProject/fkst-packages-testing`
-
-- `workflow-qa` 定义。
-- Local QA Runtime。
-- Environment Factory。
-- `testing-design`。
-- `testing-runner`。
-- Backend Contract。
-- `test-artifacts`。
-- `quality-evaluation`。
-- `test-publication`。
 
 ### `YueZh127/product-quality-loop`
 

@@ -1,0 +1,85 @@
+flowchart TB
+  subgraph AUTH["源码、设计与双阶段授权"]
+    direction LR
+    A["fkst-hosted 创建 RunDraft<br/>锁定 repo / base-head / scope / policy / candidate device"]
+    S["Hosted Source Acquisition<br/>生成或解析 immutable source object<br/>冻结 SourceRevision + RunSpec"]
+    DA["NyxID Design ApprovalEvidence<br/>批准 effective SHA / device / design read scope"]
+    AA["Hosted Authorization Authority<br/>验证 ApprovalEvidence + Policy<br/>FKST Design / Execution Grant 的唯一 issuer"]
+    DG["FKST Design Grant<br/>只允许受限读取、静态分析和生成 Plan"]
+    NT["NyxID Transport<br/>传输 Grant / Command / Credential Ref<br/>回传 Event / Receipt / Artifact Pointer"]
+    RV["Local Runtime Verifier<br/>验证 issuer / signature / digest / device<br/>TTL / nonce / sequence / revocation / fence"]
+    DS["Local Design Sandbox<br/>获取并校验 immutable source<br/>testing-design 生成 Structured Plan vN"]
+    DC["Design Cleanup<br/>销毁 Design Sandbox 与临时资源<br/>持久化 Cleanup Receipt"]
+    PG{"Hosted Policy Gate<br/>审查 Plan / Action Envelope<br/>命令 · 文件 · 网络 · Secret · 资源"}
+    EA["NyxID Execution ApprovalEvidence<br/>用户批准 Structured Plan<br/>绑定 device attestation / policy / envelope"]
+    EG["FKST Execution Grant<br/>绑定 RunSpec / Plan / Policy / device / envelope<br/>TTL / nonce / sequence / ExecutionFence"]
+
+    A --> S --> DA --> AA -->|签发| DG --> NT --> RV -->|design grant| DS --> DC --> PG
+    PG -->|允许并要求执行批准| EA --> AA -->|签发| EG --> NT
+  end
+
+  subgraph LOCAL["用户本地执行与补偿"]
+    direction LR
+    ES["Local QA Sandbox<br/>独立 Workspace / process domain / Browser Profile<br/>Prepare + Conditional Readiness"]
+    R["testing-runner<br/>选择 Deterministic / Browser / Codex Backend<br/>结构化断言决定 Case Result"]
+    PEP{"Local Policy Enforcement Point<br/>每个副作用前计算<br/>Plan ∩ Policy ∩ Grant ∩ Runtime capability"}
+    ACT["执行批准动作<br/>文件 / 命令 / 网络 / Browser / CredentialLease<br/>Backend 只返回 Observation"]
+    EV["test-artifacts<br/>Case Result + EvidenceManifest<br/>逐项 EvidenceRequirement fulfillment"]
+    CL["Compensation Cleanup<br/>CleanupCapability + TerminationReceipt<br/>幂等清理并记录 CleanupResidual"]
+
+    RV -->|execution grant| ES --> R --> PEP
+    PEP -->|within envelope| ACT --> EV --> CL
+  end
+
+  subgraph AMENDMENT["Plan Amendment hard-revoke 回路"]
+    direction LR
+    AM["amendment_required<br/>暂停新 Step，在幂等边界 quiesce"]
+    CP["保存 Checkpoint / Artifact / Resource Inventory<br/>撤销旧 Execution Grant并 fence 旧 generation"]
+    AC["cleanup reason=amendment_pause<br/>销毁旧 Sandbox / process / CredentialLease"]
+    AD["申请 amendment design scope<br/>生成 Plan vN + Structured Diff"]
+
+    AM --> CP --> AC --> AD
+  end
+
+  PEP -->|超出 envelope| AM
+  AD --> DA
+
+  subgraph RESULT["质量裁决、发布与下一轮学习闭环"]
+    direction LR
+    Q["quality-evaluation<br/>聚合 Case / Coverage / Evidence / Cleanup<br/>生成 immutable Final Quality Outcome"]
+    PP["test-publication / PublicationPlan<br/>绑定 QualityEvaluation / policy / Artifact allowlist"]
+    GH["GitHub Actions<br/>Check / Comment / Product Issue<br/>独立 dedup key + Action Receipt"]
+    PF["PQL Feedback Action<br/>CoverageGap / AssetChangeProposal design_only<br/>PQLReviewDecision → ProjectPackPromotionReceipt"]
+    PR["PublicationReceipt<br/>汇总 GitHub / PQL action settlement<br/>部分失败可独立 repair"]
+    F["workflow-qa Finalize<br/>校验 Checkpoint / Receipt / residual disposition<br/>terminal + 五类 Outcome，不重开原 Run"]
+
+    CL --> Q --> PP
+    PP --> GH --> PR
+    PP --> PF --> PR
+    PR --> F
+  end
+
+  PF -.->|批准后的新 Project Pack 只进入下一轮 Run| A
+
+  PG -->|deny| X["Blocked<br/>记录 reason / PolicyDecision / audit<br/>若已创建本地资源则先 Cleanup"]
+  X --> Q
+
+  C["统一严格契约<br/>schema_version · content_digest · run_id<br/>DigestBoundRef · ExecutionFence · idempotency key"]
+  C -.-> RV
+  C -.-> Q
+
+  classDef hosted fill:#E8F0FE,stroke:#3367D6,color:#102A43,stroke-width:2px;
+  classDef nyxid fill:#E6F4F1,stroke:#17857E,color:#123C39,stroke-width:2px;
+  classDef local fill:#EAF5E7,stroke:#4C9445,color:#173C16,stroke-width:2px;
+  classDef testing fill:#F3ECF8,stroke:#7852A4,color:#332044,stroke-width:2px;
+  classDef pql fill:#FFF4E2,stroke:#D58A20,color:#4A2A00,stroke-width:2px;
+  classDef gate fill:#FCE8E6,stroke:#C5221F,color:#5F1613,stroke-width:2px;
+  classDef neutral fill:#F5F7F8,stroke:#607D8B,color:#263238,stroke-width:2px;
+
+  class A,S,AA,DG,EG,PG hosted;
+  class DA,EA,NT nyxid;
+  class RV,DS,DC,ES,PEP,ACT,CL local;
+  class R,EV,AM,CP,AC,AD,Q,PP,PR,F testing;
+  class PF pql;
+  class PG,PEP,X gate;
+  class C neutral;
