@@ -1,0 +1,201 @@
+{
+  "schema_version": "qa.rfc8785-conformance/v1",
+  "description": "Shared Rust and TypeScript RFC 8785/JCS conformance corpus for FKST QA contracts.",
+  "encoding": "UTF-8",
+  "digest_algorithm": "sha256",
+  "rules": {
+    "canonicalization": "RFC 8785 JSON Canonicalization Scheme",
+    "input_profile": "I-JSON with FKST safe-integer constraints",
+    "unicode_normalization": "forbidden",
+    "object_member_order": "UTF-16 code unit order",
+    "encoded_source": "base64 of the exact input bytes before parsing"
+  },
+  "projection_registry": [
+    "contract_content/v1",
+    "signed_root/v1",
+    "local_request/v1",
+    "authorization_preimage/v1",
+    "admission_requirements/v1",
+    "execution_fence/v1",
+    "event_set/v1",
+    "channel_transcript/v1",
+    "update_activation/v1",
+    "revocation_batch/v1",
+    "audit_event_set/v1",
+    "ledger_integrity/v1"
+  ],
+  "related_corpora": [
+    "contract-projection-signing-v1.json",
+    "runtime-protocol-corpus-v1.json",
+    "boot-bound-vsock-v1.json",
+    "runtime-update-compatibility-v1.json",
+    "runtime-degraded-operation-matrix-v1.json",
+    "orchestration-quality-publication-pql-v1.json",
+    "runtime-sandbox-security-v1.json"
+  ],
+  "valid_cases": [
+    {
+      "id": "object-order",
+      "source_form": "json_value",
+      "input": {
+        "z": 3,
+        "a": 1,
+        "m": 2
+      },
+      "projection": "identity",
+      "canonical_utf8_base64": "eyJhIjoxLCJtIjoyLCJ6IjozfQ==",
+      "sha256": "sha256:70d1ebc7a727a476f15f7b4436d65b0bca07718c03a0843fa008659badad79c7"
+    },
+    {
+      "id": "astral-key-order",
+      "source_form": "json_value",
+      "input": {
+        "": "bmp-private",
+        "😀": "astral",
+        "a": "ascii"
+      },
+      "projection": "identity",
+      "canonical_utf8_base64": "eyJhIjoiYXNjaWkiLCLwn5iAIjoiYXN0cmFsIiwi7oCAIjoiYm1wLXByaXZhdGUifQ==",
+      "sha256": "sha256:a9e6851fe9c4140472ca388c13c7d0a2518c44cca64f988ce9626e2b5a125001"
+    },
+    {
+      "id": "no-unicode-normalization",
+      "source_form": "json_value",
+      "input": {
+        "é": "nfc",
+        "é": "nfd"
+      },
+      "projection": "identity",
+      "canonical_utf8_base64": "eyJlzIEiOiJuZmQiLCLDqSI6Im5mYyJ9",
+      "sha256": "sha256:2571d7f8a735ecac7c10838f25335b0a0a2f665ebc75a5bd3398c77af13efd98"
+    },
+    {
+      "id": "string-escaping",
+      "source_form": "json_value",
+      "input": {
+        "text": "line\nquote\"slash\\control\b"
+      },
+      "projection": "identity",
+      "canonical_utf8_base64": "eyJ0ZXh0IjoibGluZVxucXVvdGVcInNsYXNoXFxjb250cm9sXGIifQ==",
+      "sha256": "sha256:0d654b4466af49c6d17ddd6b86805b60a4c76939c8c63a0f3901467a621c675d"
+    },
+    {
+      "id": "negative-zero",
+      "source_form": "encoded_source",
+      "encoded_source_base64": "eyJ2YWx1ZSI6LTB9",
+      "projection": "identity",
+      "canonical_utf8_base64": "eyJ2YWx1ZSI6MH0=",
+      "sha256": "sha256:23d7b286bd429460b92a2a1c21b6afc34110446c5034c17363fda363aa0a7c5d"
+    },
+    {
+      "id": "number-rendering",
+      "source_form": "json_value",
+      "input": {
+        "small": 1e-7,
+        "large": 1e+30,
+        "decimal": 333333333.3333333
+      },
+      "projection": "identity",
+      "canonical_utf8_base64": "eyJkZWNpbWFsIjozMzMzMzMzMzMuMzMzMzMzMywibGFyZ2UiOjFlKzMwLCJzbWFsbCI6MWUtN30=",
+      "sha256": "sha256:24328b0afd213e3f33d13aacbf45f0f89f8bb4b39c055bfb5036e222c5312cb1"
+    },
+    {
+      "id": "safe-integer-boundaries",
+      "source_form": "json_value",
+      "input": {
+        "min": -9007199254740991,
+        "max": 9007199254740991
+      },
+      "projection": "identity",
+      "canonical_utf8_base64": "eyJtYXgiOjkwMDcxOTkyNTQ3NDA5OTEsIm1pbiI6LTkwMDcxOTkyNTQ3NDA5OTF9",
+      "sha256": "sha256:63546eb60913dcb1cdd5118f7bf4885beed344af930c8a9d5f38fad243fd4819"
+    },
+    {
+      "id": "root-digest-projection",
+      "source_form": "json_value",
+      "input": {
+        "schema_version": "qa.example/v1",
+        "content_digest": "sha256:excluded",
+        "run_id": "run-1",
+        "created_at": "2026-07-27T00:00:00Z",
+        "producer_version": "1.0.0",
+        "value": "kept"
+      },
+      "projection": "remove_root_content_digest",
+      "canonical_utf8_base64": "eyJjcmVhdGVkX2F0IjoiMjAyNi0wNy0yN1QwMDowMDowMFoiLCJwcm9kdWNlcl92ZXJzaW9uIjoiMS4wLjAiLCJydW5faWQiOiJydW4tMSIsInNjaGVtYV92ZXJzaW9uIjoicWEuZXhhbXBsZS92MSIsInZhbHVlIjoia2VwdCJ9",
+      "sha256": "sha256:5476fa01ac7e03744ff7beb8481be91cb916057900da440e11db95e188fea6c0"
+    },
+    {
+      "id": "canonical-signing-payload",
+      "source_form": "json_value",
+      "input": {
+        "domain": "fkst.qa.signature/v1",
+        "purpose": "grant",
+        "key_id": "key-1",
+        "payload": {
+          "schema_version": "qa.example/v1",
+          "content_digest": "sha256:payload",
+          "run_id": "run-1",
+          "created_at": "2026-07-27T00:00:00Z",
+          "producer_version": "1.0.0",
+          "value": 1
+        }
+      },
+      "projection": "identity",
+      "canonical_utf8_base64": "eyJkb21haW4iOiJma3N0LnFhLnNpZ25hdHVyZS92MSIsImtleV9pZCI6ImtleS0xIiwicGF5bG9hZCI6eyJjb250ZW50X2RpZ2VzdCI6InNoYTI1NjpwYXlsb2FkIiwiY3JlYXRlZF9hdCI6IjIwMjYtMDctMjdUMDA6MDA6MDBaIiwicHJvZHVjZXJfdmVyc2lvbiI6IjEuMC4wIiwicnVuX2lkIjoicnVuLTEiLCJzY2hlbWFfdmVyc2lvbiI6InFhLmV4YW1wbGUvdjEiLCJ2YWx1ZSI6MX0sInB1cnBvc2UiOiJncmFudCJ9",
+      "sha256": "sha256:f7beb18b267c5fa50bcaf3e2aabd113653a2688dbe167e4250f76692069086be"
+    }
+  ],
+  "invalid_cases": [
+    {
+      "id": "duplicate-member-name",
+      "source_form": "encoded_source",
+      "encoded_source_base64": "eyJhIjoxLCJhIjoyfQ==",
+      "expected_error": "canonicalization.duplicate_member"
+    },
+    {
+      "id": "lone-high-surrogate",
+      "source_form": "encoded_source",
+      "encoded_source_base64": "eyJ2YWx1ZSI6Ilx1ZDgwMCJ9",
+      "expected_error": "canonicalization.invalid_unicode_scalar"
+    },
+    {
+      "id": "invalid-utf8",
+      "source_form": "encoded_source",
+      "encoded_source_base64": "eyJ4IjoiwygifQ==",
+      "expected_error": "canonicalization.invalid_utf8"
+    },
+    {
+      "id": "nan-token",
+      "source_form": "encoded_source",
+      "encoded_source_base64": "eyJ2YWx1ZSI6TmFOfQ==",
+      "expected_error": "canonicalization.invalid_json_number"
+    },
+    {
+      "id": "positive-infinity-token",
+      "source_form": "encoded_source",
+      "encoded_source_base64": "eyJ2YWx1ZSI6SW5maW5pdHl9",
+      "expected_error": "canonicalization.invalid_json_number"
+    },
+    {
+      "id": "unsafe-integer-token",
+      "source_form": "encoded_source",
+      "encoded_source_base64": "eyJ2YWx1ZSI6OTAwNzE5OTI1NDc0MDk5Mn0=",
+      "expected_error": "canonicalization.unsafe_integer"
+    }
+  ],
+  "projection_purposes": {
+    "contract_content/v1": "Exact root object with root content_digest removed and root signature removed when present.",
+    "signed_root/v1": "Validated root containing content_digest with root signature removed before constructing the canonical signing payload.",
+    "local_request/v1": "Exact local request with root authentication and request_digest removed while preserving nested digests and signatures.",
+    "authorization_preimage/v1": "Complete strict Design or Execution admission preimage with no nested field removal.",
+    "admission_requirements/v1": "Entire exact AdmissionRequirements object.",
+    "execution_fence/v1": "Entire exact ExecutionFence object.",
+    "event_set/v1": "Cursor-ordered array of cursor and event_content_digest pairs; array order is material.",
+    "channel_transcript/v1": "Strict boot and channel transcript binding boot evidence, both ephemeral keys, nonce, descriptor, fence, boot epoch, and algorithms.",
+    "update_activation/v1": "Strict activation preimage binding staged receipt, manifest, selection predecessor, schema state, deadline, and activation nonce.",
+    "revocation_batch/v1": "Exact batch header and ordered strict revocation facts with sequence, predecessor digest, watermark, TTL, and nonce.",
+    "audit_event_set/v1": "Audit-sequence-ordered audit_sequence and audit_event_digest pairs with range and linkage material.",
+    "ledger_integrity/v1": "SQLite schema and transaction watermark, WAL checkpoint, ledger, audit, outbox, inventory, effect roots, and previous checkpoint."
+  }
+}

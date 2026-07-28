@@ -1,0 +1,970 @@
+{
+  "schema_version": "qa.runtime-protocol-corpus/v1",
+  "description": "Runtime admission, predecessor, command, cancellation, timeout, and recovery conformance cases.",
+  "valid_cases": [
+    {
+      "id": "admission-requirements-complete",
+      "projection": "admission_requirements/v1",
+      "input": {
+        "required_runtime_instance_id": "runtime-fixture-1",
+        "required_device_id": "device-fixture-1",
+        "required_protocol_version": "1.0",
+        "required_schema_majors": [
+          "qa.runtime-command/v1"
+        ],
+        "required_capabilities": [
+          "vz",
+          "effect_gate"
+        ],
+        "required_compatibility_set_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "required_guest_image_digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "resource_class": "small",
+        "active_run_slots": 1,
+        "reservation_slots": 1,
+        "vm_slots": 1,
+        "port_count": 2,
+        "browser_slots": 0,
+        "secret_lease_count": 0,
+        "cpu_millis": 2000,
+        "memory_bytes": 2147483648,
+        "disk_bytes": 10737418240,
+        "process_count": 128,
+        "open_file_count": 1024,
+        "wall_clock_seconds": 1800,
+        "host_storage_bytes": 1073741824,
+        "minimum_emergency_headroom_bytes": 268435456,
+        "requested_ttl_seconds": 300,
+        "admission_deadline_at": "2026-07-27T12:05:00Z"
+      },
+      "canonical_utf8_base64": "eyJhY3RpdmVfcnVuX3Nsb3RzIjoxLCJhZG1pc3Npb25fZGVhZGxpbmVfYXQiOiIyMDI2LTA3LTI3VDEyOjA1OjAwWiIsImJyb3dzZXJfc2xvdHMiOjAsImNwdV9taWxsaXMiOjIwMDAsImRpc2tfYnl0ZXMiOjEwNzM3NDE4MjQwLCJob3N0X3N0b3JhZ2VfYnl0ZXMiOjEwNzM3NDE4MjQsIm1lbW9yeV9ieXRlcyI6MjE0NzQ4MzY0OCwibWluaW11bV9lbWVyZ2VuY3lfaGVhZHJvb21fYnl0ZXMiOjI2ODQzNTQ1Niwib3Blbl9maWxlX2NvdW50IjoxMDI0LCJwb3J0X2NvdW50IjoyLCJwcm9jZXNzX2NvdW50IjoxMjgsInJlcXVlc3RlZF90dGxfc2Vjb25kcyI6MzAwLCJyZXF1aXJlZF9jYXBhYmlsaXRpZXMiOlsidnoiLCJlZmZlY3RfZ2F0ZSJdLCJyZXF1aXJlZF9jb21wYXRpYmlsaXR5X3NldF9kaWdlc3QiOiJzaGEyNTY6YWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYSIsInJlcXVpcmVkX2RldmljZV9pZCI6ImRldmljZS1maXh0dXJlLTEiLCJyZXF1aXJlZF9ndWVzdF9pbWFnZV9kaWdlc3QiOiJzaGEyNTY6YmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYiIsInJlcXVpcmVkX3Byb3RvY29sX3ZlcnNpb24iOiIxLjAiLCJyZXF1aXJlZF9ydW50aW1lX2luc3RhbmNlX2lkIjoicnVudGltZS1maXh0dXJlLTEiLCJyZXF1aXJlZF9zY2hlbWFfbWFqb3JzIjpbInFhLnJ1bnRpbWUtY29tbWFuZC92MSJdLCJyZXNlcnZhdGlvbl9zbG90cyI6MSwicmVzb3VyY2VfY2xhc3MiOiJzbWFsbCIsInNlY3JldF9sZWFzZV9jb3VudCI6MCwidm1fc2xvdHMiOjEsIndhbGxfY2xvY2tfc2Vjb25kcyI6MTgwMH0=",
+      "sha256": "sha256:09e23482e58c4d615afbe4adb8f0fee2e33833eb8785da727f963582e7e8e58c"
+    },
+    {
+      "id": "initial-admission-predecessor",
+      "input": {
+        "kind": "initial",
+        "predecessor_absent": true
+      },
+      "canonical_utf8_base64": "eyJraW5kIjoiaW5pdGlhbCIsInByZWRlY2Vzc29yX2Fic2VudCI6dHJ1ZX0=",
+      "sha256": "sha256:12c2eb3e028fb8686101e4bdc415248919057fc97f42748da8ed49f0a98b2066"
+    },
+    {
+      "id": "takeover-admission-predecessor",
+      "input": {
+        "kind": "takeover",
+        "predecessor_fencing_record_ref": {
+          "kind": "predecessor_fencing_record",
+          "id": "pred-1",
+          "schema_version": "qa.predecessor-fencing-record/v1",
+          "content_digest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+        },
+        "predecessor_lease_ref": {
+          "kind": "local_execution_lease",
+          "id": "lease-1",
+          "schema_version": "qa.local-execution-lease/v1",
+          "content_digest": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+        },
+        "predecessor_fence": {
+          "hosted_workflow": {
+            "generation": 1,
+            "fencing_token": "h1"
+          },
+          "local_execution": {
+            "generation": 1,
+            "fencing_token": "l1"
+          },
+          "runtime_instance_id": "runtime-fixture-1"
+        },
+        "predecessor_last_cursor": {
+          "generation": 1,
+          "sequence": 7
+        }
+      },
+      "canonical_utf8_base64": "eyJraW5kIjoidGFrZW92ZXIiLCJwcmVkZWNlc3Nvcl9mZW5jZSI6eyJob3N0ZWRfd29ya2Zsb3ciOnsiZmVuY2luZ190b2tlbiI6ImgxIiwiZ2VuZXJhdGlvbiI6MX0sImxvY2FsX2V4ZWN1dGlvbiI6eyJmZW5jaW5nX3Rva2VuIjoibDEiLCJnZW5lcmF0aW9uIjoxfSwicnVudGltZV9pbnN0YW5jZV9pZCI6InJ1bnRpbWUtZml4dHVyZS0xIn0sInByZWRlY2Vzc29yX2ZlbmNpbmdfcmVjb3JkX3JlZiI6eyJjb250ZW50X2RpZ2VzdCI6InNoYTI1NjpjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjIiwiaWQiOiJwcmVkLTEiLCJraW5kIjoicHJlZGVjZXNzb3JfZmVuY2luZ19yZWNvcmQiLCJzY2hlbWFfdmVyc2lvbiI6InFhLnByZWRlY2Vzc29yLWZlbmNpbmctcmVjb3JkL3YxIn0sInByZWRlY2Vzc29yX2xhc3RfY3Vyc29yIjp7ImdlbmVyYXRpb24iOjEsInNlcXVlbmNlIjo3fSwicHJlZGVjZXNzb3JfbGVhc2VfcmVmIjp7ImNvbnRlbnRfZGlnZXN0Ijoic2hhMjU2OmRkZGRkZGRkZGRkZGRkZGRkZGRkZGRkZGRkZGRkZGRkZGRkZGRkZGRkZGRkZGRkZGRkZGRkZGRkZGRkZGRkZGQiLCJpZCI6ImxlYXNlLTEiLCJraW5kIjoibG9jYWxfZXhlY3V0aW9uX2xlYXNlIiwic2NoZW1hX3ZlcnNpb24iOiJxYS5sb2NhbC1leGVjdXRpb24tbGVhc2UvdjEifX0=",
+      "sha256": "sha256:61e6e4723b0208ec08be29987dfb8eed472bfc4ac7081ea39319815e44a11294"
+    },
+    {
+      "id": "local-request-projection",
+      "projection": "local_request/v1",
+      "input": {
+        "run_id": "00000000-0000-4000-8000-000000000001",
+        "position": {
+          "kind": "after",
+          "cursor": {
+            "generation": 2,
+            "sequence": 9
+          }
+        },
+        "max_batch_events": 100
+      },
+      "canonical_utf8_base64": "eyJtYXhfYmF0Y2hfZXZlbnRzIjoxMDAsInBvc2l0aW9uIjp7ImN1cnNvciI6eyJnZW5lcmF0aW9uIjoyLCJzZXF1ZW5jZSI6OX0sImtpbmQiOiJhZnRlciJ9LCJydW5faWQiOiIwMDAwMDAwMC0wMDAwLTQwMDAtODAwMC0wMDAwMDAwMDAwMDEifQ==",
+      "sha256": "sha256:53f9b323fcf7bb1b14fa6a2d0452c732cb92cb48bef9740f61c7f09861bf7ff8"
+    },
+    {
+      "id": "authorization-preimage-projection",
+      "projection": "authorization_preimage/v1",
+      "input": {
+        "kind": "design",
+        "phase": "design",
+        "run_id": "00000000-0000-4000-8000-000000000001",
+        "run_spec_ref": {
+          "kind": "run_spec",
+          "id": "runspec-1",
+          "schema_version": "qa.runspec/v1",
+          "content_digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111"
+        },
+        "source_acquisition_ref": {
+          "kind": "source_acquisition",
+          "id": "source-acquisition-1",
+          "schema_version": "qa.source-acquisition/v1",
+          "content_digest": "sha256:2222222222222222222222222222222222222222222222222222222222222222"
+        },
+        "source_object_ref": {
+          "kind": "source_object",
+          "id": "source-object-1",
+          "schema_version": "qa.source-object/v1",
+          "content_digest": "sha256:3333333333333333333333333333333333333333333333333333333333333333"
+        },
+        "source_effective_sha": "0123456789abcdef0123456789abcdef01234567",
+        "design_policy_decision_ref": {
+          "kind": "design_policy_decision",
+          "id": "design-policy-1",
+          "schema_version": "qa.design-policy-decision/v1",
+          "content_digest": "sha256:4444444444444444444444444444444444444444444444444444444444444444"
+        },
+        "design_scope_digest": "sha256:5555555555555555555555555555555555555555555555555555555555555555",
+        "project_profile_digest": "sha256:6666666666666666666666666666666666666666666666666666666666666666",
+        "device_id": "device-fixture-1",
+        "runtime_instance_id": "runtime-fixture-1",
+        "hosted_workflow": {
+          "generation": 1,
+          "fencing_token": "host-1"
+        },
+        "admission_requirements": {
+          "required_runtime_instance_id": "runtime-fixture-1",
+          "required_device_id": "device-fixture-1",
+          "required_protocol_version": "1.0",
+          "required_schema_majors": [
+            "qa.runtime-command/v1"
+          ],
+          "required_capabilities": [
+            "vz",
+            "effect_gate"
+          ],
+          "required_compatibility_set_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "required_guest_image_digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "resource_class": "small",
+          "active_run_slots": 1,
+          "reservation_slots": 1,
+          "vm_slots": 1,
+          "port_count": 2,
+          "browser_slots": 0,
+          "secret_lease_count": 0,
+          "cpu_millis": 2000,
+          "memory_bytes": 2147483648,
+          "disk_bytes": 10737418240,
+          "process_count": 128,
+          "open_file_count": 1024,
+          "wall_clock_seconds": 1800,
+          "host_storage_bytes": 1073741824,
+          "minimum_emergency_headroom_bytes": 268435456,
+          "requested_ttl_seconds": 300,
+          "admission_deadline_at": "2026-07-27T12:05:00Z"
+        }
+      },
+      "canonical_utf8_base64": "eyJhZG1pc3Npb25fcmVxdWlyZW1lbnRzIjp7ImFjdGl2ZV9ydW5fc2xvdHMiOjEsImFkbWlzc2lvbl9kZWFkbGluZV9hdCI6IjIwMjYtMDctMjdUMTI6MDU6MDBaIiwiYnJvd3Nlcl9zbG90cyI6MCwiY3B1X21pbGxpcyI6MjAwMCwiZGlza19ieXRlcyI6MTA3Mzc0MTgyNDAsImhvc3Rfc3RvcmFnZV9ieXRlcyI6MTA3Mzc0MTgyNCwibWVtb3J5X2J5dGVzIjoyMTQ3NDgzNjQ4LCJtaW5pbXVtX2VtZXJnZW5jeV9oZWFkcm9vbV9ieXRlcyI6MjY4NDM1NDU2LCJvcGVuX2ZpbGVfY291bnQiOjEwMjQsInBvcnRfY291bnQiOjIsInByb2Nlc3NfY291bnQiOjEyOCwicmVxdWVzdGVkX3R0bF9zZWNvbmRzIjozMDAsInJlcXVpcmVkX2NhcGFiaWxpdGllcyI6WyJ2eiIsImVmZmVjdF9nYXRlIl0sInJlcXVpcmVkX2NvbXBhdGliaWxpdHlfc2V0X2RpZ2VzdCI6InNoYTI1NjphYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhIiwicmVxdWlyZWRfZGV2aWNlX2lkIjoiZGV2aWNlLWZpeHR1cmUtMSIsInJlcXVpcmVkX2d1ZXN0X2ltYWdlX2RpZ2VzdCI6InNoYTI1NjpiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiIiwicmVxdWlyZWRfcHJvdG9jb2xfdmVyc2lvbiI6IjEuMCIsInJlcXVpcmVkX3J1bnRpbWVfaW5zdGFuY2VfaWQiOiJydW50aW1lLWZpeHR1cmUtMSIsInJlcXVpcmVkX3NjaGVtYV9tYWpvcnMiOlsicWEucnVudGltZS1jb21tYW5kL3YxIl0sInJlc2VydmF0aW9uX3Nsb3RzIjoxLCJyZXNvdXJjZV9jbGFzcyI6InNtYWxsIiwic2VjcmV0X2xlYXNlX2NvdW50IjowLCJ2bV9zbG90cyI6MSwid2FsbF9jbG9ja19zZWNvbmRzIjoxODAwfSwiZGVzaWduX3BvbGljeV9kZWNpc2lvbl9yZWYiOnsiY29udGVudF9kaWdlc3QiOiJzaGEyNTY6NDQ0NDQ0NDQ0NDQ0NDQ0NDQ0NDQ0NDQ0NDQ0NDQ0NDQ0NDQ0NDQ0NDQ0NDQ0NDQ0NDQ0NDQ0NDQ0NDQ0NDQ0NCIsImlkIjoiZGVzaWduLXBvbGljeS0xIiwia2luZCI6ImRlc2lnbl9wb2xpY3lfZGVjaXNpb24iLCJzY2hlbWFfdmVyc2lvbiI6InFhLmRlc2lnbi1wb2xpY3ktZGVjaXNpb24vdjEifSwiZGVzaWduX3Njb3BlX2RpZ2VzdCI6InNoYTI1Njo1NTU1NTU1NTU1NTU1NTU1NTU1NTU1NTU1NTU1NTU1NTU1NTU1NTU1NTU1NTU1NTU1NTU1NTU1NTU1NTU1NTU1IiwiZGV2aWNlX2lkIjoiZGV2aWNlLWZpeHR1cmUtMSIsImhvc3RlZF93b3JrZmxvdyI6eyJmZW5jaW5nX3Rva2VuIjoiaG9zdC0xIiwiZ2VuZXJhdGlvbiI6MX0sImtpbmQiOiJkZXNpZ24iLCJwaGFzZSI6ImRlc2lnbiIsInByb2plY3RfcHJvZmlsZV9kaWdlc3QiOiJzaGEyNTY6NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NiIsInJ1bl9pZCI6IjAwMDAwMDAwLTAwMDAtNDAwMC04MDAwLTAwMDAwMDAwMDAwMSIsInJ1bl9zcGVjX3JlZiI6eyJjb250ZW50X2RpZ2VzdCI6InNoYTI1NjoxMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExIiwiaWQiOiJydW5zcGVjLTEiLCJraW5kIjoicnVuX3NwZWMiLCJzY2hlbWFfdmVyc2lvbiI6InFhLnJ1bnNwZWMvdjEifSwicnVudGltZV9pbnN0YW5jZV9pZCI6InJ1bnRpbWUtZml4dHVyZS0xIiwic291cmNlX2FjcXVpc2l0aW9uX3JlZiI6eyJjb250ZW50X2RpZ2VzdCI6InNoYTI1NjoyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyIiwiaWQiOiJzb3VyY2UtYWNxdWlzaXRpb24tMSIsImtpbmQiOiJzb3VyY2VfYWNxdWlzaXRpb24iLCJzY2hlbWFfdmVyc2lvbiI6InFhLnNvdXJjZS1hY3F1aXNpdGlvbi92MSJ9LCJzb3VyY2VfZWZmZWN0aXZlX3NoYSI6IjAxMjM0NTY3ODlhYmNkZWYwMTIzNDU2Nzg5YWJjZGVmMDEyMzQ1NjciLCJzb3VyY2Vfb2JqZWN0X3JlZiI6eyJjb250ZW50X2RpZ2VzdCI6InNoYTI1NjozMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzIiwiaWQiOiJzb3VyY2Utb2JqZWN0LTEiLCJraW5kIjoic291cmNlX29iamVjdCIsInNjaGVtYV92ZXJzaW9uIjoicWEuc291cmNlLW9iamVjdC92MSJ9fQ==",
+      "sha256": "sha256:77c6f37c1418fc19fa5f38482f97dda84d365359ff1f97566e1d96d9ac694ef3"
+    },
+    {
+      "id": "authorization-preimage-execution-projection",
+      "projection": "authorization_preimage/v1",
+      "input": {
+        "kind": "execution",
+        "phase": "execution",
+        "run_id": "00000000-0000-4000-8000-000000000001",
+        "run_spec_ref": {
+          "kind": "run_spec",
+          "id": "runspec-1",
+          "schema_version": "qa.runspec/v1",
+          "content_digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111"
+        },
+        "source_acquisition_ref": {
+          "kind": "source_acquisition",
+          "id": "source-acquisition-1",
+          "schema_version": "qa.source-acquisition/v1",
+          "content_digest": "sha256:2222222222222222222222222222222222222222222222222222222222222222"
+        },
+        "source_effective_sha": "0123456789abcdef0123456789abcdef01234567",
+        "plan_ref": {
+          "kind": "structured_plan",
+          "id": "plan-1",
+          "schema_version": "qa.structured-plan/v1",
+          "content_digest": "sha256:3333333333333333333333333333333333333333333333333333333333333333"
+        },
+        "policy_decision_ref": {
+          "kind": "policy_decision",
+          "id": "policy-1",
+          "schema_version": "qa.policy-decision/v1",
+          "content_digest": "sha256:4444444444444444444444444444444444444444444444444444444444444444"
+        },
+        "approved_envelope_digest": "sha256:5555555555555555555555555555555555555555555555555555555555555555",
+        "project_profile_digest": "sha256:6666666666666666666666666666666666666666666666666666666666666666",
+        "device_id": "device-fixture-1",
+        "runtime_instance_id": "runtime-fixture-1",
+        "hosted_workflow": {
+          "generation": 1,
+          "fencing_token": "host-1"
+        },
+        "admission_requirements": {
+          "required_runtime_instance_id": "runtime-fixture-1",
+          "required_device_id": "device-fixture-1",
+          "required_protocol_version": "1.0",
+          "required_schema_majors": [
+            "qa.runtime-command/v1"
+          ],
+          "required_capabilities": [
+            "vz",
+            "effect_gate"
+          ],
+          "required_compatibility_set_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "required_guest_image_digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "resource_class": "small",
+          "active_run_slots": 1,
+          "reservation_slots": 1,
+          "vm_slots": 1,
+          "port_count": 2,
+          "browser_slots": 0,
+          "secret_lease_count": 0,
+          "cpu_millis": 2000,
+          "memory_bytes": 2147483648,
+          "disk_bytes": 10737418240,
+          "process_count": 128,
+          "open_file_count": 1024,
+          "wall_clock_seconds": 1800,
+          "host_storage_bytes": 1073741824,
+          "minimum_emergency_headroom_bytes": 268435456,
+          "requested_ttl_seconds": 300,
+          "admission_deadline_at": "2026-07-27T12:05:00Z"
+        }
+      },
+      "canonical_utf8_base64": "eyJhZG1pc3Npb25fcmVxdWlyZW1lbnRzIjp7ImFjdGl2ZV9ydW5fc2xvdHMiOjEsImFkbWlzc2lvbl9kZWFkbGluZV9hdCI6IjIwMjYtMDctMjdUMTI6MDU6MDBaIiwiYnJvd3Nlcl9zbG90cyI6MCwiY3B1X21pbGxpcyI6MjAwMCwiZGlza19ieXRlcyI6MTA3Mzc0MTgyNDAsImhvc3Rfc3RvcmFnZV9ieXRlcyI6MTA3Mzc0MTgyNCwibWVtb3J5X2J5dGVzIjoyMTQ3NDgzNjQ4LCJtaW5pbXVtX2VtZXJnZW5jeV9oZWFkcm9vbV9ieXRlcyI6MjY4NDM1NDU2LCJvcGVuX2ZpbGVfY291bnQiOjEwMjQsInBvcnRfY291bnQiOjIsInByb2Nlc3NfY291bnQiOjEyOCwicmVxdWVzdGVkX3R0bF9zZWNvbmRzIjozMDAsInJlcXVpcmVkX2NhcGFiaWxpdGllcyI6WyJ2eiIsImVmZmVjdF9nYXRlIl0sInJlcXVpcmVkX2NvbXBhdGliaWxpdHlfc2V0X2RpZ2VzdCI6InNoYTI1NjphYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhIiwicmVxdWlyZWRfZGV2aWNlX2lkIjoiZGV2aWNlLWZpeHR1cmUtMSIsInJlcXVpcmVkX2d1ZXN0X2ltYWdlX2RpZ2VzdCI6InNoYTI1NjpiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiIiwicmVxdWlyZWRfcHJvdG9jb2xfdmVyc2lvbiI6IjEuMCIsInJlcXVpcmVkX3J1bnRpbWVfaW5zdGFuY2VfaWQiOiJydW50aW1lLWZpeHR1cmUtMSIsInJlcXVpcmVkX3NjaGVtYV9tYWpvcnMiOlsicWEucnVudGltZS1jb21tYW5kL3YxIl0sInJlc2VydmF0aW9uX3Nsb3RzIjoxLCJyZXNvdXJjZV9jbGFzcyI6InNtYWxsIiwic2VjcmV0X2xlYXNlX2NvdW50IjowLCJ2bV9zbG90cyI6MSwid2FsbF9jbG9ja19zZWNvbmRzIjoxODAwfSwiYXBwcm92ZWRfZW52ZWxvcGVfZGlnZXN0Ijoic2hhMjU2OjU1NTU1NTU1NTU1NTU1NTU1NTU1NTU1NTU1NTU1NTU1NTU1NTU1NTU1NTU1NTU1NTU1NTU1NTU1NTU1NTU1NTUiLCJkZXZpY2VfaWQiOiJkZXZpY2UtZml4dHVyZS0xIiwiaG9zdGVkX3dvcmtmbG93Ijp7ImZlbmNpbmdfdG9rZW4iOiJob3N0LTEiLCJnZW5lcmF0aW9uIjoxfSwia2luZCI6ImV4ZWN1dGlvbiIsInBoYXNlIjoiZXhlY3V0aW9uIiwicGxhbl9yZWYiOnsiY29udGVudF9kaWdlc3QiOiJzaGEyNTY6MzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMyIsImlkIjoicGxhbi0xIiwia2luZCI6InN0cnVjdHVyZWRfcGxhbiIsInNjaGVtYV92ZXJzaW9uIjoicWEuc3RydWN0dXJlZC1wbGFuL3YxIn0sInBvbGljeV9kZWNpc2lvbl9yZWYiOnsiY29udGVudF9kaWdlc3QiOiJzaGEyNTY6NDQ0NDQ0NDQ0NDQ0NDQ0NDQ0NDQ0NDQ0NDQ0NDQ0NDQ0NDQ0NDQ0NDQ0NDQ0NDQ0NDQ0NDQ0NDQ0NDQ0NDQ0NCIsImlkIjoicG9saWN5LTEiLCJraW5kIjoicG9saWN5X2RlY2lzaW9uIiwic2NoZW1hX3ZlcnNpb24iOiJxYS5wb2xpY3ktZGVjaXNpb24vdjEifSwicHJvamVjdF9wcm9maWxlX2RpZ2VzdCI6InNoYTI1Njo2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2IiwicnVuX2lkIjoiMDAwMDAwMDAtMDAwMC00MDAwLTgwMDAtMDAwMDAwMDAwMDAxIiwicnVuX3NwZWNfcmVmIjp7ImNvbnRlbnRfZGlnZXN0Ijoic2hhMjU2OjExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTEiLCJpZCI6InJ1bnNwZWMtMSIsImtpbmQiOiJydW5fc3BlYyIsInNjaGVtYV92ZXJzaW9uIjoicWEucnVuc3BlYy92MSJ9LCJydW50aW1lX2luc3RhbmNlX2lkIjoicnVudGltZS1maXh0dXJlLTEiLCJzb3VyY2VfYWNxdWlzaXRpb25fcmVmIjp7ImNvbnRlbnRfZGlnZXN0Ijoic2hhMjU2OjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIiLCJpZCI6InNvdXJjZS1hY3F1aXNpdGlvbi0xIiwia2luZCI6InNvdXJjZV9hY3F1aXNpdGlvbiIsInNjaGVtYV92ZXJzaW9uIjoicWEuc291cmNlLWFjcXVpc2l0aW9uL3YxIn0sInNvdXJjZV9lZmZlY3RpdmVfc2hhIjoiMDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWYwMTIzNDU2NyJ9",
+      "sha256": "sha256:3c32eab7532ac0203c7d72f7383fb8306fbcc6bd5b0337ddfbd326a6155b7395"
+    },
+    {
+      "id": "execution-fence-projection",
+      "projection": "execution_fence/v1",
+      "input": {
+        "hosted_workflow": {
+          "generation": 2,
+          "fencing_token": "host-2"
+        },
+        "local_execution": {
+          "generation": 3,
+          "fencing_token": "local-3"
+        },
+        "runtime_instance_id": "runtime-fixture-1"
+      },
+      "canonical_utf8_base64": "eyJob3N0ZWRfd29ya2Zsb3ciOnsiZmVuY2luZ190b2tlbiI6Imhvc3QtMiIsImdlbmVyYXRpb24iOjJ9LCJsb2NhbF9leGVjdXRpb24iOnsiZmVuY2luZ190b2tlbiI6ImxvY2FsLTMiLCJnZW5lcmF0aW9uIjozfSwicnVudGltZV9pbnN0YW5jZV9pZCI6InJ1bnRpbWUtZml4dHVyZS0xIn0=",
+      "sha256": "sha256:e68583af04a8cac4fa8676b415d2e76c8d0e30427f43c661bfc71f662cc5f0f9"
+    },
+    {
+      "id": "event-set-projection",
+      "projection": "event_set/v1",
+      "input": [
+        {
+          "cursor": {
+            "generation": 3,
+            "sequence": 1
+          },
+          "event_content_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        },
+        {
+          "cursor": {
+            "generation": 3,
+            "sequence": 2
+          },
+          "event_content_digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+        }
+      ],
+      "canonical_utf8_base64": "W3siY3Vyc29yIjp7ImdlbmVyYXRpb24iOjMsInNlcXVlbmNlIjoxfSwiZXZlbnRfY29udGVudF9kaWdlc3QiOiJzaGEyNTY6YWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWFhYSJ9LHsiY3Vyc29yIjp7ImdlbmVyYXRpb24iOjMsInNlcXVlbmNlIjoyfSwiZXZlbnRfY29udGVudF9kaWdlc3QiOiJzaGEyNTY6YmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYiJ9XQ==",
+      "sha256": "sha256:12f7c0876d9802490432de2bd03b20d6b83437dc256935b7e3168df3e94aad86"
+    },
+    {
+      "id": "runtime-event-command-accepted-first-sequence-one",
+      "case_kind": "strict_contract",
+      "validation_target": "RuntimeEvent",
+      "recompute_root_content_digest": true,
+      "input": {
+        "schema_version": "qa.runtime-event/v1",
+        "content_digest": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+        "run_id": "00000000-0000-4000-8000-000000000001",
+        "created_at": "2026-07-27T12:10:00Z",
+        "producer_version": "fixture-1.0.0",
+        "event_id": "event-g4-s1",
+        "runtime_instance_id": "runtime-fixture-1",
+        "runtime_run_id": "runtime-run-1",
+        "generation": 4,
+        "cursor": {
+          "generation": 4,
+          "sequence": 1
+        },
+        "fence_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "cause": {
+          "kind": "command",
+          "command_id": "command-g4-s1",
+          "command_sequence": 1,
+          "idempotency_key": "execute:run-1:g4"
+        },
+        "occurred_at": "2026-07-27T12:10:00Z",
+        "type": "command_accepted",
+        "command_type": "execute",
+        "admission_receipt_ref": {
+          "kind": "command_admission_receipt",
+          "id": "admission-g4-s1",
+          "schema_version": "qa.command-admission-receipt/v1",
+          "content_digest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+        },
+        "accepted_cursor": {
+          "generation": 4,
+          "sequence": 1
+        }
+      }
+    },
+    {
+      "id": "same-idempotency-key-same-request-digest",
+      "case_kind": "stateful_behavior",
+      "validation_target": "RuntimeCommandIdempotency",
+      "builder": "admit_two_schema_valid_runtime_commands",
+      "trusted_prerequisites": [
+        "all constructed contracts pass exact schema",
+        "all required digests and signatures verify",
+        "runtime state matches scenario setup"
+      ],
+      "scenario": {
+        "first": {
+          "idempotency_key": "execute:run-1:g2",
+          "request_digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111"
+        },
+        "replay": {
+          "idempotency_key": "execute:run-1:g2",
+          "request_digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111"
+        }
+      },
+      "expected": {
+        "disposition": "idempotent_replay",
+        "same_admission_receipt": true,
+        "new_generation_created": false,
+        "new_effect_created": false
+      }
+    },
+    {
+      "id": "old-generation-delayed-completion-does-not-advance",
+      "case_kind": "stateful_behavior",
+      "validation_target": "HostedRuntimeEventConsumption",
+      "builder": "consume_delayed_old_generation_event_after_successor_activation",
+      "trusted_prerequisites": [
+        "all constructed contracts pass exact schema",
+        "all required digests and signatures verify",
+        "runtime state matches scenario setup"
+      ],
+      "scenario": {
+        "current_fence": {
+          "generation": 3,
+          "fencing_token": "local-3"
+        },
+        "delayed_event": {
+          "type": "step_completed",
+          "generation": 2,
+          "cursor": {
+            "generation": 2,
+            "sequence": 99
+          }
+        }
+      },
+      "expected": {
+        "audit_fact_persisted": true,
+        "workflow_state_unchanged": true,
+        "checkpoint_unchanged": true,
+        "quality_inputs_unchanged": true
+      }
+    },
+    {
+      "id": "initial-admission-activation-persists-absent-predecessor",
+      "case_kind": "stateful_behavior",
+      "builder": "activate_first_schema_valid_runtime_command",
+      "scenario": {
+        "active_generation_before": 0,
+        "target_generation": 1
+      },
+      "expected": {
+        "admission_predecessor": {
+          "kind": "initial",
+          "predecessor_absent": true
+        },
+        "predecessor_fencing_record_created": false,
+        "first_event": {
+          "type": "command_accepted",
+          "cursor": {
+            "generation": 1,
+            "sequence": 1
+          }
+        }
+      }
+    },
+    {
+      "id": "persistent-local-ipc-exact-replay-returns-original-response",
+      "case_kind": "stateful_behavior",
+      "builder": "persist_local_ipc_request_response_then_restart_runtime",
+      "scenario": {
+        "direction": "client_to_runtime",
+        "sequence": 7,
+        "previous_request_digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+        "request_digest": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+        "nonce": "ipc-nonce-7",
+        "exact_transport_replay": true
+      },
+      "expected": {
+        "same_persisted_response": true,
+        "business_handler_invocations": 1,
+        "request_high_watermark": 7,
+        "nonce_reused_as_new": false
+      }
+    },
+    {
+      "id": "revocation-batch-applied-and-acknowledged-durably",
+      "case_kind": "stateful_behavior",
+      "builder": "deliver_schema_valid_revocation_batches_in_order",
+      "scenario": {
+        "batches": [
+          {
+            "sequence": 1,
+            "previous_batch_digest": null,
+            "grant_fact_sequence": 1
+          },
+          {
+            "sequence": 2,
+            "previous_batch_digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+            "grant_fact_sequence": 2
+          }
+        ],
+        "disconnect_after_apply_before_ack_response": true,
+        "replay_second_batch": true
+      },
+      "expected": {
+        "watermark": {
+          "grant_fact_sequence": 2
+        },
+        "replay_disposition": "idempotent_replay",
+        "same_receipt": true,
+        "cancellation_or_cleanup_completed_by_ack": false
+      }
+    },
+    {
+      "id": "revoked-artifact-capability-denies-future-read",
+      "case_kind": "stateful_behavior",
+      "builder": "apply_artifact_access_revocation_then_get_artifact",
+      "scenario": {
+        "artifact_id": "artifact-1",
+        "revocation_id": "artifact-revocation-1",
+        "applied_fact_sequence": 1
+      },
+      "expected": {
+        "artifact_read_denied": true,
+        "pointer_reader_snapshot_ignored": true,
+        "audit_event_written": true
+      }
+    }
+  ],
+  "invalid_cases": [
+    {
+      "id": "execution-preimage-with-design-field",
+      "case_kind": "strict_contract_mutation",
+      "validation_target": "AdmissionAuthorizationPreimage",
+      "input_case_id": "authorization-preimage-execution-projection",
+      "mutations": [
+        {
+          "op": "add",
+          "path": "/design_scope_digest",
+          "value": "sha256:7777777777777777777777777777777777777777777777777777777777777777"
+        }
+      ],
+      "expected_error": "contract.forbidden_field",
+      "expected_state_change": false
+    },
+    {
+      "id": "design-preimage-with-execution-field",
+      "case_kind": "strict_contract_mutation",
+      "validation_target": "AdmissionAuthorizationPreimage",
+      "input_case_id": "authorization-preimage-projection",
+      "mutations": [
+        {
+          "op": "add",
+          "path": "/plan_ref",
+          "value": {
+            "kind": "structured_plan",
+            "id": "plan-1",
+            "schema_version": "qa.structured-plan/v1",
+            "content_digest": "sha256:3333333333333333333333333333333333333333333333333333333333333333"
+          }
+        }
+      ],
+      "expected_error": "contract.forbidden_field",
+      "expected_state_change": false
+    },
+    {
+      "id": "initial-with-predecessor-fields",
+      "validation_target": "AdmissionPredecessor",
+      "input_case_id": "initial-admission-predecessor",
+      "mutations": [
+        {
+          "op": "add",
+          "path": "/predecessor_lease_ref",
+          "value": {
+            "kind": "local_execution_lease",
+            "id": "lease-1",
+            "schema_version": "qa.local-execution-lease/v1",
+            "content_digest": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+          }
+        }
+      ],
+      "expected_error": "contract.forbidden_field",
+      "expected_state_change": false,
+      "case_kind": "strict_contract_mutation"
+    },
+    {
+      "id": "takeover-missing-predecessor-lease-ref",
+      "validation_target": "AdmissionPredecessor",
+      "input_case_id": "takeover-admission-predecessor",
+      "mutations": [
+        {
+          "op": "remove",
+          "path": "/predecessor_lease_ref"
+        }
+      ],
+      "expected_error": "contract.invalid_variant",
+      "expected_state_change": false,
+      "case_kind": "strict_contract_mutation"
+    },
+    {
+      "id": "same-idempotency-key-different-request-digest",
+      "validation_target": "RuntimeCommandIdempotency",
+      "scenario": {
+        "accepted": {
+          "idempotency_key": "execute:run-1:g2",
+          "request_digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111"
+        },
+        "replay": {
+          "idempotency_key": "execute:run-1:g2",
+          "request_digest": "sha256:2222222222222222222222222222222222222222222222222222222222222222"
+        }
+      },
+      "expected_error": "runtime.command_conflict",
+      "expected_state_change": false,
+      "case_kind": "stateful_behavior",
+      "trusted_prerequisites": [
+        "all referenced contracts pass exact schema",
+        "all required digests and signatures verify",
+        "runtime state matches scenario setup"
+      ],
+      "builder": "admit_two_schema_valid_runtime_commands"
+    },
+    {
+      "id": "stale-predecessor-cursor",
+      "validation_target": "LocalLeaseActivation",
+      "input_case_id": "takeover-admission-predecessor",
+      "runtime_state": {
+        "current_predecessor_cursor": {
+          "generation": 1,
+          "sequence": 7
+        }
+      },
+      "mutations": [
+        {
+          "op": "replace",
+          "path": "/predecessor_last_cursor/sequence",
+          "value": 6
+        }
+      ],
+      "expected_error": "lease_binding.activation_conflict",
+      "expected_state_change": false,
+      "case_kind": "stateful_behavior",
+      "builder": "activate_schema_valid_takeover_binding_against_runtime_state",
+      "trusted_prerequisites": [
+        "mutated AdmissionPredecessor passes exact schema",
+        "binding digest and signature verify",
+        "runtime current predecessor cursor is loaded before activation"
+      ]
+    },
+    {
+      "id": "cancel-target-purpose-execution",
+      "validation_target": "FenceTransitionAuthorization",
+      "expected_error": "recovery.takeover_purpose_mismatch",
+      "expected_state_change": false,
+      "case_kind": "stateful_behavior",
+      "trusted_prerequisites": [
+        "all referenced contracts pass exact schema",
+        "all required digests and signatures verify",
+        "runtime state matches scenario setup"
+      ],
+      "builder": "build_schema_valid_cancel_command",
+      "scenario": {
+        "command_type": "cancel",
+        "target_purpose": "execution",
+        "allowed_operations": [
+          "terminate",
+          "revoke"
+        ]
+      }
+    },
+    {
+      "id": "quiesce-context-release-delete",
+      "validation_target": "EffectContext",
+      "expected_error": "effect_gate.phase_mismatch",
+      "expected_state_change": false,
+      "case_kind": "stateful_behavior",
+      "trusted_prerequisites": [
+        "all referenced contracts pass exact schema",
+        "all required digests and signatures verify",
+        "runtime state matches scenario setup"
+      ],
+      "builder": "build_schema_valid_quiesce_reconcile_verifier_input",
+      "scenario": {
+        "purpose": "control_quiesce_reconcile",
+        "requested_operation": "release_delete"
+      }
+    },
+    {
+      "id": "cleanup-context-open-inventory",
+      "validation_target": "CleanupEffectContext",
+      "expected_error": "cleanup.inventory_not_sealed",
+      "expected_state_change": false,
+      "case_kind": "stateful_behavior",
+      "trusted_prerequisites": [
+        "all referenced contracts pass exact schema",
+        "all required digests and signatures verify",
+        "runtime state matches scenario setup"
+      ],
+      "builder": "build_schema_valid_cleanup_verifier_input",
+      "scenario": {
+        "purpose": "control_cleanup",
+        "inventory_state": "open",
+        "requested_operation": "release_delete"
+      }
+    },
+    {
+      "id": "timeout-replayed-nonce",
+      "validation_target": "TimeoutCommand",
+      "scenario": {
+        "accepted_nonce": "timeout-nonce-1",
+        "replayed_nonce": "timeout-nonce-1"
+      },
+      "expected_error": "grant.replayed",
+      "expected_state_change": false,
+      "case_kind": "stateful_behavior",
+      "trusted_prerequisites": [
+        "all referenced contracts pass exact schema",
+        "all required digests and signatures verify",
+        "runtime state matches scenario setup"
+      ],
+      "builder": "build_schema_valid_timeout_intent_twice"
+    },
+    {
+      "id": "recovery-startup-local-takeover-without-decision",
+      "validation_target": "RecoveryStartup",
+      "expected_error": "recovery.decision_invalid",
+      "expected_state_change": false,
+      "case_kind": "stateful_behavior",
+      "trusted_prerequisites": [
+        "all referenced contracts pass exact schema",
+        "all required digests and signatures verify",
+        "runtime state matches scenario setup"
+      ],
+      "builder": "build_recovery_startup_snapshot_without_hosted_decision",
+      "scenario": {
+        "local_takeover_requested": true,
+        "recovery_decision_ref": null
+      }
+    },
+    {
+      "id": "runtime-event-first-sequence-zero",
+      "case_kind": "strict_contract_mutation",
+      "validation_target": "RuntimeEvent",
+      "input_case_id": "runtime-event-command-accepted-first-sequence-one",
+      "mutations": [
+        {
+          "op": "replace",
+          "path": "/cursor/sequence",
+          "value": 0
+        },
+        {
+          "op": "replace",
+          "path": "/accepted_cursor/sequence",
+          "value": 0
+        }
+      ],
+      "expected_error": "runtime.first_cursor_invalid",
+      "expected_state_change": false
+    },
+    {
+      "id": "ack-same-key-different-event-set-digest",
+      "case_kind": "stateful_behavior",
+      "validation_target": "RuntimeEventAcknowledgement",
+      "builder": "ack_schema_valid_event_batch_twice",
+      "trusted_prerequisites": [
+        "all constructed contracts pass exact schema",
+        "all required digests and signatures verify",
+        "runtime state matches scenario setup"
+      ],
+      "scenario": {
+        "first": {
+          "idempotency_key": "ack:run-1:g3:s2",
+          "through_cursor": {
+            "generation": 3,
+            "sequence": 2
+          },
+          "event_set_digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111"
+        },
+        "replay": {
+          "idempotency_key": "ack:run-1:g3:s2",
+          "through_cursor": {
+            "generation": 3,
+            "sequence": 2
+          },
+          "event_set_digest": "sha256:2222222222222222222222222222222222222222222222222222222222222222"
+        }
+      },
+      "expected_error": "runtime.event_ack_conflict",
+      "expected_state_change": false
+    },
+    {
+      "id": "ack-cursor-gap",
+      "case_kind": "stateful_behavior",
+      "validation_target": "RuntimeEventAcknowledgement",
+      "builder": "ack_event_batch_with_missing_sequence",
+      "trusted_prerequisites": [
+        "all constructed contracts pass exact schema",
+        "all required digests and signatures verify",
+        "runtime state matches scenario setup"
+      ],
+      "scenario": {
+        "available_cursors": [
+          {
+            "generation": 3,
+            "sequence": 1
+          },
+          {
+            "generation": 3,
+            "sequence": 3
+          }
+        ],
+        "missing_cursor": {
+          "generation": 3,
+          "sequence": 2
+        },
+        "requested_through": {
+          "generation": 3,
+          "sequence": 3
+        }
+      },
+      "expected_error": "recovery.sequence_gap",
+      "expected_state_change": false
+    },
+    {
+      "id": "raw-quarantine-artifact-fetch-denied",
+      "case_kind": "stateful_behavior",
+      "validation_target": "RuntimeService.getArtifact",
+      "builder": "request_raw_quarantine_token_through_artifact_endpoint",
+      "trusted_prerequisites": [
+        "all constructed contracts pass exact schema",
+        "all required digests and signatures verify",
+        "runtime state matches scenario setup"
+      ],
+      "scenario": {
+        "quarantine_ref": {
+          "kind": "raw_quarantine_artifact",
+          "id": "raw-1",
+          "schema_version": "qa.raw-quarantine-artifact/v1",
+          "content_digest": "sha256:3333333333333333333333333333333333333333333333333333333333333333"
+        },
+        "caller_has_artifact_capability": false
+      },
+      "expected_error": "evidence.quarantine_exposure_attempt",
+      "expected_state_change": false,
+      "expected_raw_bytes_exposed": false
+    },
+    {
+      "id": "runtime-event-command-cause-uses-command-ref",
+      "case_kind": "strict_contract_mutation",
+      "input_case": "runtime-event-command-accepted-first-sequence-one",
+      "mutations": [
+        {
+          "op": "remove",
+          "path": "/cause/command_id"
+        },
+        {
+          "op": "remove",
+          "path": "/cause/command_sequence"
+        },
+        {
+          "op": "remove",
+          "path": "/cause/idempotency_key"
+        },
+        {
+          "op": "add",
+          "path": "/cause/command_ref",
+          "value": {
+            "kind": "runtime_command",
+            "id": "command-g4-s1",
+            "schema_version": "qa.runtime-command/v1",
+            "content_digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+          }
+        }
+      ],
+      "expected_error": "contract.forbidden_field"
+    },
+    {
+      "id": "persistent-local-ipc-gap-after-restart",
+      "case_kind": "stateful_behavior",
+      "input_builder": "restore_local_ipc_sequence_ledger_then_receive_request",
+      "scenario": {
+        "durable_request_high_watermark": 7,
+        "observed_request_sequence": 9,
+        "observed_previous_request_digest": "sha256:7777777777777777777777777777777777777777777777777777777777777777"
+      },
+      "trusted_prerequisites": [
+        "LocalIPCBinding is active and exact",
+        "request digest and signature verify",
+        "durable sequence ledger is restored before traffic"
+      ],
+      "expected_error": "ipc.sequence_violation",
+      "forbidden_state_changes": [
+        "request_high_watermark",
+        "nonce_ledger",
+        "business_side_effects"
+      ]
+    },
+    {
+      "id": "old-local-ipc-binding-after-re-pair",
+      "case_kind": "stateful_behavior",
+      "input_builder": "re_pair_and_retire_old_local_ipc_binding",
+      "scenario": {
+        "old_pairing_epoch": 1,
+        "active_pairing_epoch": 2,
+        "request_binding_epoch": 1
+      },
+      "trusted_prerequisites": [
+        "successor RuntimePairingReceipt is active",
+        "old binding retirement is durable"
+      ],
+      "expected_error": "ipc.session_retired",
+      "forbidden_state_changes": [
+        "request_high_watermark",
+        "nonce_ledger",
+        "business_side_effects"
+      ]
+    },
+    {
+      "id": "revocation-batch-out-of-order-delivery",
+      "case_kind": "stateful_behavior",
+      "input_builder": "deliver_schema_valid_revocation_batch",
+      "scenario": {
+        "durable_batch_sequence": 1,
+        "observed_batch_sequence": 3,
+        "missing_batch_sequence": 2
+      },
+      "trusted_prerequisites": [
+        "batch schema, digest, signature, audience, identity epoch, pairing epoch, TTL, and nonce are valid"
+      ],
+      "expected_error": "revocation.sequence_gap",
+      "forbidden_state_changes": [
+        "revocation_watermark",
+        "durable_batch_head",
+        "artifact_access_state",
+        "grant_state"
+      ]
+    },
+    {
+      "id": "revocation-feed-stale-closes-authorized-path",
+      "case_kind": "stateful_behavior",
+      "input_builder": "deliver_expired_schema_valid_revocation_batch",
+      "scenario": {
+        "freshness_requirement_seconds": 300,
+        "observed_age_seconds": 301
+      },
+      "trusted_prerequisites": [
+        "batch chain and signature are otherwise valid"
+      ],
+      "expected_error": "revocation.batch_stale",
+      "expected_state_changes": [
+        "admission_closed",
+        "artifact_read_closed",
+        "snapshot_or_redelivery_requested"
+      ],
+      "forbidden_state_changes": [
+        "revocation_watermark"
+      ]
+    },
+    {
+      "id": "revoked-artifact-read-after-durable-ack",
+      "case_kind": "stateful_behavior",
+      "input_builder": "read_artifact_after_applied_artifact_access_revocation",
+      "scenario": {
+        "revocation_ack_durable": true,
+        "capability_ttl_valid": true,
+        "pointer_readers_contains_subject": true
+      },
+      "trusted_prerequisites": [
+        "artifact pointer and capability pass exact schema and signature validation"
+      ],
+      "expected_error": "artifact.access_revoked",
+      "forbidden_state_changes": [
+        "artifact_bytes_released"
+      ]
+    },
+    {
+      "id": "ledger-tamper-detected-at-startup",
+      "case_kind": "stateful_behavior",
+      "input_builder": "restart_runtime_with_tampered_event_outbox_root",
+      "scenario": {
+        "signed_checkpoint_event_outbox_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "recomputed_event_outbox_digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+      },
+      "trusted_prerequisites": [
+        "checkpoint and verification receipt signatures are valid",
+        "startup reconciliation runs before authenticated traffic"
+      ],
+      "expected_error": "ledger.integrity_root_mismatch",
+      "expected_state_changes": [
+        "runtime_unhealthy",
+        "admission_closed",
+        "read_only_diagnostics_available"
+      ],
+      "forbidden_state_changes": [
+        "new_reservation",
+        "new_command_admission",
+        "empty_ledger_replacement"
+      ]
+    }
+  ],
+  "case_format": {
+    "strict_contract_mutation": {
+      "assembly": [
+        "deep_clone_input_case",
+        "apply_rfc6902_mutations",
+        "recompute_root_content_digest_when_present",
+        "run_exact_schema_validation"
+      ],
+      "rule": "An earlier missing-field, digest, or signature failure is a harness failure and does not satisfy expected_error."
+    },
+    "stateful_behavior": {
+      "assembly": [
+        "build schema-valid inputs with named builder",
+        "apply scenario values as overrides",
+        "satisfy trusted_prerequisites",
+        "execute actions in order",
+        "assert expected disposition or error and all required/forbidden state changes"
+      ],
+      "rule": "scenario is harness input, not a target contract payload; an earlier schema/digest/signature failure is a harness failure."
+    }
+  }
+}

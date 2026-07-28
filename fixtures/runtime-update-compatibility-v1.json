@@ -1,0 +1,317 @@
+{
+  "schema_version": "qa.runtime-update-compatibility-corpus/v1",
+  "description": "Launcher activation journal, migration compatibility, and rollback decision corpus.",
+  "activation_state_order": [
+    "staged",
+    "activation_intent_durable",
+    "candidate_started",
+    "migration_committed",
+    "health_evidence_durable",
+    "selection_committed",
+    "ledger_mirrored"
+  ],
+  "valid_cases": [
+    {
+      "id": "previous-reader-compatible-writer-incompatible",
+      "projection": "update_activation/v1",
+      "input": {
+        "source_schema": 3,
+        "target_schema": 4,
+        "candidate_reader_schema_range": {
+          "min": 3,
+          "max": 4
+        },
+        "candidate_writer_schema_range": {
+          "min": 4,
+          "max": 4
+        },
+        "previous_reader_schema_range": {
+          "min": 3,
+          "max": 4
+        },
+        "previous_writer_schema_range": {
+          "min": 3,
+          "max": 3
+        },
+        "migration_strategy": "expand_contract",
+        "automatic_rollback_expected": "denied",
+        "reason": "previous_writer_incompatible"
+      },
+      "canonical_utf8_base64": "eyJhdXRvbWF0aWNfcm9sbGJhY2tfZXhwZWN0ZWQiOiJkZW5pZWQiLCJjYW5kaWRhdGVfcmVhZGVyX3NjaGVtYV9yYW5nZSI6eyJtYXgiOjQsIm1pbiI6M30sImNhbmRpZGF0ZV93cml0ZXJfc2NoZW1hX3JhbmdlIjp7Im1heCI6NCwibWluIjo0fSwibWlncmF0aW9uX3N0cmF0ZWd5IjoiZXhwYW5kX2NvbnRyYWN0IiwicHJldmlvdXNfcmVhZGVyX3NjaGVtYV9yYW5nZSI6eyJtYXgiOjQsIm1pbiI6M30sInByZXZpb3VzX3dyaXRlcl9zY2hlbWFfcmFuZ2UiOnsibWF4IjozLCJtaW4iOjN9LCJyZWFzb24iOiJwcmV2aW91c193cml0ZXJfaW5jb21wYXRpYmxlIiwic291cmNlX3NjaGVtYSI6MywidGFyZ2V0X3NjaGVtYSI6NH0=",
+      "sha256": "sha256:efc21c13c002efd08a031e37eb489bc8afcb880993767411e39872088baf2653",
+      "expected_outcome": "recovery_only",
+      "expected_error": "update.rollback_failed"
+    },
+    {
+      "id": "expand-contract-automatic-rollback-allowed",
+      "candidate_reader_schema_range": {
+        "min": 3,
+        "max": 4
+      },
+      "candidate_writer_schema_range": {
+        "min": 3,
+        "max": 4
+      },
+      "previous_reader_schema_range": {
+        "min": 3,
+        "max": 4
+      },
+      "previous_writer_schema_range": {
+        "min": 3,
+        "max": 4
+      },
+      "expected_outcome": "automatic_rollback_allowed"
+    },
+    {
+      "id": "selection-committed-ledger-mirror-pending",
+      "journal_authority": "selection_committed",
+      "ledger_mirror": "missing",
+      "expected_recovery_action": "idempotent_ledger_mirror",
+      "selection_must_not_roll_back": true
+    },
+    {
+      "id": "update-activation-strict-preimage",
+      "projection": "update_activation/v1",
+      "input": {
+        "staged_receipt_ref": {
+          "kind": "runtime_update_receipt",
+          "id": "staged-receipt-1",
+          "schema_version": "qa.runtime-update-receipt/v1",
+          "content_digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111"
+        },
+        "manifest_ref": {
+          "kind": "runtime_update_manifest",
+          "id": "manifest-4",
+          "schema_version": "qa.runtime-update-manifest/v1",
+          "content_digest": "sha256:2222222222222222222222222222222222222222222222222222222222222222"
+        },
+        "predecessor_selection_ref": {
+          "kind": "runtime_release_selection",
+          "id": "selection-3",
+          "schema_version": "qa.runtime-release-selection/v1",
+          "content_digest": "sha256:3333333333333333333333333333333333333333333333333333333333333333"
+        },
+        "schema_before": 3,
+        "required_reader_schema_range": {
+          "min": 3,
+          "max": 4
+        },
+        "required_writer_schema_range": {
+          "min": 4,
+          "max": 4
+        },
+        "activation_deadline_at": "2026-07-28T01:00:00Z",
+        "activation_nonce": "activation-nonce-4"
+      },
+      "canonical_utf8_base64": "eyJhY3RpdmF0aW9uX2RlYWRsaW5lX2F0IjoiMjAyNi0wNy0yOFQwMTowMDowMFoiLCJhY3RpdmF0aW9uX25vbmNlIjoiYWN0aXZhdGlvbi1ub25jZS00IiwibWFuaWZlc3RfcmVmIjp7ImNvbnRlbnRfZGlnZXN0Ijoic2hhMjU2OjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIiLCJpZCI6Im1hbmlmZXN0LTQiLCJraW5kIjoicnVudGltZV91cGRhdGVfbWFuaWZlc3QiLCJzY2hlbWFfdmVyc2lvbiI6InFhLnJ1bnRpbWUtdXBkYXRlLW1hbmlmZXN0L3YxIn0sInByZWRlY2Vzc29yX3NlbGVjdGlvbl9yZWYiOnsiY29udGVudF9kaWdlc3QiOiJzaGEyNTY6MzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMyIsImlkIjoic2VsZWN0aW9uLTMiLCJraW5kIjoicnVudGltZV9yZWxlYXNlX3NlbGVjdGlvbiIsInNjaGVtYV92ZXJzaW9uIjoicWEucnVudGltZS1yZWxlYXNlLXNlbGVjdGlvbi92MSJ9LCJyZXF1aXJlZF9yZWFkZXJfc2NoZW1hX3JhbmdlIjp7Im1heCI6NCwibWluIjozfSwicmVxdWlyZWRfd3JpdGVyX3NjaGVtYV9yYW5nZSI6eyJtYXgiOjQsIm1pbiI6NH0sInNjaGVtYV9iZWZvcmUiOjMsInN0YWdlZF9yZWNlaXB0X3JlZiI6eyJjb250ZW50X2RpZ2VzdCI6InNoYTI1NjoxMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExIiwiaWQiOiJzdGFnZWQtcmVjZWlwdC0xIiwia2luZCI6InJ1bnRpbWVfdXBkYXRlX3JlY2VpcHQiLCJzY2hlbWFfdmVyc2lvbiI6InFhLnJ1bnRpbWUtdXBkYXRlLXJlY2VpcHQvdjEifX0=",
+      "sha256": "sha256:1f1715efe9beb4db71258469227f22d716a26c12a2450d8b46c88ed4636db8d2",
+      "expected_outcome": "projection_matches_activation_request"
+    },
+    {
+      "id": "expand-contract-additive-table-migration",
+      "case_kind": "stateful_behavior",
+      "builder": "activate_expand_contract_schema_migration",
+      "scenario": {
+        "source_sqlite_schema_range": {
+          "min": 3,
+          "max": 3
+        },
+        "target_sqlite_schema_version": 4,
+        "migration_strategy": "expand_contract",
+        "table_changes": [
+          {
+            "table": "effect_records_v2",
+            "operation": "create",
+            "compatibility": "additive"
+          },
+          {
+            "table": "runs",
+            "operation": "add_nullable_column",
+            "column": "runtime_pairing_epoch"
+          }
+        ],
+        "candidate_reader_schema_range": {
+          "min": 3,
+          "max": 4
+        },
+        "candidate_writer_schema_range": {
+          "min": 3,
+          "max": 4
+        },
+        "previous_reader_schema_range": {
+          "min": 3,
+          "max": 4
+        },
+        "previous_writer_schema_range": {
+          "min": 3,
+          "max": 4
+        }
+      },
+      "expected": {
+        "migration_markers_gapless": true,
+        "health_evidence_durable_before_selection": true,
+        "automatic_rollback_allowed": true
+      }
+    },
+    {
+      "id": "table-backfill-checkpoint-before-selection",
+      "case_kind": "stateful_behavior",
+      "builder": "activate_migration_with_chunked_table_backfill",
+      "scenario": {
+        "table": "audit_events",
+        "source_schema": 4,
+        "target_schema": 5,
+        "chunks": 4,
+        "checkpoint_after_each_chunk": true,
+        "selection_commit_after_health_evidence": true
+      },
+      "expected": {
+        "migration_state": "committed",
+        "checkpoint_compatibility_verified": true,
+        "selection_committed": true
+      }
+    }
+  ],
+  "invalid_cases": [
+    {
+      "id": "activation-without-staged-receipt",
+      "expected_error": "update.staging_receipt_missing"
+    },
+    {
+      "id": "activation-journal-partial-write",
+      "expected_error": "update.activation_journal_invalid"
+    },
+    {
+      "id": "candidate-start-before-intent-fsync",
+      "expected_error": "update.activation_order_invalid"
+    },
+    {
+      "id": "migration-marker-gap",
+      "expected_error": "update.migration_incomplete"
+    },
+    {
+      "id": "selection-commit-before-health-evidence",
+      "expected_error": "update.health_gate_failed"
+    },
+    {
+      "id": "previous-readable-not-writable-automatic-rollback",
+      "expected_error": "update.rollback_failed"
+    },
+    {
+      "id": "reverse-migration-half-complete",
+      "expected_error": "update.rollback_failed"
+    },
+    {
+      "id": "release-sequence-below-watermark",
+      "expected_error": "update.anti_rollback_rejected"
+    },
+    {
+      "id": "partial-compatibility-set",
+      "expected_error": "update.compatibility_failed"
+    },
+    {
+      "id": "launcher-direct-run-ledger-write",
+      "expected_error": "ledger.single_writer_violation"
+    },
+    {
+      "id": "supervisor-direct-release-selection-write",
+      "expected_error": "update.selection_authority_violation"
+    },
+    {
+      "id": "rollback-auto-resume-old-execution",
+      "expected_error": "recovery.decision_invalid"
+    },
+    {
+      "id": "expand-contract-destructive-table-drop",
+      "case_kind": "stateful_behavior",
+      "builder": "activate_expand_contract_schema_migration",
+      "scenario": {
+        "migration_strategy": "expand_contract",
+        "table_changes": [
+          {
+            "table": "effect_records",
+            "operation": "drop"
+          }
+        ]
+      },
+      "expected_error": "update.compatibility_failed",
+      "expected_state": {
+        "admission": "closed",
+        "selection": "previous"
+      }
+    },
+    {
+      "id": "table-migration-schema-after-mismatch",
+      "case_kind": "stateful_behavior",
+      "builder": "resume_migration_from_durable_markers",
+      "scenario": {
+        "journal_schema_before": 4,
+        "expected_schema_after": 5,
+        "observed_schema_after": 6
+      },
+      "expected_error": "update.migration_incomplete",
+      "expected_state": {
+        "mode": "recovery_only",
+        "admission": "closed"
+      }
+    },
+    {
+      "id": "recovery-only-release-signing-key-mismatch",
+      "case_kind": "stateful_behavior",
+      "builder": "start_recovery_only_candidate_with_manifest_key_mismatch",
+      "scenario": {
+        "manifest_key_id": "release-key-2",
+        "trusted_key_id": "release-key-1",
+        "checkpoint_compatible": true
+      },
+      "expected_error": "update.signature_invalid",
+      "expected_state": {
+        "mode": "recovery_only",
+        "admission": "closed",
+        "selection": "previous"
+      }
+    },
+    {
+      "id": "recovery-only-ledger-checkpoint-root-mismatch",
+      "case_kind": "stateful_behavior",
+      "builder": "start_recovery_only_candidate_with_checkpoint_mismatch",
+      "scenario": {
+        "checkpoint_compatibility_versions": [
+          4,
+          5
+        ],
+        "observed_schema": 5,
+        "signed_event_outbox_root": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "recomputed_event_outbox_root": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+      },
+      "expected_error": "ledger.integrity_root_mismatch",
+      "expected_state": {
+        "mode": "recovery_only",
+        "admission": "closed",
+        "runtime_status": "unhealthy"
+      }
+    }
+  ],
+  "failpoints": [
+    "before_sqlite_backup",
+    "after_sqlite_backup_before_checkpoint",
+    "after_activation_intent_fsync",
+    "after_candidate_start",
+    "after_each_migration_marker",
+    "after_migration_commit_before_health",
+    "after_health_evidence_before_selection",
+    "after_selection_before_ledger_mirror",
+    "launcher_crash_candidate_alive",
+    "sqlite_full_during_ledger_mirror",
+    "reverse_migration_partial",
+    "after_table_create_before_marker",
+    "during_chunked_table_backfill",
+    "after_checkpoint_before_health_evidence",
+    "recovery_only_key_validation",
+    "recovery_only_checkpoint_verification"
+  ],
+  "case_format": {
+    "stateful_behavior": "Build exact signed update contracts, persist launcher journal and migration markers in order, then assert durable selection, schema, checkpoint, and admission state.",
+    "projection_vector": "Canonical bytes and digest are required only when projection and input are explicitly present."
+  }
+}

@@ -1,0 +1,991 @@
+{
+  "schema_version": "qa.orchestration-quality-publication-pql-corpus/v1",
+  "description": "Executable Plan Amendment, QualityEvaluation, Publication reconciliation, and PQL feedback conformance cases.",
+  "case_format": {
+    "mutation_standard": "RFC6902",
+    "assembly_order": [
+      "deep_clone_input_template",
+      "apply_mutations_in_order",
+      "recompute_root_content_digest_with_contract_content_v1",
+      "run_strict_schema_and_behavior_validation"
+    ],
+    "unknown_fields": "reject_at_security_boundaries",
+    "case_kinds": {
+      "contract_behavior": "Assemble the exact contract from input_template and mutations, recompute root digest, pass strict schema, then assert expected behavior.",
+      "strict_contract_mutation": "Assemble from input_template, apply mutations, recompute root digest, and assert exact schema rejection.",
+      "stateful_behavior": "Use the named builder to create schema-valid contracts, satisfy trusted_prerequisites, execute the scenario, and assert expected receipts/state changes."
+    }
+  },
+  "input_templates": {
+    "plan-amendment-complete": {
+      "schema_version": "qa.plan-amendment/v1",
+      "content_digest": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+      "run_id": "00000000-0000-4000-8000-000000000101",
+      "created_at": "2026-07-27T13:00:00Z",
+      "producer_version": "fixture-1.0.0",
+      "amendment_id": "amendment-1",
+      "request_ref": {
+        "kind": "plan_amendment_request",
+        "id": "amendment-request-1",
+        "schema_version": "qa.plan-amendment-request/v1",
+        "content_digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111"
+      },
+      "old_plan_ref": {
+        "kind": "structured_plan",
+        "id": "plan-1",
+        "schema_version": "qa.structured-plan/v1",
+        "content_digest": "sha256:2222222222222222222222222222222222222222222222222222222222222222"
+      },
+      "old_execution_grant_ref": {
+        "kind": "signed_grant",
+        "id": "execution-grant-1",
+        "schema_version": "qa.signed-grant/v1",
+        "content_digest": "sha256:3333333333333333333333333333333333333333333333333333333333333333"
+      },
+      "old_fence": {
+        "hosted_workflow": {
+          "generation": 1,
+          "fencing_token": "host-1"
+        },
+        "local_execution": {
+          "generation": 1,
+          "fencing_token": "local-1"
+        },
+        "runtime_instance_id": "runtime-fixture-1"
+      },
+      "checkpoint_ref": {
+        "kind": "workflow_checkpoint",
+        "id": "checkpoint-1",
+        "schema_version": "qa.workflow-checkpoint/v1",
+        "content_digest": "sha256:4444444444444444444444444444444444444444444444444444444444444444"
+      },
+      "revocation_receipt_ref": {
+        "kind": "grant_revocation_receipt",
+        "id": "revocation-1",
+        "schema_version": "qa.grant-revocation-receipt/v1",
+        "content_digest": "sha256:5555555555555555555555555555555555555555555555555555555555555555"
+      },
+      "termination_receipt_refs": [
+        {
+          "kind": "termination_receipt",
+          "id": "termination-1",
+          "schema_version": "qa.termination-receipt/v1",
+          "content_digest": "sha256:6666666666666666666666666666666666666666666666666666666666666666"
+        }
+      ],
+      "amendment_cleanup_receipt_ref": {
+        "kind": "cleanup_receipt",
+        "id": "cleanup-old-1",
+        "schema_version": "qa.cleanup-receipt/v1",
+        "content_digest": "sha256:7777777777777777777777777777777777777777777777777777777777777777"
+      },
+      "amendment_design_approval_ref": {
+        "kind": "approval_evidence",
+        "id": "design-approval-2",
+        "schema_version": "qa.approval-evidence/v1",
+        "content_digest": "sha256:8888888888888888888888888888888888888888888888888888888888888888"
+      },
+      "amendment_design_local_lease_binding_ref": {
+        "kind": "local_lease_binding",
+        "id": "design-binding-2",
+        "schema_version": "qa.local-lease-binding/v1",
+        "content_digest": "sha256:9999999999999999999999999999999999999999999999999999999999999999"
+      },
+      "amendment_design_grant_ref": {
+        "kind": "signed_grant",
+        "id": "design-grant-2",
+        "schema_version": "qa.signed-grant/v1",
+        "content_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      "new_plan_ref": {
+        "kind": "structured_plan",
+        "id": "plan-2",
+        "schema_version": "qa.structured-plan/v1",
+        "content_digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+      },
+      "amendment_design_cleanup_receipt_ref": {
+        "kind": "cleanup_receipt",
+        "id": "cleanup-design-2",
+        "schema_version": "qa.cleanup-receipt/v1",
+        "content_digest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+      },
+      "operations": [
+        {
+          "op": "add",
+          "path": "/steps/-",
+          "after_value": {
+            "step_id": "step-diagnostic-2"
+          },
+          "reason": "approved diagnostic step"
+        }
+      ],
+      "new_policy_decision_ref": {
+        "kind": "policy_decision",
+        "id": "policy-2",
+        "schema_version": "qa.policy-decision/v1",
+        "content_digest": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+      },
+      "new_approval_evidence_refs": [
+        {
+          "kind": "approval_evidence",
+          "id": "execution-approval-2",
+          "schema_version": "qa.approval-evidence/v1",
+          "content_digest": "sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+        }
+      ],
+      "new_execution_local_lease_binding_ref": {
+        "kind": "local_lease_binding",
+        "id": "execution-binding-2",
+        "schema_version": "qa.local-lease-binding/v1",
+        "content_digest": "sha256:ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+      },
+      "new_execution_grant_ref": {
+        "kind": "signed_grant",
+        "id": "execution-grant-2",
+        "schema_version": "qa.signed-grant/v1",
+        "content_digest": "sha256:1212121212121212121212121212121212121212121212121212121212121212"
+      },
+      "resume": {
+        "resume_id": "resume-2",
+        "checkpoint_ref": {
+          "kind": "workflow_checkpoint",
+          "id": "checkpoint-1",
+          "schema_version": "qa.workflow-checkpoint/v1",
+          "content_digest": "sha256:4444444444444444444444444444444444444444444444444444444444444444"
+        },
+        "earliest_step_id": "step-diagnostic-2",
+        "reusable_step_ids": [
+          "step-prepare-1"
+        ],
+        "rerun_step_ids": [
+          "step-diagnostic-2"
+        ],
+        "invalidated_effect_ids": [],
+        "new_fence": {
+          "hosted_workflow": {
+            "generation": 2,
+            "fencing_token": "host-2"
+          },
+          "local_execution": {
+            "generation": 2,
+            "fencing_token": "local-2"
+          },
+          "runtime_instance_id": "runtime-fixture-1"
+        },
+        "expected_cursor": {
+          "generation": 2,
+          "sequence": 1
+        },
+        "rationale": "Resume only in a fresh execution generation."
+      },
+      "finalized_at": "2026-07-27T13:10:00Z"
+    },
+    "executed-quality-evaluation": {
+      "schema_version": "qa.quality-evaluation/v1",
+      "content_digest": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+      "run_id": "00000000-0000-4000-8000-000000000102",
+      "created_at": "2026-07-27T14:00:00Z",
+      "producer_version": "fixture-1.0.0",
+      "kind": "executed",
+      "evaluation_id": "evaluation-1",
+      "run_spec_ref": {
+        "kind": "run_spec",
+        "id": "runspec-1",
+        "schema_version": "qa.runspec/v1",
+        "content_digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111"
+      },
+      "source_acquisition_ref": {
+        "kind": "source_acquisition",
+        "id": "source-1",
+        "schema_version": "qa.source-acquisition/v1",
+        "content_digest": "sha256:2222222222222222222222222222222222222222222222222222222222222222"
+      },
+      "plan_ref": {
+        "kind": "structured_plan",
+        "id": "plan-1",
+        "schema_version": "qa.structured-plan/v1",
+        "content_digest": "sha256:3333333333333333333333333333333333333333333333333333333333333333"
+      },
+      "case_result_refs": [
+        {
+          "kind": "case_result",
+          "id": "case-result-1",
+          "schema_version": "qa.case-result/v1",
+          "content_digest": "sha256:4444444444444444444444444444444444444444444444444444444444444444"
+        }
+      ],
+      "evidence_manifest_refs": [
+        {
+          "kind": "evidence_manifest",
+          "id": "evidence-1",
+          "schema_version": "qa.evidence-manifest/v1",
+          "content_digest": "sha256:5555555555555555555555555555555555555555555555555555555555555555"
+        }
+      ],
+      "cleanup_receipt_refs": [
+        {
+          "kind": "cleanup_receipt",
+          "id": "cleanup-1",
+          "schema_version": "qa.cleanup-receipt/v1",
+          "content_digest": "sha256:6666666666666666666666666666666666666666666666666666666666666666"
+        }
+      ],
+      "input_set_digest": "sha256:7777777777777777777777777777777777777777777777777777777777777777",
+      "rule_set": {
+        "rule_set_id": "quality-rules",
+        "version": "1.0.0",
+        "digest": "sha256:8888888888888888888888888888888888888888888888888888888888888888"
+      },
+      "evaluated_at": "2026-07-27T14:00:00Z",
+      "case_summary": {
+        "total": 1,
+        "passed": 0,
+        "failed": 1,
+        "error": 0,
+        "skipped": 0,
+        "inconclusive": 0
+      },
+      "coverage": {
+        "required_scope_digest": "sha256:9999999999999999999999999999999999999999999999999999999999999999",
+        "executed_scope_digest": "sha256:9999999999999999999999999999999999999999999999999999999999999999",
+        "status": "satisfied",
+        "missing": []
+      },
+      "classifications": [
+        {
+          "classification": "product_defect",
+          "confidence": 0.99,
+          "case_ids": [
+            "case-1"
+          ],
+          "reason_codes": [
+            "assertion.reproducible"
+          ],
+          "evidence_refs": [
+            {
+              "kind": "artifact_pointer",
+              "id": "artifact-1",
+              "schema_version": "qa.artifact-pointer/v1",
+              "content_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+            }
+          ]
+        }
+      ],
+      "execution_outcome": "failed",
+      "cleanup_outcome": "succeeded",
+      "evidence_outcome": "sufficient",
+      "final_quality_outcome": "fail",
+      "publication_eligibility": {
+        "github": true,
+        "pql": false,
+        "reason_codes": []
+      },
+      "dedup_key": "quality:run-102:input-777:rules-888",
+      "rationale_codes": [
+        "quality.product_defect"
+      ]
+    },
+    "non-executed-quality-evaluation": {
+      "schema_version": "qa.quality-evaluation/v1",
+      "content_digest": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+      "run_id": "00000000-0000-4000-8000-000000000103",
+      "created_at": "2026-07-27T14:30:00Z",
+      "producer_version": "fixture-1.0.0",
+      "kind": "non_executed",
+      "evaluation_id": "evaluation-non-executed-1",
+      "run_draft_ref": {
+        "kind": "run_draft",
+        "id": "run-draft-1",
+        "schema_version": "qa.run-draft/v1",
+        "content_digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111"
+      },
+      "run_spec_ref": {
+        "kind": "run_spec",
+        "id": "runspec-1",
+        "schema_version": "qa.runspec/v1",
+        "content_digest": "sha256:2222222222222222222222222222222222222222222222222222222222222222"
+      },
+      "policy_decision_ref": {
+        "kind": "policy_decision",
+        "id": "policy-deny-1",
+        "schema_version": "qa.policy-decision/v1",
+        "content_digest": "sha256:3333333333333333333333333333333333333333333333333333333333333333"
+      },
+      "cleanup_receipt_refs": [],
+      "reason": "policy_denied",
+      "input_set_digest": "sha256:4444444444444444444444444444444444444444444444444444444444444444",
+      "rule_set": {
+        "rule_set_id": "quality-rules",
+        "version": "1.0.0",
+        "digest": "sha256:5555555555555555555555555555555555555555555555555555555555555555"
+      },
+      "evaluated_at": "2026-07-27T14:30:00Z",
+      "execution_outcome": "blocked",
+      "cleanup_outcome": "not_required",
+      "evidence_outcome": "not_available",
+      "final_quality_outcome": "blocked",
+      "publication_eligibility": {
+        "github": true,
+        "pql": false,
+        "reason_codes": [
+          "policy.denied"
+        ]
+      },
+      "dedup_key": "quality:run-103:input-444:rules-555",
+      "rationale_codes": [
+        "quality.policy_blocked"
+      ]
+    }
+  },
+  "valid_cases": [
+    {
+      "id": "plan-amendment-complete-fresh-generations",
+      "validation_target": "PlanAmendment",
+      "input_template": "plan-amendment-complete",
+      "expected": {
+        "accepted": true,
+        "old_generation_reusable": false,
+        "new_design_generation_required": true,
+        "new_execution_generation_required": true
+      },
+      "case_kind": "contract_behavior"
+    },
+    {
+      "id": "quality-product-defect",
+      "validation_target": "ExecutedQualityEvaluation",
+      "input_template": "executed-quality-evaluation",
+      "mutations": [],
+      "expected": {
+        "classification": "product_defect",
+        "final_quality_outcome": "fail",
+        "github": true,
+        "pql": false
+      },
+      "case_kind": "contract_behavior"
+    },
+    {
+      "id": "quality-test-failure",
+      "validation_target": "ExecutedQualityEvaluation",
+      "input_template": "executed-quality-evaluation",
+      "mutations": [
+        {
+          "op": "replace",
+          "path": "/classifications/0/classification",
+          "value": "test_failure"
+        },
+        {
+          "op": "replace",
+          "path": "/classifications/0/reason_codes",
+          "value": [
+            "fixture.invalid"
+          ]
+        },
+        {
+          "op": "replace",
+          "path": "/final_quality_outcome",
+          "value": "inconclusive"
+        },
+        {
+          "op": "replace",
+          "path": "/publication_eligibility/pql",
+          "value": true
+        },
+        {
+          "op": "replace",
+          "path": "/rationale_codes",
+          "value": [
+            "quality.test_failure"
+          ]
+        }
+      ],
+      "expected": {
+        "classification": "test_failure",
+        "final_quality_outcome": "inconclusive",
+        "github": true,
+        "pql": true
+      },
+      "case_kind": "contract_behavior"
+    },
+    {
+      "id": "quality-coverage-gap",
+      "validation_target": "ExecutedQualityEvaluation",
+      "input_template": "executed-quality-evaluation",
+      "mutations": [
+        {
+          "op": "replace",
+          "path": "/classifications/0/classification",
+          "value": "coverage_gap"
+        },
+        {
+          "op": "replace",
+          "path": "/coverage/status",
+          "value": "partial"
+        },
+        {
+          "op": "replace",
+          "path": "/coverage/missing",
+          "value": [
+            "checkout.failure"
+          ]
+        },
+        {
+          "op": "replace",
+          "path": "/final_quality_outcome",
+          "value": "inconclusive"
+        },
+        {
+          "op": "replace",
+          "path": "/publication_eligibility/pql",
+          "value": true
+        },
+        {
+          "op": "replace",
+          "path": "/rationale_codes",
+          "value": [
+            "quality.coverage_gap"
+          ]
+        }
+      ],
+      "expected": {
+        "classification": "coverage_gap",
+        "final_quality_outcome": "inconclusive",
+        "github": true,
+        "pql": true
+      },
+      "case_kind": "contract_behavior"
+    },
+    {
+      "id": "quality-environment-failure",
+      "validation_target": "ExecutedQualityEvaluation",
+      "input_template": "executed-quality-evaluation",
+      "mutations": [
+        {
+          "op": "replace",
+          "path": "/classifications/0/classification",
+          "value": "environment_failure"
+        },
+        {
+          "op": "replace",
+          "path": "/execution_outcome",
+          "value": "failed"
+        },
+        {
+          "op": "replace",
+          "path": "/evidence_outcome",
+          "value": "partial"
+        },
+        {
+          "op": "replace",
+          "path": "/final_quality_outcome",
+          "value": "inconclusive"
+        },
+        {
+          "op": "replace",
+          "path": "/rationale_codes",
+          "value": [
+            "quality.environment_failure"
+          ]
+        }
+      ],
+      "expected": {
+        "classification": "environment_failure",
+        "final_quality_outcome": "inconclusive",
+        "github": true,
+        "pql": false
+      },
+      "case_kind": "contract_behavior"
+    },
+    {
+      "id": "quality-flaky",
+      "validation_target": "ExecutedQualityEvaluation",
+      "input_template": "executed-quality-evaluation",
+      "mutations": [
+        {
+          "op": "replace",
+          "path": "/classifications/0/classification",
+          "value": "flaky"
+        },
+        {
+          "op": "replace",
+          "path": "/final_quality_outcome",
+          "value": "inconclusive"
+        },
+        {
+          "op": "replace",
+          "path": "/publication_eligibility/pql",
+          "value": true
+        },
+        {
+          "op": "replace",
+          "path": "/rationale_codes",
+          "value": [
+            "quality.flaky"
+          ]
+        }
+      ],
+      "expected": {
+        "classification": "flaky",
+        "final_quality_outcome": "inconclusive",
+        "github": true,
+        "pql": true
+      },
+      "case_kind": "contract_behavior"
+    },
+    {
+      "id": "quality-policy-blocked-after-partial-execution",
+      "validation_target": "ExecutedQualityEvaluation",
+      "input_template": "executed-quality-evaluation",
+      "mutations": [
+        {
+          "op": "replace",
+          "path": "/classifications/0/classification",
+          "value": "policy_blocked"
+        },
+        {
+          "op": "replace",
+          "path": "/execution_outcome",
+          "value": "blocked"
+        },
+        {
+          "op": "replace",
+          "path": "/final_quality_outcome",
+          "value": "blocked"
+        },
+        {
+          "op": "replace",
+          "path": "/rationale_codes",
+          "value": [
+            "execution.partial_then_blocked"
+          ]
+        }
+      ],
+      "expected": {
+        "classification": "policy_blocked",
+        "kind": "executed",
+        "final_quality_outcome": "blocked",
+        "github": true,
+        "pql": false
+      },
+      "case_kind": "contract_behavior"
+    },
+    {
+      "id": "quality-insufficient-evidence",
+      "validation_target": "ExecutedQualityEvaluation",
+      "input_template": "executed-quality-evaluation",
+      "mutations": [
+        {
+          "op": "replace",
+          "path": "/classifications/0/classification",
+          "value": "insufficient_evidence"
+        },
+        {
+          "op": "replace",
+          "path": "/evidence_outcome",
+          "value": "insufficient"
+        },
+        {
+          "op": "replace",
+          "path": "/final_quality_outcome",
+          "value": "inconclusive"
+        },
+        {
+          "op": "replace",
+          "path": "/publication_eligibility/pql",
+          "value": true
+        },
+        {
+          "op": "replace",
+          "path": "/rationale_codes",
+          "value": [
+            "quality.insufficient_evidence"
+          ]
+        }
+      ],
+      "expected": {
+        "classification": "insufficient_evidence",
+        "final_quality_outcome": "inconclusive",
+        "github": true,
+        "pql": true
+      },
+      "case_kind": "contract_behavior"
+    },
+    {
+      "id": "quality-policy-denied-non-executed",
+      "validation_target": "NonExecutedQualityEvaluation",
+      "input_template": "non-executed-quality-evaluation",
+      "mutations": [],
+      "expected": {
+        "kind": "non_executed",
+        "reason": "policy_denied",
+        "final_quality_outcome": "blocked"
+      },
+      "case_kind": "contract_behavior"
+    },
+    {
+      "id": "repeated-evaluation-does-not-duplicate-proposal",
+      "validation_target": "PQLFeedbackDedup",
+      "scenario": {
+        "evaluation_dedup_key": "quality:run-102:input-777:rules-888",
+        "gap_dedup_key": "gap:project-1:fixture:login-form",
+        "first_proposal_id": "proposal-1",
+        "replayed_evaluation_id": "evaluation-replay-1"
+      },
+      "expected": {
+        "proposal_count": 1,
+        "disposition": "matched_existing"
+      },
+      "case_kind": "stateful_behavior",
+      "builder": "evaluate_and_derive_pql_feedback_twice",
+      "trusted_prerequisites": [
+        "all constructed contracts pass exact schema and digest validation",
+        "all referenced objects resolve to the scenario values"
+      ]
+    },
+    {
+      "id": "publication-create-response-lost-matched-existing",
+      "validation_target": "PublicationActionReconciliation",
+      "scenario": {
+        "action_id": "github-check-1",
+        "dedup_key": "github-check:repo:pr-42:tested-sha",
+        "attempt_1": {
+          "provider_effect": "created",
+          "response": "lost"
+        },
+        "attempt_2": {
+          "lookup_by_dedup_key": "found_same_content"
+        }
+      },
+      "expected_receipt": {
+        "outcome": "published",
+        "reconciliation": "matched_existing",
+        "retryable": false,
+        "retry_budget_exhausted": false
+      },
+      "case_kind": "stateful_behavior",
+      "builder": "reconcile_publication_action_after_lost_response",
+      "trusted_prerequisites": [
+        "all constructed contracts pass exact schema and digest validation",
+        "all referenced objects resolve to the scenario values"
+      ]
+    },
+    {
+      "id": "publication-create-response-lost-updated-existing",
+      "validation_target": "PublicationActionReconciliation",
+      "scenario": {
+        "action_id": "pr-comment-1",
+        "dedup_key": "pr-comment:repo:pr-42:quality-summary",
+        "attempt_1": {
+          "provider_effect": "created",
+          "response": "lost"
+        },
+        "attempt_2": {
+          "lookup_by_dedup_key": "found_stale_content",
+          "rendered_content_digest_changed": true
+        }
+      },
+      "expected_receipt": {
+        "outcome": "updated",
+        "reconciliation": "updated_existing",
+        "retryable": false,
+        "retry_budget_exhausted": false
+      },
+      "case_kind": "stateful_behavior",
+      "builder": "reconcile_publication_action_after_lost_response",
+      "trusted_prerequisites": [
+        "all constructed contracts pass exact schema and digest validation",
+        "all referenced objects resolve to the scenario values"
+      ]
+    },
+    {
+      "id": "pql-stale-base-promotion-conflict",
+      "validation_target": "ProjectPackPromotion",
+      "scenario": {
+        "proposal_ref": {
+          "id": "proposal-1",
+          "base_version": "7",
+          "base_digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111"
+        },
+        "review_decision": "approved",
+        "current_pack": {
+          "version": "8",
+          "content_digest": "sha256:2222222222222222222222222222222222222222222222222222222222222222"
+        }
+      },
+      "expected_receipt": {
+        "outcome": "conflict",
+        "observed_current_pack_ref": {
+          "kind": "pql_project_pack",
+          "id": "project-pack-1",
+          "schema_version": "qa.pql-project-pack/v1",
+          "content_digest": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+          "version": "8"
+        },
+        "error_code": "pql.promotion_conflict",
+        "promoted_pack_ref_present": false,
+        "current_pack_unchanged": true
+      },
+      "case_kind": "stateful_behavior",
+      "builder": "promote_against_current_project_pack",
+      "trusted_prerequisites": [
+        "all constructed contracts pass exact schema and digest validation",
+        "all referenced objects resolve to the scenario values"
+      ]
+    },
+    {
+      "id": "amendment-revokes-old-grant-before-new-design-admission",
+      "case_kind": "stateful_behavior",
+      "builder": "execute_plan_amendment_with_durable_grant_revocation",
+      "scenario": {
+        "old_execution_grant_ref": {
+          "kind": "signed_grant",
+          "id": "execution-grant-1",
+          "schema_version": "qa.signed-grant/v1",
+          "content_digest": "sha256:3333333333333333333333333333333333333333333333333333333333333333"
+        },
+        "revocation_receipt_ref": {
+          "kind": "grant_revocation_receipt",
+          "id": "revocation-1",
+          "schema_version": "qa.grant-revocation-receipt/v1",
+          "content_digest": "sha256:5555555555555555555555555555555555555555555555555555555555555555"
+        },
+        "ordering": [
+          "old_grant_revocation_durable",
+          "old_environment_cleanup_durable",
+          "amendment_design_grant_issued",
+          "new_design_admission"
+        ]
+      },
+      "trusted_prerequisites": [
+        "all contracts pass exact schema, digest, and signature validation"
+      ],
+      "expected": {
+        "old_grant_usable_after_revocation": false,
+        "new_design_generation_required": true,
+        "new_execution_generation_required": true
+      }
+    },
+    {
+      "id": "publication-uses-only-sanitized-artifact-allowlist",
+      "case_kind": "stateful_behavior",
+      "builder": "plan_publication_from_quality_and_artifact_allowlist",
+      "scenario": {
+        "quality_evaluation_ref": {
+          "kind": "quality_evaluation",
+          "id": "evaluation-1",
+          "schema_version": "qa.quality-evaluation/v1",
+          "content_digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111"
+        },
+        "authorized_artifacts": [
+          {
+            "artifact_ref": {
+              "kind": "artifact_pointer",
+              "id": "artifact-sanitized-1",
+              "schema_version": "qa.artifact-pointer/v1",
+              "content_digest": "sha256:2222222222222222222222222222222222222222222222222222222222222222"
+            },
+            "digest_stage": "post_redaction",
+            "redaction_receipt_kind": "completed"
+          }
+        ],
+        "requested_artifacts": [
+          "artifact-sanitized-1"
+        ]
+      },
+      "trusted_prerequisites": [
+        "QualityEvaluation is immutable and resolves",
+        "ArtifactPointer byte_digest equals RedactionReceipt sanitized_byte_digest"
+      ],
+      "expected": {
+        "publication_plan_created": true,
+        "raw_quarantine_refs_present": false,
+        "authorized_artifact_refs": [
+          "artifact-sanitized-1"
+        ]
+      }
+    }
+  ],
+  "invalid_cases": [
+    {
+      "id": "amendment-missing-old-grant-revocation",
+      "validation_target": "PlanAmendment",
+      "input_template": "plan-amendment-complete",
+      "mutations": [
+        {
+          "op": "remove",
+          "path": "/revocation_receipt_ref"
+        }
+      ],
+      "expected_error": "contract.invalid_variant",
+      "case_kind": "strict_contract_mutation"
+    },
+    {
+      "id": "amendment-resume-reuses-old-fence",
+      "validation_target": "PlanAmendment",
+      "input_template": "plan-amendment-complete",
+      "mutations": [
+        {
+          "op": "replace",
+          "path": "/resume/new_fence",
+          "value": {
+            "hosted_workflow": {
+              "generation": 1,
+              "fencing_token": "host-1"
+            },
+            "local_execution": {
+              "generation": 1,
+              "fencing_token": "local-1"
+            },
+            "runtime_instance_id": "runtime-fixture-1"
+          }
+        }
+      ],
+      "expected_error": "lease_binding.activation_conflict",
+      "case_kind": "strict_contract_mutation"
+    },
+    {
+      "id": "partial-execution-mislabeled-non-executed",
+      "validation_target": "QualityEvaluation",
+      "input_template": "non-executed-quality-evaluation",
+      "scenario": {
+        "existing_case_result_refs": [
+          "case-result-1"
+        ]
+      },
+      "expected_error": "quality.inputs_incomplete",
+      "case_kind": "stateful_behavior",
+      "builder": "evaluate_non_executed_with_existing_execution_facts",
+      "trusted_prerequisites": [
+        "input_template and constructed contracts pass exact schema and digest validation before behavior evaluation",
+        "all referenced objects resolve to the scenario values"
+      ]
+    },
+    {
+      "id": "product-issue-with-insufficient-evidence",
+      "validation_target": "PublicationPlan",
+      "scenario": {
+        "classification": "product_defect",
+        "evidence_outcome": "insufficient",
+        "requested_action": "product_issue"
+      },
+      "expected_error": "publication.evaluation_mismatch",
+      "case_kind": "stateful_behavior",
+      "builder": "plan_publication_from_quality_and_artifact_allowlist",
+      "trusted_prerequisites": [
+        "input_template and constructed contracts pass exact schema and digest validation before behavior evaluation",
+        "all referenced objects resolve to the scenario values"
+      ]
+    },
+    {
+      "id": "duplicate-proposal-created-for-same-gap",
+      "validation_target": "PQLFeedbackDedup",
+      "scenario": {
+        "gap_dedup_key": "gap:project-1:fixture:login-form",
+        "existing_proposal_id": "proposal-1",
+        "requested_new_proposal_id": "proposal-2"
+      },
+      "expected_error": "publication.conflict",
+      "case_kind": "stateful_behavior",
+      "builder": "derive_pql_feedback_with_existing_gap_and_proposal",
+      "trusted_prerequisites": [
+        "input_template and constructed contracts pass exact schema and digest validation before behavior evaluation",
+        "all referenced objects resolve to the scenario values"
+      ]
+    },
+    {
+      "id": "amendment-new-admission-before-old-grant-revocation",
+      "case_kind": "stateful_behavior",
+      "builder": "attempt_amendment_admission_before_revocation_receipt",
+      "scenario": {
+        "old_grant_status": "active",
+        "requested_action": "new_design_admission"
+      },
+      "trusted_prerequisites": [
+        "PlanAmendment request and old grant are otherwise valid"
+      ],
+      "expected_error": "plan.amendment_cleanup_incomplete",
+      "expected_state_changes": [
+        "original_quality_evaluation_unchanged"
+      ],
+      "forbidden_state_changes": [
+        "new_environment_created",
+        "new_grant_consumed"
+      ]
+    },
+    {
+      "id": "publication-artifact-outside-sanitized-allowlist",
+      "case_kind": "stateful_behavior",
+      "builder": "plan_publication_from_quality_and_artifact_allowlist",
+      "scenario": {
+        "authorized_artifact_ids": [
+          "artifact-sanitized-1"
+        ],
+        "requested_artifact_ids": [
+          "artifact-raw-1"
+        ]
+      },
+      "trusted_prerequisites": [
+        "QualityEvaluation is valid and immutable"
+      ],
+      "expected_error": "publication.artifact_not_authorized",
+      "expected_state_changes": [
+        "quality_evaluation_unchanged"
+      ],
+      "forbidden_state_changes": [
+        "publication_action_created",
+        "artifact_bytes_released"
+      ]
+    },
+    {
+      "id": "redaction-failure-blocks-publication-and-preserves-quality",
+      "case_kind": "stateful_behavior",
+      "builder": "plan_publication_with_failed_redaction_receipt",
+      "scenario": {
+        "redaction_receipt_kind": "failed",
+        "evidence_outcome": "insufficient",
+        "requested_publication": true
+      },
+      "trusted_prerequisites": [
+        "QualityEvaluation was durably produced before publication planning",
+        "failed RedactionReceipt is valid and signed"
+      ],
+      "expected_error": "evidence.redaction_failed",
+      "expected_state_changes": [
+        "quality_evaluation_unchanged",
+        "raw_artifact_quarantined_or_deleted"
+      ],
+      "forbidden_state_changes": [
+        "publication_plan_created",
+        "publication_action_created",
+        "sanitized_artifact_registered"
+      ]
+    },
+    {
+      "id": "unsafe-error-details-block-publication-and-preserve-quality",
+      "case_kind": "stateful_behavior",
+      "builder": "plan_publication_with_unsafe_error_details",
+      "scenario": {
+        "safe_error_details": {
+          "kind": "external_status",
+          "provider": "fixture",
+          "operation": "login",
+          "provider_error_code": "token=secret-canary"
+        },
+        "requested_publication": true
+      },
+      "trusted_prerequisites": [
+        "QualityEvaluation was durably produced before publication planning"
+      ],
+      "expected_error": "error.safe_details_invalid",
+      "expected_state_changes": [
+        "quality_evaluation_unchanged",
+        "safe_error_replaced_without_details",
+        "security_audit_written"
+      ],
+      "forbidden_state_changes": [
+        "publication_plan_created",
+        "publication_action_created",
+        "secret_canary_persisted"
+      ]
+    }
+  ]
+}

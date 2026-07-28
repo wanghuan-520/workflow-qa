@@ -1,0 +1,209 @@
+{
+  "schema_version": "qa.boot-bound-vsock-corpus/v1",
+  "description": "Boot-bound authenticated vsock transcript and replay rejection cases. This corpus does not claim hardware attestation.",
+  "security_claim": "host_verified_boot_manifest_and_guest_challenge_response",
+  "valid_cases": [
+    {
+      "id": "channel-transcript-v1",
+      "projection": "channel_transcript/v1",
+      "input": {
+        "run_id": "00000000-0000-4000-8000-000000000001",
+        "environment_id": "env-fixture-1",
+        "phase": "execution",
+        "runtime_instance_id": "runtime-fixture-1",
+        "runtime_boot_epoch": "boot-host-1",
+        "vm_instance_id": "vm-1",
+        "guest_boot_id": "guest-boot-1",
+        "descriptor_digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+        "bootloader_digest": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+        "kernel_digest": "sha256:3333333333333333333333333333333333333333333333333333333333333333",
+        "initrd_digest": "sha256:4444444444444444444444444444444444444444444444444444444444444444",
+        "rootfs_digest": "sha256:5555555555555555555555555555555555555555555555555555555555555555",
+        "kernel_command_line_digest": "sha256:6666666666666666666666666666666666666666666666666666666666666666",
+        "guest_agent_digest": "sha256:7777777777777777777777777777777777777777777777777777777777777777",
+        "host_challenge_nonce": "nonce-1",
+        "host_ephemeral_public_key": "aG9zdC1wdWJsaWMta2V5",
+        "guest_ephemeral_public_key": "Z3Vlc3QtcHVibGljLWtleQ",
+        "generation": 2,
+        "fence_digest": "sha256:8888888888888888888888888888888888888888888888888888888888888888",
+        "protocol_version": "1.0",
+        "key_agreement": "x25519",
+        "key_derivation": "hkdf-sha256",
+        "channel_protection": "chacha20-poly1305"
+      },
+      "canonical_utf8_base64": "eyJib290bG9hZGVyX2RpZ2VzdCI6InNoYTI1NjoyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyIiwiY2hhbm5lbF9wcm90ZWN0aW9uIjoiY2hhY2hhMjAtcG9seTEzMDUiLCJkZXNjcmlwdG9yX2RpZ2VzdCI6InNoYTI1NjoxMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExIiwiZW52aXJvbm1lbnRfaWQiOiJlbnYtZml4dHVyZS0xIiwiZmVuY2VfZGlnZXN0Ijoic2hhMjU2Ojg4ODg4ODg4ODg4ODg4ODg4ODg4ODg4ODg4ODg4ODg4ODg4ODg4ODg4ODg4ODg4ODg4ODg4ODg4ODg4ODg4ODgiLCJnZW5lcmF0aW9uIjoyLCJndWVzdF9hZ2VudF9kaWdlc3QiOiJzaGEyNTY6Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3Nzc3NyIsImd1ZXN0X2Jvb3RfaWQiOiJndWVzdC1ib290LTEiLCJndWVzdF9lcGhlbWVyYWxfcHVibGljX2tleSI6IlozVmxjM1F0Y0hWaWJHbGpMV3RsZVEiLCJob3N0X2NoYWxsZW5nZV9ub25jZSI6Im5vbmNlLTEiLCJob3N0X2VwaGVtZXJhbF9wdWJsaWNfa2V5IjoiYUc5emRDMXdkV0pzYVdNdGEyVjUiLCJpbml0cmRfZGlnZXN0Ijoic2hhMjU2OjQ0NDQ0NDQ0NDQ0NDQ0NDQ0NDQ0NDQ0NDQ0NDQ0NDQ0NDQ0NDQ0NDQ0NDQ0NDQ0NDQ0NDQ0NDQ0NDQ0NDQ0NDQiLCJrZXJuZWxfY29tbWFuZF9saW5lX2RpZ2VzdCI6InNoYTI1Njo2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2Iiwia2VybmVsX2RpZ2VzdCI6InNoYTI1NjozMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzMzIiwia2V5X2FncmVlbWVudCI6IngyNTUxOSIsImtleV9kZXJpdmF0aW9uIjoiaGtkZi1zaGEyNTYiLCJwaGFzZSI6ImV4ZWN1dGlvbiIsInByb3RvY29sX3ZlcnNpb24iOiIxLjAiLCJyb290ZnNfZGlnZXN0Ijoic2hhMjU2OjU1NTU1NTU1NTU1NTU1NTU1NTU1NTU1NTU1NTU1NTU1NTU1NTU1NTU1NTU1NTU1NTU1NTU1NTU1NTU1NTU1NTUiLCJydW5faWQiOiIwMDAwMDAwMC0wMDAwLTQwMDAtODAwMC0wMDAwMDAwMDAwMDEiLCJydW50aW1lX2Jvb3RfZXBvY2giOiJib290LWhvc3QtMSIsInJ1bnRpbWVfaW5zdGFuY2VfaWQiOiJydW50aW1lLWZpeHR1cmUtMSIsInZtX2luc3RhbmNlX2lkIjoidm0tMSJ9",
+      "sha256": "sha256:cdda8482390843daff29de221c1881bac0f492d79a19b833f951415c45bfab10",
+      "expected_key_schedule": {
+        "key_agreement": "x25519",
+        "key_derivation": "hkdf-sha256",
+        "channel_protection": "chacha20-poly1305",
+        "directional_keys_distinct": true,
+        "replay_window": 0,
+        "bootstrap_material_erased_after_handshake": true
+      }
+    }
+  ],
+  "invalid_cases": [
+    {
+      "id": "bootloader-digest-substitution",
+      "case_kind": "strict_transcript_mutation",
+      "source_case": "channel-transcript-v1",
+      "mutations": [
+        {
+          "op": "replace",
+          "path": "/bootloader_digest",
+          "value": "sha256:0000000000000000000000000000000000000000000000000000000000000000"
+        }
+      ],
+      "recompute_channel_binding_digest": false,
+      "expected_error": "vz.guest_boot_authentication_failed"
+    },
+    {
+      "id": "kernel-command-line-substitution",
+      "case_kind": "strict_transcript_mutation",
+      "source_case": "channel-transcript-v1",
+      "mutations": [
+        {
+          "op": "replace",
+          "path": "/kernel_command_line_digest",
+          "value": "sha256:0000000000000000000000000000000000000000000000000000000000000000"
+        }
+      ],
+      "recompute_channel_binding_digest": false,
+      "expected_error": "vz.guest_boot_authentication_failed"
+    },
+    {
+      "id": "guest-agent-digest-substitution",
+      "case_kind": "strict_transcript_mutation",
+      "source_case": "channel-transcript-v1",
+      "mutations": [
+        {
+          "op": "replace",
+          "path": "/guest_agent_digest",
+          "value": "sha256:0000000000000000000000000000000000000000000000000000000000000000"
+        }
+      ],
+      "recompute_channel_binding_digest": false,
+      "expected_error": "vsock.boot_authentication_failed"
+    },
+    {
+      "id": "old-host-challenge-replay",
+      "case_kind": "strict_transcript_mutation",
+      "source_case": "channel-transcript-v1",
+      "mutations": [
+        {
+          "op": "replace",
+          "path": "/host_challenge_nonce",
+          "value": "nonce-from-previous-vm"
+        }
+      ],
+      "recompute_channel_binding_digest": false,
+      "expected_error": "vsock.boot_authentication_failed"
+    },
+    {
+      "id": "guest-ephemeral-key-substitution",
+      "case_kind": "strict_transcript_mutation",
+      "source_case": "channel-transcript-v1",
+      "mutations": [
+        {
+          "op": "replace",
+          "path": "/guest_ephemeral_public_key",
+          "value": "c3Vic3RpdHV0ZWQtZ3Vlc3Qta2V5"
+        }
+      ],
+      "recompute_channel_binding_digest": false,
+      "expected_error": "vsock.boot_authentication_failed"
+    },
+    {
+      "id": "runtime-boot-epoch-rollover",
+      "case_kind": "strict_transcript_mutation",
+      "source_case": "channel-transcript-v1",
+      "mutations": [
+        {
+          "op": "replace",
+          "path": "/runtime_boot_epoch",
+          "value": "boot-host-2"
+        }
+      ],
+      "recompute_channel_binding_digest": false,
+      "expected_error": "vsock.boot_authentication_failed"
+    },
+    {
+      "id": "guest-reboot-session-reuse",
+      "case_kind": "strict_transcript_mutation",
+      "source_case": "channel-transcript-v1",
+      "mutations": [
+        {
+          "op": "replace",
+          "path": "/guest_boot_id",
+          "value": "guest-boot-2"
+        }
+      ],
+      "recompute_channel_binding_digest": false,
+      "expected_error": "vsock.boot_authentication_failed"
+    },
+    {
+      "id": "generation-rollover-session-reuse",
+      "case_kind": "strict_transcript_mutation",
+      "source_case": "channel-transcript-v1",
+      "mutations": [
+        {
+          "op": "replace",
+          "path": "/generation",
+          "value": 3
+        }
+      ],
+      "recompute_channel_binding_digest": false,
+      "expected_error": "runtime.stale_fence"
+    },
+    {
+      "id": "host-to-guest-sequence-replay",
+      "case_kind": "stateful_sequence",
+      "source_case": "channel-transcript-v1",
+      "builder": "establish_boot_bound_authenticated_vsock_session",
+      "scenario": {
+        "direction": "host_to_guest",
+        "durable_high_watermark": 4,
+        "observed_sequence": 4,
+        "duplicate_ciphertext": true
+      },
+      "expected_error": "recovery.sequence_gap"
+    },
+    {
+      "id": "guest-to-host-sequence-gap",
+      "case_kind": "stateful_sequence",
+      "source_case": "channel-transcript-v1",
+      "builder": "establish_boot_bound_authenticated_vsock_session",
+      "scenario": {
+        "direction": "guest_to_host",
+        "durable_high_watermark": 4,
+        "observed_sequence": 6,
+        "missing_sequence": 5
+      },
+      "expected_error": "recovery.sequence_gap"
+    },
+    {
+      "id": "cloned-writable-disk-old-bootstrap-material",
+      "case_kind": "strict_transcript_mutation",
+      "source_case": "channel-transcript-v1",
+      "mutations": [
+        {
+          "op": "replace",
+          "path": "/vm_instance_id",
+          "value": "vm-clone-2"
+        },
+        {
+          "op": "replace",
+          "path": "/guest_boot_id",
+          "value": "guest-boot-clone-2"
+        }
+      ],
+      "recompute_channel_binding_digest": false,
+      "expected_error": "vsock.boot_authentication_failed"
+    }
+  ],
+  "case_format": {
+    "strict_transcript_mutation": "Clone channel-transcript-v1, apply RFC6902 mutations, preserve the original channel binding and session keys, and assert rejection before message processing.",
+    "stateful_sequence": "Establish a valid BootBoundAuthenticatedVsockSession, restore durable directional sequence state, inject the sequence scenario, terminate the session, and begin VM Cleanup."
+  }
+}

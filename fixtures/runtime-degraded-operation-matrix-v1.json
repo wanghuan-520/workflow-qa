@@ -1,0 +1,382 @@
+{
+  "schema_version": "qa.runtime-degraded-operation-matrix-corpus/v1",
+  "description": "Machine-readable minimum operation matrix for degraded Local QA Runtime states.",
+  "operations": [
+    "probe",
+    "reserve_non_browser",
+    "reserve_browser",
+    "activate_execution",
+    "execute_non_browser",
+    "execute_browser",
+    "quiesce_reconcile",
+    "cleanup",
+    "artifact_read",
+    "event_delivery",
+    "update_stage",
+    "update_activate",
+    "revocation_delivery",
+    "redaction"
+  ],
+  "rules": [
+    {
+      "id": "browser-enforcement-unavailable",
+      "condition_code": "browser_enforcement_unavailable",
+      "allowed_operations": [
+        "probe",
+        "reserve_non_browser",
+        "execute_non_browser",
+        "cleanup",
+        "event_delivery"
+      ],
+      "denied_operations": [
+        "reserve_browser",
+        "execute_browser"
+      ],
+      "required_reason_codes": [
+        "browser.capability_unavailable"
+      ],
+      "projection_input": {
+        "condition_code": "browser_enforcement_unavailable",
+        "allowed_operations": [
+          "probe",
+          "reserve_non_browser",
+          "execute_non_browser",
+          "cleanup",
+          "event_delivery"
+        ],
+        "denied_operations": [
+          "reserve_browser",
+          "execute_browser"
+        ],
+        "required_reason_codes": [
+          "browser.capability_unavailable"
+        ]
+      },
+      "canonical_utf8_base64": "eyJhbGxvd2VkX29wZXJhdGlvbnMiOlsicHJvYmUiLCJyZXNlcnZlX25vbl9icm93c2VyIiwiZXhlY3V0ZV9ub25fYnJvd3NlciIsImNsZWFudXAiLCJldmVudF9kZWxpdmVyeSJdLCJjb25kaXRpb25fY29kZSI6ImJyb3dzZXJfZW5mb3JjZW1lbnRfdW5hdmFpbGFibGUiLCJkZW5pZWRfb3BlcmF0aW9ucyI6WyJyZXNlcnZlX2Jyb3dzZXIiLCJleGVjdXRlX2Jyb3dzZXIiXSwicmVxdWlyZWRfcmVhc29uX2NvZGVzIjpbImJyb3dzZXIuY2FwYWJpbGl0eV91bmF2YWlsYWJsZSJdfQ==",
+      "sha256": "sha256:1917b9ade4cc507d1991a692df16e40aaa8a8fb5379f2e4d75c28039faec4203"
+    },
+    {
+      "id": "secret-broker-unhealthy",
+      "condition_code": "secret_broker_unhealthy",
+      "allowed_operations": [
+        "probe",
+        "reserve_non_browser",
+        "execute_non_browser",
+        "quiesce_reconcile",
+        "cleanup",
+        "event_delivery"
+      ],
+      "denied_operations": [
+        "activate_execution"
+      ],
+      "conditional_rule": "activate_execution is allowed only when AdmissionRequirements.secret_lease_count == 0",
+      "required_reason_codes": [
+        "secret_broker.state_unknown"
+      ]
+    },
+    {
+      "id": "guest-capability-unavailable",
+      "condition_code": "guest_capability_unavailable",
+      "allowed_operations": [
+        "probe",
+        "quiesce_reconcile",
+        "cleanup",
+        "artifact_read",
+        "event_delivery"
+      ],
+      "denied_operations": [
+        "reserve_non_browser",
+        "reserve_browser",
+        "activate_execution",
+        "execute_non_browser",
+        "execute_browser"
+      ],
+      "required_reason_codes": [
+        "vz.guest_agent_unavailable"
+      ]
+    },
+    {
+      "id": "outbox-warning",
+      "condition_code": "outbox_warning",
+      "allowed_operations": [
+        "probe",
+        "activate_execution",
+        "execute_non_browser",
+        "execute_browser",
+        "quiesce_reconcile",
+        "cleanup",
+        "event_delivery"
+      ],
+      "denied_operations": [
+        "update_stage"
+      ],
+      "conditional_rule": "new reservations require bounded event and artifact budgets",
+      "required_reason_codes": [
+        "runtime.admission_requirements_unsatisfied"
+      ]
+    },
+    {
+      "id": "disk-or-ledger-critical",
+      "condition_code": "disk_or_ledger_critical",
+      "allowed_operations": [
+        "probe",
+        "quiesce_reconcile",
+        "cleanup",
+        "event_delivery"
+      ],
+      "denied_operations": [
+        "reserve_non_browser",
+        "reserve_browser",
+        "activate_execution",
+        "execute_non_browser",
+        "execute_browser",
+        "update_stage",
+        "update_activate"
+      ],
+      "required_reason_codes": [
+        "runtime.admission_requirements_unsatisfied"
+      ]
+    },
+    {
+      "id": "recovering-before-hosted-decision",
+      "condition_code": "recovering_before_hosted_decision",
+      "allowed_operations": [
+        "probe",
+        "event_delivery"
+      ],
+      "denied_operations": [
+        "reserve_non_browser",
+        "reserve_browser",
+        "activate_execution",
+        "execute_non_browser",
+        "execute_browser",
+        "quiesce_reconcile",
+        "cleanup",
+        "update_activate"
+      ],
+      "local_only_actions": [
+        "read_only_discovery",
+        "snapshot_generation"
+      ],
+      "required_reason_codes": [
+        "recovery.decision_invalid"
+      ]
+    },
+    {
+      "id": "update-draining",
+      "condition_code": "update_draining",
+      "allowed_operations": [
+        "probe",
+        "quiesce_reconcile",
+        "cleanup",
+        "event_delivery"
+      ],
+      "denied_operations": [
+        "reserve_non_browser",
+        "reserve_browser",
+        "activate_execution",
+        "execute_non_browser",
+        "execute_browser",
+        "update_activate"
+      ],
+      "conditional_rule": "update_activate becomes allowed only after active_runs == 0 and all required cleanup/checkpoint receipts are durable",
+      "required_reason_codes": [
+        "runtime.unhealthy"
+      ]
+    },
+    {
+      "id": "revocation-sync-unavailable",
+      "condition_code": "revocation_sync_unavailable",
+      "component": "revocation_sync",
+      "allowed_operations": [
+        "probe",
+        "quiesce_reconcile",
+        "cleanup",
+        "event_delivery"
+      ],
+      "denied_operations": [
+        "reserve_non_browser",
+        "reserve_browser",
+        "activate_execution",
+        "execute_non_browser",
+        "execute_browser",
+        "artifact_read",
+        "revocation_delivery"
+      ],
+      "required_reason_codes": [
+        "revocation.batch_stale"
+      ]
+    },
+    {
+      "id": "redactor-unavailable",
+      "condition_code": "redactor_unavailable",
+      "component": "redactor",
+      "allowed_operations": [
+        "probe",
+        "quiesce_reconcile",
+        "cleanup",
+        "event_delivery",
+        "revocation_delivery"
+      ],
+      "denied_operations": [
+        "redaction",
+        "artifact_read"
+      ],
+      "required_reason_codes": [
+        "evidence.redaction_failed"
+      ]
+    },
+    {
+      "id": "gateway-enforcer-unavailable",
+      "condition_code": "gateway_enforcer_unavailable",
+      "component": "gateway_enforcer",
+      "allowed_operations": [
+        "probe",
+        "quiesce_reconcile",
+        "cleanup",
+        "event_delivery",
+        "revocation_delivery"
+      ],
+      "denied_operations": [
+        "reserve_non_browser",
+        "reserve_browser",
+        "activate_execution",
+        "execute_non_browser",
+        "execute_browser"
+      ],
+      "required_reason_codes": [
+        "network.flow_receipt_missing",
+        "resource.limit_enforcement_unavailable"
+      ]
+    },
+    {
+      "id": "resource-enforcer-unavailable",
+      "condition_code": "resource_enforcer_unavailable",
+      "component": "resource_enforcer",
+      "allowed_operations": [
+        "probe",
+        "quiesce_reconcile",
+        "cleanup",
+        "event_delivery",
+        "revocation_delivery"
+      ],
+      "denied_operations": [
+        "reserve_non_browser",
+        "reserve_browser",
+        "activate_execution",
+        "execute_non_browser",
+        "execute_browser"
+      ],
+      "required_reason_codes": [
+        "resource.limit_enforcement_unavailable"
+      ]
+    }
+  ],
+  "no_waiver_gates": [
+    "canonical_signature",
+    "grant_fencing",
+    "guest_channel",
+    "secret_materialization",
+    "browser_enforcement",
+    "ledger_durability",
+    "cleanup_ownership"
+  ],
+  "component_dimensions": [
+    "revocation_sync",
+    "redactor",
+    "gateway_enforcer",
+    "resource_enforcer"
+  ],
+  "secret_broker_operations": [
+    "issue",
+    "materialize",
+    "release",
+    "revoke",
+    "reconcile"
+  ],
+  "secret_operation_rules": [
+    {
+      "id": "secret-broker-healthy",
+      "condition_code": "secret_broker_healthy",
+      "allowed_secret_operations": [
+        "issue",
+        "materialize",
+        "release",
+        "revoke",
+        "reconcile"
+      ],
+      "denied_secret_operations": [],
+      "required_reason_codes": []
+    },
+    {
+      "id": "secret-broker-state-unknown",
+      "condition_code": "secret_broker_state_unknown",
+      "allowed_secret_operations": [
+        "release",
+        "revoke",
+        "reconcile"
+      ],
+      "denied_secret_operations": [
+        "issue",
+        "materialize"
+      ],
+      "required_reason_codes": [
+        "secret_broker.state_unknown"
+      ]
+    },
+    {
+      "id": "secret-broker-binding-invalid",
+      "condition_code": "secret_broker_binding_invalid",
+      "allowed_secret_operations": [
+        "revoke",
+        "reconcile"
+      ],
+      "denied_secret_operations": [
+        "issue",
+        "materialize",
+        "release"
+      ],
+      "required_reason_codes": [
+        "secret_broker.binding_invalid"
+      ]
+    }
+  ],
+  "case_format": {
+    "runtime_operations": "operations must be exact RuntimeOperation values from SPEC; component and secret broker sub-operations are corpus control inputs, not wire RuntimeOperation enum extensions.",
+    "stateful_rules": "evaluate a signed RuntimeHealth snapshot and exact matrix rule before reservation, activation, execution, artifact read, redaction, or update side effects."
+  },
+  "invalid_cases": [
+    {
+      "id": "unknown-runtime-operation",
+      "mutation": {
+        "op": "add",
+        "path": "/operations/-",
+        "value": "materialize"
+      },
+      "expected_error": "contract.unsupported_enum"
+    },
+    {
+      "id": "revocation-sync-unavailable-allows-artifact-read",
+      "builder": "evaluate_rule_with_added_allowed_operation",
+      "scenario": {
+        "rule_id": "revocation-sync-unavailable",
+        "added_operation": "artifact_read"
+      },
+      "expected_error": "runtime.admission_requirements_unsatisfied"
+    },
+    {
+      "id": "redactor-unavailable-allows-public-artifact-path",
+      "builder": "evaluate_redaction_requirement_with_unavailable_redactor",
+      "expected_error": "evidence.redaction_failed"
+    },
+    {
+      "id": "secret-state-unknown-allows-materialize",
+      "builder": "evaluate_secret_suboperation",
+      "scenario": {
+        "condition_code": "secret_broker_state_unknown",
+        "operation": "materialize"
+      },
+      "expected_error": "secret_broker.state_unknown"
+    }
+  ]
+}

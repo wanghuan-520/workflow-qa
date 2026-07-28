@@ -1,5 +1,6 @@
 # FKST Host → NyxID → 用户本地自动化 QA 架构评审
 
+> **历史文档：已被当前 `DESIGN.zh-CN.md`、`SPEC.zh-CN.md` 与 `LOCAL-QA-RUNTIME-DESIGN.zh-CN.md` 取代。** 本文保留评审上下文，不再作为 Container/VM、Browser/Secret 边界、Runtime Interface 或里程碑的实现依据。
 > 评审对象：历史 v2 流程图（旧产物已清理；当前版本见 `fkst-host-nyxid-local-qa-flow.svg`）  
 > 评审结论：**有条件通过（Conditional Pass）**  
 > 评审日期：2026-07-24

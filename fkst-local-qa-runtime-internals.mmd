@@ -1,0 +1,130 @@
+flowchart TB
+  subgraph BOOT["Stable Boot and Release Authority"]
+    direction LR
+    LD["User LaunchAgent"]
+    SL["Stable Signed Launcher"]
+    AJ[("Independent Activation Journal")]
+    RS["Versioned Rust Supervisor"]
+    LD --> SL
+    SL <--> AJ
+    SL -->|"verified selection"| RS
+  end
+
+  subgraph SUP["Rust Supervisor / single QA authority and Ledger writer"]
+    direction TB
+    API["RuntimeService<br/>exactly 8 canonical methods"]
+    CTRL["RuntimeTransportControlInbox<br/>RevocationBatch only"]
+    AUTH["RuntimeIdentity + Pairing<br/>code-bound Keychain key<br/>durable LocalIPC chains"]
+    AF["AdmissionFacade<br/>verify + atomic admit"]
+    LW[("SQLite LedgerWriter<br/>BEGIN IMMEDIATE / CAS<br/>IPC + revocation + outbox")]
+    IG["Integrity Gate<br/>fact hash-MAC + Audit chain<br/>checkpoint verification"]
+    ED["Effect Dispatcher<br/>claim + discovery identity"]
+    EA{"EffectAuthority / Local PEP<br/>perform inside gate"}
+    OD["Event Outbox Dispatcher<br/>signed EventBatch"]
+    GS["GenerationSettlementFacade<br/>quiesce / reconcile / seal / cleanup"]
+    RF["RecoveryFacade<br/>local latch + read-only discovery<br/>apply signed decision"]
+    UM["UpdateCoordinator<br/>verify / drain / stage<br/>request activation"]
+
+    AUTH --> API --> AF --> LW
+    AUTH --> CTRL -->|"atomic watermark + suppression"| LW
+    LW --> IG -->|"passed: open admission"| AF
+    LW -->|"committed pending effects"| ED --> EA
+    EA -->|"Receipt + inventory CAS"| LW
+    LW --> OD --> API
+    RF <--> LW
+    RF --> GS --> EA
+    UM -->|"signed activation request"| SL
+    RS --> AF
+  end
+
+  subgraph ADAPTERS["Trusted Adapters"]
+    direction LR
+    VZ["VZ Provider<br/>signed boot chain"]
+    W["Process Warden<br/>immutable hard limits<br/>deterministic TerminationReceipt"]
+    GW["User-space Gateway<br/>DNS / redirect / connect / upload<br/>per-flow receipts + deny by default"]
+    PB["Port Broker / Proxy<br/>activation-only owned loopback FD"]
+    AR["Artifact Quarantine<br/>RedactionPolicy + safe error gate<br/>post-redaction digest"]
+  end
+
+  subgraph SECRET["Independent non-privileged Secret Broker helper"]
+    direction TB
+    SC["SecretBrokerClient<br/>issue / materialize / release<br/>revoke / reconcile"]
+    SB["Broker process<br/>binding + boot epoch"]
+    SP["Broker proxy / controlled injector<br/>plaintext custodian"]
+    SC --> SB --> SP
+  end
+
+  subgraph DESIGN["Fresh Design VM"]
+    direction TB
+    DB["Verified boot manifest<br/>GuestBootEvidence"]
+    DGA["Guest Agent<br/>boot-bound authenticated vsock"]
+    DW["testing-design Worker<br/>static source / no Secret"]
+    DP["Structured Plan"]
+    DB --> DGA --> DW --> DP
+  end
+
+  subgraph EXEC["Fresh Execution VM"]
+    direction TB
+    EB["New boot / disk / generation"]
+    EGA["Guest Agent + Guest Warden"]
+    PD["Isolated process domains<br/>Worker / App / Middleware / Backend / injector"]
+    TR["testing-runner<br/>typed actions + assertions"]
+    EB --> EGA --> PD --> TR
+  end
+
+  subgraph BROWSER["Host Browser Boundary"]
+    direction TB
+    BP["Browser Enforcement Probe<br/>short-TTL capability"]
+    B["Browser Provider<br/>verified Chrome / typed actions"]
+    CH["Dedicated Chrome<br/>temporary profile"]
+    PX["OS-level or equivalent enforcer<br/>forced proxy + direct socket denial"]
+    BP --> B --> CH --> PX
+  end
+
+  EA --> VZ
+  EA --> W
+  EA --> GW
+  EA --> PB
+  EA --> SC
+  EA -->|"requires current capability"| BP
+  EA --> AR
+
+  VZ -->|"Design bootstrap"| DB
+  VZ -->|"Execution bootstrap"| EB
+  DGA -->|"typed EffectRequest"| EA
+  EGA -->|"typed EffectRequest"| EA
+  W -.->|"owns VM and process domains"| VZ
+  W -.-> SB
+  W -.-> CH
+  SP -->|"exact approved process domain"| PD
+  TR -->|"raw observation"| AR
+  B -->|"raw browser evidence"| AR
+  AR -->|"sanitized refs only"| LW
+
+  RF -->|"startup: no takeover"| API
+  API -->|"signed RecoveryDecision"| RF
+  GS -->|"pre-seal control_quiesce_reconcile"| EA
+  GS -->|"post-seal control_cleanup"| EA
+
+  UM -->|"staged Receipt"| LW
+  SL -->|"candidate start / migration / health"| RS
+  RS -->|"health evidence"| SL
+  SL -->|"selection commit or rollback"| AJ
+  AJ -.->|"idempotent Ledger mirror"| LW
+
+  DENY["Invariant<br/>Workers never access host filesystem, Ledger,<br/>Secret plaintext, VM handles, proxy credentials or raw CDP"]
+  DENY -.-> DW
+  DENY -.-> TR
+
+  classDef hosted fill:#E8F0FE,stroke:#3367D6,color:#102A43,stroke-width:2px;
+  classDef kernel fill:#F3ECF8,stroke:#7852A4,color:#332044,stroke-width:2px;
+  classDef trusted fill:#EAF5E7,stroke:#4C9445,color:#173C16,stroke-width:2px;
+  classDef worker fill:#FFF4E2,stroke:#D58A20,color:#4A2A00,stroke-width:2px;
+  classDef gate fill:#FCE8E6,stroke:#C5221F,color:#5F1613,stroke-width:2px;
+  classDef neutral fill:#F5F7F8,stroke:#607D8B,color:#263238,stroke-width:2px;
+
+  class LD,SL,AJ,RS kernel;
+  class API,CTRL,AUTH,AF,LW,IG,ED,OD,RF,UM kernel;
+  class VZ,W,GW,PB,AR,SC,SB,SP,DB,DGA,EB,EGA,BP,B,CH,PX trusted;
+  class DW,DP,PD,TR worker;
+  class EA,GS,DENY gate;

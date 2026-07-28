@@ -1,0 +1,346 @@
+{
+  "schema_version": "qa.runtime-sandbox-security-corpus/v1",
+  "description": "Stateful conformance cases for dependency integrity, RuntimeHardCeilings, termination, mediated egress, RedactionPolicy, and SafeErrorDetails.",
+  "case_format": {
+    "stateful_behavior": [
+      "build exact schema-valid contracts with the named builder",
+      "verify all required digests and signatures",
+      "execute actions in order",
+      "assert exact error and durable state changes"
+    ],
+    "strict_contract_mutation": [
+      "clone named source contract",
+      "apply RFC6902 mutations",
+      "recompute root content digest when present",
+      "run exact schema and semantic validation"
+    ],
+    "rule": "An earlier schema, digest, signature, or fixture assembly failure is a harness failure and does not satisfy expected_error."
+  },
+  "covered_contracts": [
+    "DependencyAcquisitionPolicy",
+    "DependencyAcquisitionReceipt",
+    "ProcessLaunchBinding",
+    "RuntimeHardCeilings",
+    "ResourceLimitBinding",
+    "ResourceLimitReceipt",
+    "TerminationReceipt",
+    "NetworkFlowReceipt",
+    "RedactionPolicy",
+    "RedactionReceipt",
+    "SafeErrorDetails"
+  ],
+  "valid_cases": [
+    {
+      "id": "frozen-lockfile-integrity-and-declared-lifecycle-script",
+      "case_kind": "stateful_behavior",
+      "builder": "acquire_dependencies_with_frozen_lockfile",
+      "scenario": {
+        "package_manager": "pnpm",
+        "require_frozen_lockfile": true,
+        "dependency": {
+          "name": "fixture-package",
+          "version": "1.2.3",
+          "expected_integrity": "sha512-fixture",
+          "verified_archive_digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111"
+        },
+        "lifecycle_scripts": "allow_declared_digest_bound",
+        "declared_script_digest": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+        "process_launch_binding_verified": true,
+        "network_flow_receipts_complete": true
+      },
+      "expected": {
+        "receipt_kind": "acquired",
+        "lockfile_unchanged": true,
+        "lifecycle_script_confined_to_same_sandbox": true
+      }
+    },
+    {
+      "id": "hard-ceiling-violation-produces-limit-and-termination-receipts",
+      "case_kind": "stateful_behavior",
+      "builder": "execute_process_domain_until_resource_limit_violation",
+      "scenario": {
+        "limit": "memory_bytes",
+        "limit_value": 1073741824,
+        "observed_value": 1073741825,
+        "enforcement_action": "terminate_process_domain"
+      },
+      "expected": {
+        "resource_limit_receipt_kind": "violated",
+        "termination_receipt_durable": true,
+        "process_domain_remaining_resources": [],
+        "run_continuation_denied": true
+      }
+    },
+    {
+      "id": "mediated-approved-egress-produces-per-flow-receipt",
+      "case_kind": "stateful_behavior",
+      "builder": "open_network_flow_through_mediated_gateway",
+      "scenario": {
+        "scheme": "https",
+        "host": "registry.example.test",
+        "port": 443,
+        "resolved_ip_addresses": [
+          "203.0.113.10"
+        ],
+        "destination_approved": true,
+        "dns_answer_stable": true,
+        "direct_socket": false
+      },
+      "expected": {
+        "network_flow_receipt_kind": "allowed",
+        "receipt_persisted_before_success": true
+      }
+    },
+    {
+      "id": "enforceable-redaction-policy-removes-secret-canary",
+      "case_kind": "stateful_behavior",
+      "builder": "redact_raw_quarantine_artifact",
+      "scenario": {
+        "policy_schema": "qa.redaction-policy/v1",
+        "rules": [
+          {
+            "kind": "header",
+            "names_lowercase": [
+              "authorization"
+            ],
+            "action": "remove"
+          },
+          {
+            "kind": "text_pattern",
+            "engine": "re2",
+            "pattern": "SECRET_CANARY_[A-Z0-9]+",
+            "maximum_matches": 8,
+            "action": "replace_constant",
+            "replacement": "[REDACTED]"
+          }
+        ],
+        "limits": {
+          "maximum_input_bytes": 1048576,
+          "maximum_output_bytes": 1048576,
+          "maximum_findings": 16,
+          "maximum_elapsed_millis": 1000,
+          "maximum_decompression_ratio": 10,
+          "maximum_archive_entries": 32
+        },
+        "require_second_pass_scan": true,
+        "input_contains": "SECRET_CANARY_FIXTURE"
+      },
+      "expected": {
+        "redaction_receipt_kind": "completed",
+        "secret_canary_in_sanitized_bytes": false,
+        "artifact_digest_stage": "post_redaction"
+      }
+    },
+    {
+      "id": "safe-error-details-use-digests-and-bounded-fields",
+      "case_kind": "stateful_behavior",
+      "builder": "construct_safe_error_envelope",
+      "scenario": {
+        "details": {
+          "kind": "network",
+          "scheme": "https",
+          "host_digest": "sha256:3333333333333333333333333333333333333333333333333333333333333333",
+          "port": 443,
+          "reason": "destination_not_approved"
+        },
+        "encoded_size_maximum": 4096
+      },
+      "expected": {
+        "accepted": true,
+        "raw_host_present": false,
+        "secret_canary_present": false
+      }
+    }
+  ],
+  "invalid_cases": [
+    {
+      "id": "dependency-missing-frozen-lockfile",
+      "case_kind": "stateful_behavior",
+      "builder": "acquire_dependencies_without_lockfile",
+      "expected_error": "dependency.lockfile_required",
+      "forbidden_state_changes": [
+        "package_manager_started",
+        "network_flow_opened"
+      ]
+    },
+    {
+      "id": "dependency-archive-integrity-mismatch",
+      "case_kind": "stateful_behavior",
+      "builder": "acquire_dependency_with_integrity_mismatch",
+      "scenario": {
+        "expected_archive_digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+        "observed_archive_digest": "sha256:2222222222222222222222222222222222222222222222222222222222222222"
+      },
+      "expected_error": "dependency.integrity_failed",
+      "expected_state_changes": [
+        "download_quarantined"
+      ],
+      "forbidden_state_changes": [
+        "dependency_executed"
+      ]
+    },
+    {
+      "id": "undeclared-lifecycle-script",
+      "case_kind": "stateful_behavior",
+      "builder": "acquire_dependency_with_lifecycle_script",
+      "scenario": {
+        "lifecycle_scripts": "allow_declared_digest_bound",
+        "declared_script_digests": [
+          "sha256:1111111111111111111111111111111111111111111111111111111111111111"
+        ],
+        "observed_script_digest": "sha256:2222222222222222222222222222222222222222222222222222222222222222"
+      },
+      "expected_error": "dependency.lifecycle_script_denied",
+      "forbidden_state_changes": [
+        "script_process_launched"
+      ]
+    },
+    {
+      "id": "resource-enforcement-adapter-missing",
+      "case_kind": "stateful_behavior",
+      "builder": "apply_resource_limit_binding",
+      "scenario": {
+        "missing_adapter": "guest_cgroup_v2"
+      },
+      "expected_error": "resource.limit_enforcement_unavailable",
+      "forbidden_state_changes": [
+        "untrusted_process_started"
+      ]
+    },
+    {
+      "id": "termination-receipt-incomplete-after-hard-limit",
+      "case_kind": "stateful_behavior",
+      "builder": "terminate_process_domain_after_limit_violation",
+      "scenario": {
+        "remaining_resources": [
+          "process:fixture-child"
+        ]
+      },
+      "expected_error": "warden.termination_incomplete",
+      "expected_state_changes": [
+        "cleanup_repair_required"
+      ]
+    },
+    {
+      "id": "direct-socket-egress-bypass",
+      "case_kind": "stateful_behavior",
+      "builder": "attempt_unmediated_network_flow",
+      "scenario": {
+        "destination": "203.0.113.10:443",
+        "direct_socket": true
+      },
+      "expected_error": "network.destination_denied",
+      "forbidden_state_changes": [
+        "socket_connected",
+        "payload_sent"
+      ]
+    },
+    {
+      "id": "metadata-service-exfiltration-attempt",
+      "case_kind": "stateful_behavior",
+      "builder": "attempt_mediated_network_flow",
+      "scenario": {
+        "scheme": "http",
+        "host": "169.254.169.254",
+        "port": 80,
+        "payload_contains_secret_canary": true
+      },
+      "expected_error": "network.destination_denied",
+      "forbidden_state_changes": [
+        "payload_sent",
+        "secret_canary_released"
+      ]
+    },
+    {
+      "id": "dns-rebinding-after-approved-answer",
+      "case_kind": "stateful_behavior",
+      "builder": "attempt_network_flow_with_dns_rebinding",
+      "expected_error": "network.destination_denied",
+      "forbidden_state_changes": [
+        "connection_established"
+      ]
+    },
+    {
+      "id": "egress-budget-exceeded-before-exfiltration",
+      "case_kind": "stateful_behavior",
+      "builder": "send_through_mediated_gateway_until_budget",
+      "scenario": {
+        "network_egress_bytes_limit": 1024,
+        "attempted_bytes": 1025,
+        "payload_contains_secret_canary": true
+      },
+      "expected_error": "network.egress_budget_exceeded",
+      "forbidden_state_changes": [
+        "byte_1025_sent",
+        "secret_canary_released"
+      ]
+    },
+    {
+      "id": "natural-language-only-redaction-policy",
+      "case_kind": "strict_contract_mutation",
+      "source_contract": "RedactionPolicy",
+      "mutations": [
+        {
+          "op": "replace",
+          "path": "/rules",
+          "value": []
+        },
+        {
+          "op": "add",
+          "path": "/instructions",
+          "value": "remove secrets best effort"
+        }
+      ],
+      "expected_error": "evidence.redaction_policy_invalid"
+    },
+    {
+      "id": "redaction-second-pass-still-finds-secret",
+      "case_kind": "stateful_behavior",
+      "builder": "redact_raw_quarantine_artifact",
+      "scenario": {
+        "second_pass_forbidden_class": "access_token"
+      },
+      "expected_error": "evidence.redaction_output_invalid",
+      "forbidden_state_changes": [
+        "sanitized_artifact_registered",
+        "partial_output_released"
+      ]
+    },
+    {
+      "id": "safe-error-details-contain-secret-canary",
+      "case_kind": "stateful_behavior",
+      "builder": "construct_safe_error_envelope",
+      "scenario": {
+        "details_field": "provider_error_code",
+        "details_value": "SECRET_CANARY_FIXTURE"
+      },
+      "expected_error": "error.safe_details_invalid",
+      "expected_state_changes": [
+        "details_removed",
+        "security_audit_written"
+      ],
+      "forbidden_state_changes": [
+        "secret_canary_persisted"
+      ]
+    },
+    {
+      "id": "safe-error-details-contain-absolute-user-path",
+      "case_kind": "stateful_behavior",
+      "builder": "construct_safe_error_envelope",
+      "scenario": {
+        "details_field": "operation",
+        "details_value": "/Users/example/private/project"
+      },
+      "expected_error": "error.safe_details_invalid"
+    },
+    {
+      "id": "safe-error-details-over-4096-bytes",
+      "case_kind": "stateful_behavior",
+      "builder": "construct_oversized_safe_error_envelope",
+      "scenario": {
+        "encoded_size": 4097
+      },
+      "expected_error": "error.safe_details_invalid"
+    }
+  ]
+}
