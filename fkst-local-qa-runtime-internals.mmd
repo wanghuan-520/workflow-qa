@@ -1,10 +1,13 @@
 flowchart TB
+  PROFILE["Future Hardened Profile only<br/>hardened_untrusted_code"]
+
   subgraph BOOT["Stable Boot and Release Authority"]
     direction LR
     LD["User LaunchAgent"]
     SL["Stable Signed Launcher"]
     AJ[("Independent Activation Journal")]
     RS["Versioned Rust Supervisor"]
+    PROFILE -.-> LD
     LD --> SL
     SL <--> AJ
     SL -->|"verified selection"| RS

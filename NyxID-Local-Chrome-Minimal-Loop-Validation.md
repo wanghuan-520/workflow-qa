@@ -3,6 +3,8 @@
 > 验证日期：2026-07-24  
 > 验证状态：**PASS**  
 > 验证性质：最小纵向闭环 POC，不代表完整 FKST QA 已实现
+>
+> 术语说明：本文历史记录中的 “Browser QA Runtime” 只指验证时已人工启动的 `poc/nyxid-browser-loop/server.mjs` PoC service，不等于目标 Local QA Agent，也不等于未来 Hardened Runtime。本文所称“结果回传”是内存 JSON 中的结构化结果和本机截图绝对路径；截图 bytes 没有经 NyxID 回传、上传云端或进入 Artifact pipeline。
 
 ## 1. 验证目标
 
@@ -21,10 +23,10 @@
 ```text
 NyxID Cloud
 → NyxID Node
-→ 已运行的本地 Browser QA Runtime
+→ 已人工启动的本地 Browser QA PoC service
 → 系统 Google Chrome
-→ 浏览器点击与 DOM 断言
-→ 截图和结构化结果
+→ 固定 fixture 的浏览器点击与 DOM 断言
+→ 本机截图路径和内存结构化结果
 → NyxID Node
 → 调用方
 ```
@@ -200,7 +202,7 @@ Execution time：约 2.5 秒
 - [POC Runtime 源码](poc/nyxid-browser-loop/server.mjs)
 - [POC 使用和复现说明](poc/nyxid-browser-loop/README.md)
 - [POC 原始结果报告](poc/nyxid-browser-loop/RESULT.md)
-- [Google Chrome 测试截图](poc/nyxid-browser-loop/artifacts/qa_64ee74e9-1c4d-45c6-b6e2-516dff9a9b37.png)
+- Google Chrome 测试截图曾保存在本机 `poc/nyxid-browser-loop/artifacts/`；该目录中的 PNG 被 PoC `.gitignore` 排除，因此截图链接不构成 clean clone 中的持久证据。
 
 NyxID Node 最终记录的请求指标为：
 

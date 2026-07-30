@@ -1,23 +1,23 @@
-# FKST Local QA Runtime v1 实现设计
+# FKST Hardened Local QA Runtime 实现设计
 
-> 状态：已批准架构的实现设计，尚未表示对应能力已经实现
-> 适用范围：`fkst-hosted/apps/local-qa-runtime`，macOS-first v1
+> 状态：未来 `hardened_untrusted_code` Profile 实现设计，尚未表示对应能力已经实现
+> 当前 MVP 实现设计：[LOCAL-QA-AGENT-DESIGN.zh-CN.md](LOCAL-QA-AGENT-DESIGN.zh-CN.md)
+> 未来部署范围：`fkst-hosted/apps/local-qa-runtime`，`hardened_untrusted_code`
 > 配套目标设计：[DESIGN.zh-CN.md](DESIGN.zh-CN.md)
 > 配套字段与协议规范：[SPEC.zh-CN.md](SPEC.zh-CN.md)
 > 系统架构语义基准：[fkst-host-nyxid-local-qa-flow.mmd](fkst-host-nyxid-local-qa-flow.mmd)
-> Runtime 内部图：[Mermaid](fkst-local-qa-runtime-internals.mmd) / [SVG](fkst-local-qa-runtime-internals.svg) / [Excalidraw](fkst-local-qa-runtime-internals.excalidraw) / [PNG](fkst-local-qa-runtime-internals.png)
+> Runtime 内部图：[Mermaid](fkst-local-qa-runtime-internals.mmd) / [SVG](fkst-local-qa-runtime-internals.svg) / [PNG](fkst-local-qa-runtime-internals.png)
 
 ## 1. 文档定位与权威关系
 
-本文把已经批准的 Local QA Runtime 架构落实为可实施的进程拓扑、模块边界、持久化模型和恢复算法。本文重点回答以下问题：
+本文只定义未来 `hardened_untrusted_code` Profile 的进程拓扑、模块边界、authority ledger、安全隔离和恢复算法。当前 `local_qa_agent_mvp` 的轻量实现由 [LOCAL-QA-AGENT-DESIGN.zh-CN.md](LOCAL-QA-AGENT-DESIGN.zh-CN.md) 定义，不以本文的 VZ、Grant、Fence、EffectGate 或 signed recovery 为前置条件。本文重点回答以下 Hardened 问题：
 
-- 哪个进程拥有本地状态与副作用决定权。
-- TypeScript testing modules 在哪里运行，能直接做什么，不能直接做什么。
-- Design、Execution、Amendment 和 Cleanup 如何使用本地 VM。
-- command、effect、event 和外部回传如何在崩溃与重试后保持一致。
-- 端口、进程、Secret、浏览器和 Artifact 如何被精确记账与清理。
-- Runtime 重启后如何恢复控制，但不自动恢复执行。
-- v1 如何安装、升级、回滚和验证兼容性。
+- 恶意仓库、依赖脚本、开放式 Agent Action 和高价值 Secret 如何与宿主隔离。
+- Design/Execution Grant、LocalLeaseBinding、Fence 和 EffectGate 如何形成唯一副作用授权路径。
+- per-phase VZ VM、Process Warden、Secret Broker 和 Browser enforcement 如何协作。
+- single-writer authority ledger、effect/event outbox、Inventory seal 和 CleanupCapability 如何收敛崩溃与部分副作用。
+- Runtime 重启后如何在 hosted 签名 RecoveryDecision 前保持 admission closed 且绝不自动 resume。
+- signed launcher、migration、anti-rollback 和 rollback 如何维护 Runtime 自身完整性。
 
 本文对字段名、完整 Schema、枚举值和 wire payload **不具有规范性**。这类细节以 [SPEC.zh-CN.md](SPEC.zh-CN.md) 为准。本文中的表名、列名、内部消息名和伪代码用于固定实现语义，可以在实现时调整，但不得改变所描述的事务边界、所有权和安全不变量。
 
@@ -25,13 +25,13 @@
 
 1. `SPEC.zh-CN.md` 决定跨边界字段、签名、摘要、状态机和错误契约。
 2. `DESIGN.zh-CN.md` 决定系统级职责、授权权威、Workspace/Sandbox/Environment 语义和完整 QA Run 生命周期。
-3. 本文决定 Local QA Runtime v1 的内部拓扑、算法、持久化和适配边界。
+3. [LOCAL-QA-AGENT-DESIGN.zh-CN.md](LOCAL-QA-AGENT-DESIGN.zh-CN.md) 决定当前 MVP 的内部拓扑、算法和最小持久化；本文决定未来 Runtime 的 authority、安全和恢复实现。
 4. 当前架构 Mermaid 决定系统级组件与授权方向。
-5. POC 只证明其真实运行过的 Cloud → Node → Runtime → Chrome 链路，不替代生产设计。
+5. POC 只证明其真实运行过的 Cloud → Node → loopback service → Chrome 链路，不替代生产设计。
 
-[Local Runtime 内部 Mermaid](fkst-local-qa-runtime-internals.mmd) 是 Runtime 内部拓扑的语义源，[SVG](fkst-local-qa-runtime-internals.svg)、[PNG](fkst-local-qa-runtime-internals.png) 和 [Excalidraw](fkst-local-qa-runtime-internals.excalidraw) 是同步展示与编辑资产。本文中的局部 Mermaid 只用于说明特定控制流，不能覆盖主图定义的 host/guest/worker/provider authority path。
+[Local Runtime 内部 Mermaid](fkst-local-qa-runtime-internals.mmd) 是 Hardened Runtime 内部拓扑的唯一语义源，[SVG](fkst-local-qa-runtime-internals.svg) 和 [PNG](fkst-local-qa-runtime-internals.png) 是生成展示资产。现有 Excalidraw 仅为历史编辑资产，不再声明与 Mermaid 同步。本文中的局部 Mermaid 只用于说明特定控制流，不能覆盖主图定义的 host/guest/worker/provider authority path。
 
-## 2. v1 锁定决策
+## 2. Hardened v1 锁定决策
 
 以下决策在 v1 中不再作为可选方案处理：
 

@@ -1,11 +1,12 @@
 # FKST Host → NyxID → 用户本地自动化 QA 实现规范
 
 > **文档状态：** 目标实现规范，尚未表示完整系统已经实现。  
-> **适用版本：** v1，macOS-first Local QA Runtime。  
-> **最后校准日期：** 2026-07-27。
-> **配套设计：** [DESIGN.zh-CN.md](./DESIGN.zh-CN.md) / [LOCAL-QA-RUNTIME-DESIGN.zh-CN.md](./LOCAL-QA-RUNTIME-DESIGN.zh-CN.md)。
+> **适用版本：** v2 profile-based contract；当前实施 `local_qa_agent_mvp`，未来安全增强 `hardened_untrusted_code`。
+> **最后校准日期：** 2026-07-30。
+> **配套设计：** [DESIGN.zh-CN.md](./DESIGN.zh-CN.md) / [LOCAL-QA-AGENT-DESIGN.zh-CN.md](./LOCAL-QA-AGENT-DESIGN.zh-CN.md) / [LOCAL-QA-RUNTIME-DESIGN.zh-CN.md](./LOCAL-QA-RUNTIME-DESIGN.zh-CN.md)。
 > **架构图：** [SVG](./fkst-host-nyxid-local-qa-flow.svg) / [Mermaid](./fkst-host-nyxid-local-qa-flow.mmd)。  
-> **Runtime 内部图：** [SVG](./fkst-local-qa-runtime-internals.svg) / [Mermaid](./fkst-local-qa-runtime-internals.mmd) / [Excalidraw](./fkst-local-qa-runtime-internals.excalidraw) / [PNG](./fkst-local-qa-runtime-internals.png)。
+> **Agent 内部图：** [SVG](./fkst-local-qa-agent-internals.svg) / [Mermaid](./fkst-local-qa-agent-internals.mmd) / [PNG](./fkst-local-qa-agent-internals.png)。
+> **Future Hardened Runtime 内部图：** [SVG](./fkst-local-qa-runtime-internals.svg) / [Mermaid](./fkst-local-qa-runtime-internals.mmd) / [PNG](./fkst-local-qa-runtime-internals.png)。
 > **评审依据：** [FKST-NyxID-Local-QA-Architecture-Review.md](./FKST-NyxID-Local-QA-Architecture-Review.md)。  
 > **已验证 POC：** [NyxID-Local-Chrome-Minimal-Loop-Validation.md](./NyxID-Local-Chrome-Minimal-Loop-Validation.md)。
 
@@ -23,15 +24,32 @@
 | **不应该** | **SHOULD NOT** | 除非有记录充分的例外理由，否则不得采用。 |
 | **可以** | **MAY** | 可选能力，不影响基础合规性。 |
 
+### 0.1 Profile 适用规则
+
+本规范使用以下 ProfileApplicability：
+
+```ts
+type ExecutionProfile = "local_qa_agent_mvp" | "hardened_untrusted_code";
+type ProfileApplicability = "common" | ExecutionProfile;
+```
+
+- `common` 规则适用于两个 Profile。
+- `local_qa_agent_mvp` 是当前实施基线，只允许受信任、已审查或组织明确允许的项目输入。容器只提供生命周期隔离，不构成 hostile-code 安全边界。
+- `hardened_untrusted_code` 是未来 Profile，适用于外部 fork、未知依赖脚本、开放式 Shell/Agent Action、生产 Secret、私网或需要强恢复/审计的场景。
+- 标记为 Hardened-only 的既有 Runtime、Grant、LocalLeaseBinding、fencing、VZ、EffectGate、authority ledger、Warden、Secret Broker、signed recovery 和 update 规则，禁止被解释为 MVP 的前置条件。
+- Profile 未标注但明确引用 `RuntimeIdentityStatement`、`LocalLeaseBinding`、`ExecutionFence`、`EffectGate`、VZ guest、authority ledger 或 `RuntimeService` 八方法的规则，默认属于 `hardened_untrusted_code`。
+- Profile 未标注且只引用 Source、Plan、Assertion、CaseResult、EvidenceManifest、QualityEvaluation、ReportRecord、Publication 或 PQL 的规则，默认属于 `common`。
+- Hosted 必须在 dispatch 前冻结 Profile。MVP Agent 收到 `hardened_untrusted_code` 请求必须拒绝，禁止静默降级。
+
 本文只把以下链路视为已被 POC 证明：
 
 ```text
 NyxID Cloud
 → NyxID Node
-→ 已经运行的本地 Runtime
+→ 已人工启动的 loopback PoC service
 → 系统 Google Chrome
-→ 浏览器交互与 DOM 断言
-→ 截图和结构化结果
+→ 固定 fixture 的浏览器交互与 DOM 断言
+→ 内存结构化结果和本机截图路径
 → NyxID Node
 → 调用方
 ```
@@ -46,9 +64,27 @@ POC **没有**证明双阶段授权、隔离 Workspace、真实 App/Middleware �
 
 ### 1.1 目标
 
-系统必须允许 `fkst-hosted` 创建可恢复的 QA Run，经用户批准后，通过可替换的设备传输通道在用户电脑上的 Local QA Sandbox 中执行自动化测试，并把结构化结果、Evidence、Cleanup Receipt、质量裁决和发布结果回传到云端。
+系统必须允许 `fkst-hosted` 创建可恢复的 QA Run，经用户或组织策略批准后，通过可替换的设备传输通道在用户电脑上的 Local QA Agent 中执行自动化测试，并把结构化结果、Evidence、Artifact upload、Cleanup、云端报告、质量裁决和发布结果持久化到云端。
 
-### 1.2 锁定决策
+### 1.2 Profile 锁定决策
+
+#### 1.2.1 `local_qa_agent_mvp`
+
+1. **目标代码组织。** MVP 计划落在 `fkst-hosted` monorepo；`apps/hosted-control-plane` 与 `apps/local-qa-agent` 独立构建、部署和升级；testing modules 位于 `packages/` 且禁止依赖 apps 实现。当前仓库未包含这些 app/package 实现，不能把目标目录写成已实现事实。
+2. **NyxID 边界。** NyxID 只提供设备路由、传输认证、credential broker 和审计；禁止启动容器、Chrome 或项目进程，禁止执行测试、判断 Pass/Fail、生成报告或发布结果。
+3. **输入边界。** MVP 只允许受信任或已审查输入；外部 fork、未知 lifecycle script、开放式 Agent Action、生产 Secret 或私网访问必须使用 Hardened Profile，否则 fail closed。
+4. **本地执行。** App、数据库和 Middleware 必须位于 per-run container/Compose project；容器不得挂载用户 home、SSH、Keychain、个人浏览器目录、无关仓库或 Docker socket。
+5. **浏览器。** 需要浏览器时，Local QA Agent 必须启动宿主系统 Chrome 的专用进程、临时 Profile 和独立下载目录；禁止附加用户现有 Chrome、复用个人状态或暴露 arbitrary CDP。
+6. **测试裁决。** `testing-runner` 必须根据结构化 assertion 决定 Case Pass/Fail；Backend 或 LLM 自报结论禁止成为测试 Oracle。
+7. **本地状态。** Agent 必须维护最小 durable run/resource/upload journal，用于幂等、状态查询、resource ownership、restart cleanup 和 upload reconciliation；它不是完整 authority ledger。
+8. **Evidence。** raw observation 必须先进入 bounded local quarantine；只有完成 redaction、sanitized validation 并基于 post-redaction bytes 计算 digest 的 Artifact 才可上传。
+9. **云端报告。** durable Artifact Store、QualityEvaluation、DeterministicReport、optional NarrativeSupplement、ReportRecord 和 Publication 必须由 hosted control plane 拥有；Local QA Agent 禁止成为长期报告或 Artifact read authority。
+10. **Cleanup。** success、failure、cancel、timeout 和 Agent restart 都必须尝试 Cleanup；Evidence staging 后先释放执行资源，sanitized staging 再随 upload settlement/TTL 清理；execution、evidence、upload、cleanup、report、quality 和 publication outcome 必须独立。
+11. **Profile 防降级。** 容器不得被称为与 VZ/EffectGate 等价的 hostile-code Sandbox；Hardened 请求不得改用 MVP provider。
+
+#### 1.2.2 `hardened_untrusted_code`
+
+以下原 v1 锁定决策仅适用于 Hardened Profile，并继续作为未来安全实现的规范要求：
 
 1. **代码组织。** 实现必须位于 `fkst-hosted` monorepo。`apps/hosted-control-plane` 与 `apps/local-qa-runtime` 必须独立构建、签名、部署和升级；testing modules 必须位于 `packages/`，且 packages 禁止依赖任何 `apps/` 实现。
 2. **执行位置。** Local QA Sandbox 必须位于用户电脑。PR 代码、依赖、Shell、浏览器、被测服务和 Agent Action 禁止在 NyxID 或 hosted control plane 内执行。
@@ -67,15 +103,37 @@ POC **没有**证明双阶段授权、隔离 Workspace、真实 App/Middleware �
 
 ### 1.3 非目标
 
-- 本规范不要求 v1 支持 Linux 或 Windows Runtime。
-- 本规范不要求 v1 支持 `Virtualization.framework` 以外的 Sandbox Provider；未来 provider 必须通过新 major contract 与独立安全验收引入，禁止在 v1 配置中静默替换。
-- 本规范不锁定 Artifact Store/KMS 供应商；v1 默认和最大保留期由 §11.1 锁定，部署策略只能选择更短 TTL、在 maximum 内发布新 policy version，或通过显式 legal hold 延长。
-- 本规范不要求 NyxID 成为唯一传输实现；本机 CLI、企业 Device Agent 或其他自托管通道可以实现同一 transport-neutral Runtime 协议。
-- 本规范不允许 PQL 直接调度 Runtime、签发 Grant 或发布产品缺陷。
+- 本规范不要求 MVP 抵御 hostile code、容器逃逸或已取得当前用户完整控制权的攻击者。
+- 本规范不要求 MVP 支持用户个人 Chrome session；需要登录态时必须引入独立、显式授权的 storage state 或 browser-extension capability。
+- 本规范不锁定 MVP container provider、cloud Artifact Store/KMS 或 Report renderer 的具体供应商，但替换 provider 禁止改变 ownership、digest、redaction、retention、cleanup 和 settlement 语义。
+- Hardened Profile 当前仍以 macOS `Virtualization.framework` 为目标；其他强隔离 provider 必须通过独立 contract 与安全验收引入。
+- 本规范不要求 NyxID 成为唯一传输实现；本机 CLI、企业 Device Agent 或其他自托管通道可以实现同一 transport-neutral Agent 协议。
+- 本规范不允许 PQL 直接调度 Local QA Agent/Runtime、签发 Grant 或发布产品缺陷。
 
 ---
 
 ## 2. 系统不变量与权威边界
+
+### 2.1 `common` 与 `local_qa_agent_mvp` 权威
+
+| 事项 | 唯一权威 | 约束 |
+|---|---|---|
+| Run 持久状态与状态迁移 | hosted workflow | Local event/result/receipt 只能作为推进输入，不能自行宣布云端 terminal。 |
+| SourceAcquisition / RunSpec | hosted source resolver | Source 必须冻结为可重放对象；Agent materialize 后验证 effective SHA 与 digest。 |
+| Structured Plan | testing-design | Plan 进入审批后不可原地修改；revision 变化创建新 Run。 |
+| 设备路由、传输认证和 credential broker | NyxID | NyxID 不解释或扩大业务授权，不拥有测试和报告事实。 |
+| 本地 run admission 与 resource ownership | Local QA Agent | 验证 local transport credential、LocalQARequestAuthorization、Profile、TTL、nonce 和 idempotency；只管理本 Run 资源。 |
+| Environment 生命周期 | Local QA Agent + EnvironmentFactory | hosted 发送意图并消费 Receipt，不直接管理本地容器和进程。 |
+| Step Pass/Fail | testing-runner | Backend 只返回 Observation 和 Artifact。 |
+| Raw quarantine/redaction | Local QA Agent + test-artifacts | raw bytes 禁止进入普通 event 或离开设备。 |
+| Durable Artifact 与 ArtifactIngestReceipt | hosted artifact service | 本地只短期 staging；云端负责访问、保留和删除。 |
+| Final Quality Outcome | quality-evaluation | Report narrative 和 Publication 禁止自行推导或改写。 |
+| DeterministicReport / ReportRecord | hosted report composer/store | 相同 input/rules/template digest 必须可重放。 |
+| GitHub/PQL 副作用 | test-publication adapters | 所有 action 必须带稳定 dedup key 和 Receipt。 |
+
+### 2.2 `hardened_untrusted_code` 补充权威
+
+以下既有 authority table 与边界规则仅适用于 Hardened Profile：
 
 | 事项 | 唯一权威 | 约束 |
 |---|---|---|
@@ -1227,11 +1285,359 @@ type PlanAmendment = ContractMeta & {
 
 ---
 
-## 8. Transport-neutral Runtime 协议与 NyxID Adapter
+## 8. Transport-neutral Local Execution 协议与 NyxID Adapter
 
-### 8.1 Runtime Service Interface
+### 8.1 Local QA Agent MVP Interface
 
-Runtime 协议必须与 NyxID 私有 API 解耦。逻辑接口定义如下：
+MVP 协议必须与 NyxID 私有 API 解耦。NyxID 只把 authenticated request 路由到目标 Agent；Agent 必须独立验证 hosted authorization、Profile、请求摘要、TTL、nonce 和 idempotency。
+
+```ts
+type LocalQARunState =
+  | "accepted"
+  | "preparing"
+  | "ready"
+  | "executing"
+  | "staging_evidence"
+  | "cleaning_up_execution"
+  | "uploading"
+  | "finalizing_local"
+  | "terminal";
+
+type LocalAgentHealth = ContractMeta & {
+  agent_instance_id: string;
+  device_id: string;
+  profile: "local_qa_agent_mvp";
+  agent_version: string;
+  protocol_versions: string[];
+  capabilities: Array<"containers" | "host_chrome" | "artifact_upload" | "event_stream">;
+  container_provider?: string;
+  chrome: { available: boolean; executable_identity_digest?: Sha256 };
+  active_runs: number;
+  admission: "open" | "closed";
+  reason_codes: string[];
+  captured_at: ISO8601;
+};
+
+type LocalAgentTransportContext = {
+  authenticated_service_id: string;
+  node_id: string;
+  agent_instance_id: string;
+  local_authentication_id: string; // opaque id；不含 credential material
+  correlation_id: string;
+};
+
+type LocalQARequestAuthorizationBase = ContractMeta & {
+  authorization_id: string;
+  issuer: "fkst-hosted.local-qa-authority";
+  audience: "fkst-local-qa-agent";
+  actor: ActorRef;
+  caller_workload_id: string;
+  agent_instance_id: string;
+  device_id: string;
+  run_id: UUID;
+  http_method: "PUT" | "GET" | "POST";
+  canonical_path: string;
+  body_digest: Sha256;
+  issued_at: ISO8601;
+  expires_at: ISO8601;
+  nonce: string;
+  purpose: "local_qa_request";
+  signature: SignatureBlock;
+};
+
+type LocalQARequestAuthorization =
+  | (LocalQARequestAuthorizationBase & {
+      operation: "start";
+      http_method: "PUT";
+      run_spec_ref: DigestBoundRef<"qa.runspec/v1">;
+      source_acquisition_ref: DigestBoundRef<"qa.source-acquisition/v1">;
+      plan_ref: DigestBoundRef<"qa.structured-plan/v1">;
+      policy_decision_ref: DigestBoundRef<"qa.policy-decision/v1">;
+      profile: "local_qa_agent_mvp";
+      capability_digest: Sha256;
+    })
+  | (LocalQARequestAuthorizationBase & {
+      operation: "read";
+      http_method: "GET";
+      read_scope: "snapshot" | "events";
+    })
+  | (LocalQARequestAuthorizationBase & {
+      operation: "cancel";
+      http_method: "POST";
+      cancellation_reason: "user_cancelled" | "timed_out" | "superseded";
+      deadline_at: ISO8601;
+    });
+
+type MvpReadinessProbe =
+  | { kind: "http"; logical_service: string; path: string; expected_statuses: number[]; timeout_millis: number }
+  | { kind: "tcp"; logical_service: string; port_name: string; timeout_millis: number }
+  | { kind: "container_health"; logical_service: string; timeout_millis: number }
+  | { kind: "command"; logical_service: string; command_ref: DigestBoundRef<"qa.approved-command/v1">; timeout_millis: number };
+
+type EnvironmentExecutionSpec = ContractMeta & {
+  environment_spec_id: string;
+  provider: "docker_compose" | "docker" | "podman";
+  project_key: string;
+  source_mount: { mode: "read_only" | "copy_on_write"; mount_path: string };
+  environment_definition:
+    | { kind: "source_compose"; source_relative_path: string; file_digest: Sha256; profile_names: string[] }
+    | { kind: "environment_pack"; environment_pack_ref: DigestBoundRef<"qa.environment-pack/v1"> };
+  services: Array<{
+    logical_name: string;
+    role: "application" | "database" | "middleware" | "test_runner";
+    provider_service_name: string;
+    required_for_case_ids: string[];
+    depends_on: string[];
+  }>;
+  exposed_loopback_ports: Array<{ logical_name: string; service_name: string; container_port: number }>;
+  resource_limits: {
+    cpu_millis: number;
+    memory_bytes: number;
+    disk_bytes: number;
+    process_count: number;
+    wall_clock_seconds: number;
+  };
+  network_policy: { allowed_destinations: string[]; host_loopback_targets: string[] };
+  readiness_probes: MvpReadinessProbe[];
+  runner_entry_ref: DigestBoundRef<"qa.runner-entry/v1">;
+};
+
+type BrowserRequirements =
+  | { required: false }
+  | {
+      required: true;
+      browser: "system_chrome";
+      temporary_profile: true;
+      isolated_downloads: true;
+      allowed_origins: string[];
+      browser_action_set_digest: Sha256;
+    };
+
+type ArtifactUploadGrantExchangeCapability = ContractMeta & {
+  capability_id: string;
+  issuer: "fkst-hosted.artifact-upload-authority";
+  audience: { agent_instance_id: string; device_id: string };
+  run_id: UUID;
+  artifact_upload_policy_ref: DigestBoundRef<"qa.artifact-upload-policy/v1">;
+  grant_exchange_endpoint_ref: string;
+  maximum_artifact_count: number;
+  maximum_total_bytes: number;
+  issued_at: ISO8601;
+  expires_at: ISO8601;
+  nonce: string;
+  signature: SignatureBlock;
+};
+
+type LocalQARunRequest = ContractMeta & {
+  request_id: string;
+  run_id: UUID;
+  idempotency_key: string;
+  request_digest: Sha256;
+  authorization: Extract<LocalQARequestAuthorization, { operation: "start" }>;
+  profile: "local_qa_agent_mvp";
+  run_spec_ref: DigestBoundRef<"qa.runspec/v1">;
+  source_acquisition_ref: DigestBoundRef<"qa.source-acquisition/v1">;
+  plan_ref: DigestBoundRef<"qa.structured-plan/v1">;
+  environment: EnvironmentExecutionSpec;
+  browser: BrowserRequirements;
+  opaque_credential_refs: DigestBoundRef[];
+  evidence_policy_ref: DigestBoundRef<"qa.redaction-policy/v1">;
+  artifact_upload_policy_ref: DigestBoundRef<"qa.artifact-upload-policy/v1">;
+  artifact_upload_grant_exchange_capability: ArtifactUploadGrantExchangeCapability;
+  issued_at: ISO8601;
+  deadline_at: ISO8601;
+};
+
+type LocalResourceRecord = {
+  resource_id: string;
+  run_id: UUID;
+  type: "workspace" | "container" | "network" | "volume" | "port" | "process" | "chrome" | "browser_profile" | "downloads" | "raw_quarantine" | "artifact_staging";
+  provider_ref: string;
+  ownership_label: string;
+  state: "planned" | "active" | "releasing" | "released" | "missing" | "unknown";
+};
+
+type StructuredTestResult = ContractMeta & {
+  result_id: string;
+  run_id: UUID;
+  run_spec_ref: DigestBoundRef<"qa.runspec/v1">;
+  plan_ref: DigestBoundRef<"qa.structured-plan/v1">;
+  case_result_refs: DigestBoundRef<"qa.case-result/v1">[];
+  summary: { total: number; passed: number; failed: number; error: number; skipped: number; inconclusive: number };
+  runner_version: string;
+  completed_at: ISO8601;
+};
+
+type EvidenceStagingEntry = {
+  artifact_key: string;
+  media_type: string;
+  post_redaction_digest: Sha256;
+  size_bytes: number;
+  redaction_receipt_ref: DigestBoundRef<"qa.redaction-receipt/v1">;
+  requirement_ids: string[];
+  case_ids: string[];
+  step_ids: string[];
+  assertion_ids: string[];
+  grant_exchange_state: "pending" | "issued" | "not_required";
+  upload_grant_ref?: DigestBoundRef<"qa.artifact-upload-grant/v1">;
+};
+
+type EvidenceStagingManifest = ContractMeta & {
+  staging_manifest_id: string;
+  run_id: UUID;
+  plan_ref: DigestBoundRef<"qa.structured-plan/v1">;
+  case_result_refs: DigestBoundRef<"qa.case-result/v1">[];
+  entries: EvidenceStagingEntry[];
+  missing_requirement_ids: string[];
+  staging_outcome: "ready" | "partial" | "blocked";
+  created_at: ISO8601;
+};
+
+type ArtifactUploadGrantRequest = ContractMeta & {
+  request_id: string;
+  run_id: UUID;
+  agent_instance_id: string;
+  device_id: string;
+  grant_exchange_capability_ref: DigestBoundRef<"qa.artifact-upload-grant-exchange-capability/v1">;
+  artifact_key: string;
+  post_redaction_digest: Sha256;
+  media_type: string;
+  size_bytes: number;
+  redaction_receipt_ref: DigestBoundRef<"qa.redaction-receipt/v1">;
+  idempotency_key: string;
+  requested_at: ISO8601;
+};
+
+type ArtifactUploadGrant = ContractMeta & {
+  grant_id: string;
+  issuer: "fkst-hosted.artifact-upload-authority";
+  audience: { agent_instance_id: string; device_id: string };
+  run_id: UUID;
+  artifact_key: string;
+  expected_post_redaction_digest: Sha256;
+  expected_media_type: string;
+  maximum_size_bytes: number;
+  allowed_operation: "upload";
+  upload_target_ref: string;
+  issued_at: ISO8601;
+  expires_at: ISO8601;
+  nonce: string;
+  signature: SignatureBlock;
+};
+
+type ArtifactUploadReceipt = ContractMeta & {
+  receipt_id: string;
+  run_id: UUID;
+  artifact_key: string;
+  upload_grant_ref: DigestBoundRef<"qa.artifact-upload-grant/v1">;
+  post_redaction_digest: Sha256;
+  size_bytes: number;
+  object_ref?: string;
+  outcome: "uploaded" | "matched_existing" | "failed";
+  retryable: boolean;
+  error?: ErrorEnvelope;
+  settled_at: ISO8601;
+};
+
+type LocalAgentCleanupReceipt = ContractMeta & {
+  receipt_id: string;
+  run_id: UUID;
+  phase: "execution_resources" | "sanitized_staging";
+  attempted_resource_ids: string[];
+  released_resource_ids: string[];
+  residual_resources: Array<{ resource_id: string; type: LocalResourceRecord["type"]; reason_code: string; retryable: boolean }>;
+  outcome: "succeeded" | "partially_succeeded" | "failed" | "not_required";
+  started_at: ISO8601;
+  settled_at: ISO8601;
+};
+
+type CleanupSummary = ContractMeta & {
+  summary_id: string;
+  run_id: UUID;
+  profile: ExecutionProfile;
+  source_receipt_refs: [DigestBoundRef<"qa.local-agent-cleanup-receipt/v1" | "qa.cleanup-receipt/v1">, ...DigestBoundRef<"qa.local-agent-cleanup-receipt/v1" | "qa.cleanup-receipt/v1">[]];
+  execution_resources_outcome: CleanupOutcome;
+  staging_outcome: CleanupOutcome;
+  residual_count: number;
+  blocking_residual_count: number;
+  residual_refs: DigestBoundRef[];
+  projected_at: ISO8601;
+};
+
+type LocalQARunSnapshot = ContractMeta & {
+  local_run_id: string;
+  run_id: UUID;
+  agent_instance_id: string;
+  state: LocalQARunState;
+  event_sequence: number;
+  active_step?: { step_id: string; attempt: number };
+  resource_records: LocalResourceRecord[];
+  structured_result_ref?: DigestBoundRef<"qa.structured-test-result/v1">;
+  evidence_staging_manifest_ref?: DigestBoundRef<"qa.evidence-staging-manifest/v1">;
+  artifact_upload_receipt_refs: DigestBoundRef<"qa.artifact-upload-receipt/v1">[];
+  cleanup_receipt_refs: DigestBoundRef<"qa.local-agent-cleanup-receipt/v1">[];
+  cleanup_summary_ref?: DigestBoundRef<"qa.cleanup-summary/v1">;
+  execution_outcome?: ExecutionOutcome;
+  evidence_outcome?: EvidenceOutcome;
+  upload_outcome?: UploadOutcome;
+  cleanup_outcome?: CleanupOutcome;
+  last_error?: ErrorEnvelope;
+  updated_at: ISO8601;
+};
+
+type LocalQARunEvent = ContractMeta & {
+  event_id: string;
+  run_id: UUID;
+  sequence: number;
+  type: "run_accepted" | "state_changed" | "readiness_updated" | "case_result_recorded" | "artifact_staged" | "execution_cleanup_updated" | "artifact_upload_grant_issued" | "artifact_uploaded" | "staging_cleanup_updated" | "run_terminal";
+  snapshot_digest: Sha256;
+  payload_ref?: DigestBoundRef;
+  created_at: ISO8601;
+};
+
+type LocalQAReadRequest = {
+  run_id: UUID;
+  transport: LocalAgentTransportContext;
+  authorization: Extract<LocalQARequestAuthorization, { operation: "read" }>;
+};
+
+type LocalQAEventBatch = ContractMeta & {
+  run_id: UUID;
+  after_sequence: number;
+  events: LocalQARunEvent[];
+  through_sequence: number;
+  has_more: boolean;
+  snapshot_digest: Sha256;
+};
+
+type LocalQACancelRequest = {
+  run_id: UUID;
+  idempotency_key: string;
+  request_digest: Sha256;
+  transport: LocalAgentTransportContext;
+  authorization: Extract<LocalQARequestAuthorization, { operation: "cancel" }>;
+};
+
+type LocalQAAgentService = {
+  probeHealth(request: { detail: "public" } | { detail: "authenticated"; transport: LocalAgentTransportContext }): Promise<LocalAgentHealth>;
+  putRun(request: { transport: LocalAgentTransportContext; run: LocalQARunRequest }): Promise<{ disposition: "new" | "idempotent_replay"; snapshot: LocalQARunSnapshot }>;
+  getRun(request: LocalQAReadRequest): Promise<LocalQARunSnapshot>;
+  getEvents(request: LocalQAReadRequest & { after_sequence?: number; limit: number }): Promise<LocalQAEventBatch>;
+  cancelRun(request: LocalQACancelRequest): Promise<LocalQARunSnapshot>;
+};
+```
+
+MVP wire 映射固定为 `GET /v1/health`、`PUT /v1/runs/{run_id}`、`GET /v1/runs/{run_id}`、`GET /v1/runs/{run_id}/events?after_sequence=N&limit=M` 和 `POST /v1/runs/{run_id}:cancel`。Hosted 预生成 `run_id`；NyxID 只路由这些请求，不提供 Agent 主动 unsolicited push。Event read 必须 bounded，断线后按 cursor 重连。
+
+MVP 状态和 Outcome 必须分离。任何已经拥有执行资源的失败、取消、超时或 Agent shutdown recovery 都必须进入 `cleaning_up_execution`。Evidence staging 完成后必须先释放 Chrome、runner、container、port 等执行资源，再进入 grant exchange/upload；只有 sanitized staging 可以按 bounded TTL 保留到 `finalizing_local`。Agent 重启禁止自动重新执行测试；只允许恢复查询、对账可证明的 upload attempt，并清理 journal 中已知 owned resources。
+
+`putRun` 必须先按 `(idempotency_key, request_digest)` 查询 durable 结果。同 key 同 digest 返回原 snapshot；同 key 不同 digest 必须拒绝且不得创建 workspace、container、port 或 Chrome。每个资源必须带 `run_id` ownership label 或等价不可伪造 handle。所有非 public-health 操作必须同时验证 Node 注入的 local transport credential 和 Hosted 签名的 operation-specific authorization；任一层都不能替代另一层。
+
+MVP 不提供长期 `getArtifact`。Run 创建时禁止预签未知 post-redaction digest 的 grant；Agent 完成 redaction/validation 后使用 `ArtifactUploadGrantExchangeCapability` 申请 per-object `ArtifactUploadGrant`。durable read、retention 和 deletion 由 hosted artifact service 负责。
+
+### 8.2 Hardened Runtime Service Interface
+
+以下 Runtime 协议只适用于 `hardened_untrusted_code`，必须与 NyxID 私有 API 解耦。逻辑接口定义如下：
 
 ```ts
 type RuntimeRunState =
@@ -1710,7 +2116,23 @@ Cancel 必须通过 §8.3 的 `CancelCommand` 提交，禁止存在绕过 `Comma
 
 Runtime v1 可以通过 loopback HTTP + authenticated streaming 实现，但 wire transport 禁止改变上述语义。
 
-### 8.2 NyxID Adapter 映射
+### 8.3 NyxID Adapter 映射
+
+#### 8.3.1 Local QA Agent MVP
+
+| Agent 操作 | NyxID 下行/上行映射 | 要求 |
+|---|---|---|
+| `GET /v1/health` | Cloud-originated query → Node route → Agent | 不启动资源；public/authenticated detail 分级。 |
+| `PUT /v1/runs/{run_id}` | Hosted request → explicit node-pinned service → loopback/Unix Agent | Node 不修改 signed authorization、Profile、digest、deadline 或 grant-exchange capability。 |
+| `GET /v1/runs/{run_id}` | Cloud-originated query → Node route → Agent snapshot | 返回 structured result、upload 和 cleanup refs，不返回 raw evidence。 |
+| `GET /v1/runs/{run_id}/events` | Cloud-originated bounded read → Node route → Agent event batch | 按 `(run_id, sequence)` 去重；断线后用 `after_sequence` 恢复；不暗示 Agent 可 unsolicited push。 |
+| `POST /v1/runs/{run_id}:cancel` | Hosted cancellation → Node route → Agent | Agent 持久化 cancel intent，停止 owned process tree，并进入 execution Cleanup。 |
+
+NyxID Adapter 必须使用 Node 主动建立的出站连接，对 loopback/Unix Agent 注入生产本地 credential，并把 routing error 与 Agent application error 分开编码。生产 Hosted identity 必须 scope 到明确 service/node；显式 Node 不可用时 fail closed。NyxID 禁止执行 container/Chrome/test/report action，禁止把 credential broker 或 SSH exec 扩大为通用 QA shell authority。Artifact bytes 不经这些 Run response 返回，而由 Agent 使用 per-object grant 上传 Hosted artifact ingestion。
+
+#### 8.3.2 Hardened Runtime
+
+以下表只适用于 `hardened_untrusted_code`：
 
 | Runtime 操作 | NyxID 下行/上行映射 | 要求 |
 |---|---|---|
@@ -1734,7 +2156,7 @@ NyxID Adapter 必须：
 
 NyxID Adapter 禁止执行 Plan Step、注入 Secret、推导 Pass/Fail、缓存 Authorization Authority 私钥，或在转发时替换 fence/cursor。
 
-### 8.3 RuntimeCommand
+### 8.4 Hardened RuntimeCommand
 
 ```ts
 type CommandPrecondition = {
@@ -1922,7 +2344,7 @@ type RuntimeCommand =
 
 首次 admission 才进入 single-writer transaction，并同时验证 hosted/local fence、deadline、command sequence、CommandPrecondition/Target 和 command-specific authority。Cancel 首先激活更高的 `control_quiesce_reconcile` fence，只可 suppress/quiesce/reconcile/terminate/revoke；seal transaction 成功后，独立的 `cleanup_takeover` 才能使用更高 `control_cleanup` fence、sealed inventory 和 successor capability执行 release/delete。owner cleanup 必须绑定当前 active lease。所有 Cleanup 都必须绑定同一 lineage 的最新 sealed snapshot ref/version/digest 与 seal receipt；裸 digest、open snapshot、旧 version 或跨 lineage snapshot必须在副作用前拒绝。
 
-### 8.4 RuntimeEvent
+### 8.5 Hardened RuntimeEvent
 
 ```ts
 type RuntimeEventCause =
@@ -2019,9 +2441,71 @@ type RuntimeEventBatch = RuntimeScopedMeta & {
 
 ---
 
-## 9. `EnvironmentFactory`、Capability、Credential 与 Sandbox 生命周期
+## 9. `EnvironmentFactory`、Credential 与 Execution Profile 生命周期
 
-### 9.1 Resource Inventory、CleanupCapability 与 CredentialLease
+### 9.A Local QA Agent MVP Environment
+
+MVP `EnvironmentFactory` 必须复用 Prepare、conditional Readiness、resource registration 和 compensation Cleanup 语义，但具体 provider 是 per-run container/Compose adapter，而不是 VZ guest。
+
+```ts
+type MvpReadinessProbeResult = {
+  probe: MvpReadinessProbe;
+  attempt: number;
+  outcome: "ready" | "not_ready" | "failed" | "skipped_not_required";
+  safe_observation_ref?: DigestBoundRef<"qa.sanitized-observation/v1">;
+  checked_at: ISO8601;
+};
+
+type MvpReadinessReceipt = ContractMeta & {
+  receipt_id: string;
+  environment_id: string;
+  run_id: UUID;
+  results: MvpReadinessProbeResult[];
+  outcome: "ready" | "not_ready" | "failed";
+  checked_at: ISO8601;
+};
+
+type MvpPreparedEnvironment = ContractMeta & {
+  environment_id: string;
+  run_id: UUID;
+  profile: "local_qa_agent_mvp";
+  workspace_ref: string;
+  container_project_ref: string;
+  service_refs: string[];
+  loopback_endpoints: Array<{ logical_name: string; url: string }>;
+  resource_record_refs: DigestBoundRef[];
+  prepared_at: ISO8601;
+};
+
+type MvpPrepareResult =
+  | { outcome: "ready"; environment: MvpPreparedEnvironment; readiness_receipt_ref: DigestBoundRef<"qa.mvp-readiness-receipt/v1"> }
+  | { outcome: "partial_failure"; resource_record_refs: DigestBoundRef[]; error: ErrorEnvelope }
+  | { outcome: "failed_without_resources"; error: ErrorEnvelope };
+
+type MvpEnvironmentFactory = {
+  prepare(request: LocalQARunRequest): Promise<MvpPrepareResult>;
+  checkReadiness(environment: MvpPreparedEnvironment): Promise<MvpReadinessReceipt>;
+  cleanup(input: { run_id: UUID; phase: LocalAgentCleanupReceipt["phase"]; resource_records: LocalResourceRecord[]; reason: "completed" | "failed" | "cancelled" | "timed_out" | "agent_restart" }): Promise<LocalAgentCleanupReceipt>;
+};
+```
+
+MVP Container boundary 必须满足：
+
+- source 只以 read-only 或 Run 专属 copy-on-write 方式进入 workspace。
+- 禁止挂载用户 home、SSH、Keychain、个人浏览器目录、其他仓库和 Docker socket。
+- App、数据库、Middleware 和测试进程位于 Run 专属 project/network。
+- 只向宿主发布 Plan 声明的 loopback ports。
+- CPU、memory、disk、process count 和 wall-clock 使用显式上限。
+- 所有 container/network/volume/process/port 必须进入 `LocalResourceRecord`。
+- `environment_definition` 只能引用 immutable Source 中 digest-bound 的 Compose/profile 文件，或受信版本化 Environment Pack；Agent endpoint 禁止接收任意 Compose YAML 或 shell 字符串。
+- Evidence staging 完成后，Cleanup 必须先停止 Browser/runner，再停止 service/process，最后删除 container/network/volume/workspace；sanitized staging 使用独立 Cleanup phase，在 upload settled 或 TTL 到期后删除。
+- 这些约束不构成 hostile-code 保证；不可信输入必须使用 Hardened Profile。
+
+MVP Credential 只能以 opaque reference 或精确目标、短 TTL 的 materialization 交给批准的 App/Middleware/test process。Secret 禁止进入 Plan 明文字段、普通 event、StructuredTestResult、Evidence、Report 或本地长期 disk。
+
+### 9.H1 Hardened Resource Inventory、CleanupCapability 与 CredentialLease
+
+以下 §9.H1-§9.H5 只适用于 `hardened_untrusted_code`：
 
 ```ts
 type ExecutableIdentity = ContractMeta & {
@@ -2412,7 +2896,7 @@ Process Warden 必须以 `(execution_domain, pid, process_start_token, process_g
 
 Secret 值、`sealed_lease_handle_ref` 和实际 materialization location 禁止离开独立 Secret Broker helper 与获准 process domain；Supervisor、Ledger 和 Process Warden 只持有 digest-bound reference、ownership metadata 和签名 Receipt。`opaque_materialization_ref` 只能由当前 broker boot epoch 解析。Secret materialization 必须同时匹配 CredentialLease、ProcessLaunchBinding、ExecutableIdentity、实际 ProcessIdentity、Step、destination 与 fence；PID、进程名或 role 相同不能替代 executable/launch binding。每次 materialize/release/fail 都必须产生 strict `SecretMaterializationReceipt`，签名字节按 §3.6 且 `purpose="secret_materialization_receipt"`。hosted、NyxID、TypeScript worker、普通 Event 和 Artifact Store 只能看到 digest-bound lease/receipt reference。
 
-### 9.2 EnvironmentFactory Interface
+### 9.H2 Hardened EnvironmentFactory Interface
 
 ```ts
 type RuntimeHardCeilings = RuntimeScopedMeta & {
@@ -2803,7 +3287,7 @@ Runtime 必须在任何 untrusted binary、包管理器、项目配置、lifecyc
 
 `PrepareDesignResult`、`PrepareExecutionResult` 和 `VZSandboxReceipt` 都必须按 strict union 校验。只要已创建 VM、process、port、directory、mount、CredentialLease 或其他本地资源，prepare 失败就必须返回 `partial_failure`，携带最新 inventory snapshot 与 CleanupCapability，并立即进入 Cleanup；禁止返回裸 error 丢失部分资源。只有能够权威证明没有创建任何资源时才可返回 `failed_without_resources`。
 
-### 9.3 ReadinessReceipt
+### 9.H3 Hardened ReadinessReceipt
 
 ```ts
 type ReadinessReceipt = ContractMeta & {
@@ -2825,7 +3309,7 @@ type ReadinessReceipt = ContractMeta & {
 };
 ```
 
-### 9.4 Local PEP 与 SecretBroker Client
+### 9.H4 Hardened Local PEP 与 SecretBroker Client
 
 ```ts
 type EffectRequestBase = ContractMeta & {
@@ -3155,11 +3639,11 @@ type SecretBrokerClient = {
 
 `VerifierInput`、`EffectRequest`、`EffectAuthorization`、`EffectContext`、`CheckedDigests`、`EffectDecision` 和 `EffectReceipt` 都是 exact-object strict union。Design verifier 只能接受 Design context/Grant/Policy，Execution verifier 只能接受 Execution context/Grant/Plan/Policy，Cleanup verifier 只能接受 control-cleanup context/capability/sealed inventory；跨 phase 字段必须以 `contract.forbidden_field` 拒绝。`design_bootstrap` 与 `execution_bootstrap` 明确禁止要求或携带 `PlanStep`、`PreparedEnvironment`、active worker identity 或尚未创建的 ProcessWardenScope；它们只能执行创建对应 environment 所需、且已被 admission receipt/Grant/Policy/initial inventory/CleanupCapability 绑定的最小 bootstrap effect。每个文件、进程、网络、Secret、浏览器和资源动作必须由 Rust `EffectGate.perform` 统一完成 admission、执行、inventory 更新和 Receipt 持久化。`EffectGate` 禁止向 TypeScript worker、guest agent 或 Backend 返回可脱离 Gate 使用的 allow token、文件描述符、CDP endpoint、Secret material 或裸宿主 capability；`EffectDecision(effect="allow")` 只能作为同一 `perform` 调用内部及其 Receipt 的组成部分。
 
-`EffectGate.perform` 必须先在 SQLite 写入 `EffectRecord(state="pending")`，再原子转为 `dispatching` 后调用受控 adapter，并按 §16.2 的 canonical EffectState 写入 Receipt、inventory 新版本和 Event outbox。deny 必须在副作用前持久化；`failed_retryable` 只能在可证明无副作用或有确定补偿时重试，`failed_final` 不得重放，`uncertain` 必须进入 `reconciling`。`side_effect_state="partial"|"unknown"` 必须携带或随后生成可 Cleanup 的 inventory snapshot，并强制 reconcile/seal/cleanup，禁止由 caller 自行猜测是否重试。所有 adapter 原始输出先进入本地 raw quarantine；只有持久化 RedactionReceipt 和 SanitizedObservation 后才能进入普通 Receipt/Event/Artifact。
+`EffectGate.perform` 必须先在 SQLite 写入 `EffectRecord(state="pending")`，再原子转为 `dispatching` 后调用受控 adapter，并按 §16.H1 的 canonical EffectState 写入 Receipt、inventory 新版本和 Event outbox。deny 必须在副作用前持久化；`failed_retryable` 只能在可证明无副作用或有确定补偿时重试，`failed_final` 不得重放，`uncertain` 必须进入 `reconciling`。`side_effect_state="partial"|"unknown"` 必须携带或随后生成可 Cleanup 的 inventory snapshot，并强制 reconcile/seal/cleanup，禁止由 caller 自行猜测是否重试。所有 adapter 原始输出先进入本地 raw quarantine；只有持久化 RedactionReceipt 和 SanitizedObservation 后才能进入普通 Receipt/Event/Artifact。
 
 Secret Broker 是与 Supervisor 同一签名部署目标内、由 Warden 管理的独立非特权 helper。Supervisor/EffectGate 决定是否允许 Secret effect，并只向 broker 发送 exact `SecretBrokerRequest`；broker 不能读取 Plan、签发 Grant、扩大 scope 或写 Ledger。broker 必须验证自身 binding/boot epoch、EffectRecord、Grant-derived binding、Step/destination/fence、ProcessDomainDescriptor 与实际 ProcessIdentity。proxy mode 下只有 broker 是明文 custodian；guest injection 下 broker 与受控 injector/获准 process domain 是临时 custodian；environment/file mode 必须把获准 descendants、FD/environment/file inheritance 和擦除范围写入 ProcessDomainDescriptor 与 Receipt。所有模式都必须禁用 core dump，阻止 domain 外 ptrace，避免 swap/crash report/logging 泄漏。Step 完成、取消、超时、Grant 撤销、Cleanup 或 Runtime 恢复时必须 release materialization并 revoke/reconcile lease；状态未知时形成 blocking residual。
 
-### 9.5 Sandbox 强制要求
+### 9.H5 Hardened Sandbox 强制要求
 
 EnvironmentFactory 必须：
 
@@ -3201,17 +3685,29 @@ type BackendObservation = ContractMeta & {
   amendment_signal?: { reason_code: AmendmentReasonCode; requested_action: PlanAction };
 };
 
+type StepAttemptExecutionBinding =
+  | {
+      profile: "local_qa_agent_mvp";
+      prepared_environment_ref: DigestBoundRef<"qa.mvp-prepared-environment/v1">;
+      local_attempt_id: string;
+      local_resource_refs: DigestBoundRef[];
+    }
+  | {
+      profile: "hardened_untrusted_code";
+      fence: ExecutionFence;
+      effect_record_refs: DigestBoundRef<"qa.effect-record/v1">[];
+      termination_receipt_ref?: DigestBoundRef<"qa.termination-receipt/v1">;
+      resource_usage_receipt_refs: DigestBoundRef<"qa.resource-usage-receipt/v1">[];
+    };
+
 type StepAttemptReceipt = ContractMeta & {
   receipt_id: string;
   plan_ref: DigestBoundRef<"qa.structured-plan/v1">;
   step_id: string;
   attempt: number;
   backend: "deterministic" | "browser" | "codex";
-  fence: ExecutionFence;
-  effect_record_refs: DigestBoundRef<"qa.effect-record/v1">[];
+  execution_binding: StepAttemptExecutionBinding;
   observation_ref?: DigestBoundRef<"qa.backend-observation/v1">;
-  termination_receipt_ref?: DigestBoundRef<"qa.termination-receipt/v1">;
-  resource_usage_receipt_refs: DigestBoundRef<"qa.resource-usage-receipt/v1">[];
   outcome: "completed" | "failed" | "cancelled" | "timed_out" | "amendment_required";
   started_at: ISO8601;
   completed_at: ISO8601;
@@ -3255,16 +3751,44 @@ type TerminationReceipt =
       outcome: "already_terminated";
     });
 
+type MvpBackendExecutionContext = {
+  profile: "local_qa_agent_mvp";
+  run_id: UUID;
+  step: PlanStep;
+  environment: MvpPreparedEnvironment;
+  policy_decision: PolicyDecision;
+  approved_action_envelope_ref: DigestBoundRef<"qa.action-envelope/v1">;
+  attempt: number;
+  deadline_at: ISO8601;
+};
+
+type HardenedBackendExecutionContext = {
+  profile: "hardened_untrusted_code";
+  run_id: UUID;
+  step: PlanStep;
+  environment: PreparedEnvironment;
+  policy_decision: PolicyDecision;
+  grant: SignedGrant<ExecutionGrantClaims>;
+  fence: ExecutionFence;
+  attempt: number;
+};
+
 type TestingBackend = {
-  execute(input: {
+  execute(input: MvpBackendExecutionContext | HardenedBackendExecutionContext): Promise<BackendObservation>;
+};
+
+type MvpBackendController = {
+  cancel(input: {
     run_id: UUID;
-    step: PlanStep;
-    environment: PreparedEnvironment;
-    policy_decision: PolicyDecision;
-    grant: SignedGrant<ExecutionGrantClaims>;
-    fence: ExecutionFence;
-    attempt: number;
-  }): Promise<BackendObservation>;
+    local_attempt_id: string;
+    resource_records: LocalResourceRecord[];
+    reason: "cancelled" | "timed_out" | "shutdown" | "cleanup";
+    deadline_at: ISO8601;
+    idempotency_key: string;
+  }): Promise<LocalAgentCleanupReceipt>;
+};
+
+type HardenedBackendController = {
   cancel(input: {
     run_id: UUID;
     target_scope: TerminationTargetScope;
@@ -3276,9 +3800,46 @@ type TestingBackend = {
 };
 ```
 
-Deterministic、Browser 和 Codex Backend 必须实现同一 observation 接口。Backend/TypeScript worker 必须把动作建模为 EffectRequest 并调用 `EffectGate.perform`；禁止在取得 allow decision 后自行执行。EffectGate 必须校验 phase-specific context、Plan action/envelope（Execution）、Policy、Grant、lease/fence、admission receipt、inventory version、ExecutableIdentity、ProcessLaunchBinding 和 Process Warden identity。`cancel` 的 acknowledgement 不是完成证据；只有 `TerminationReceipt(kind="performed", outcome="terminated")` 或可验证的 `kind="already_terminated"` 才能证明 target scope 已终止，`partially_terminated`/`failed` 必须进入 Cleanup/repair，且任何 TerminationReceipt 都不能替代其他 inventory resource 的 Cleanup。
+Deterministic、Browser 和 Codex Backend 必须实现同一 observation 接口，但 execution context 与取消控制按 Profile 分离。MVP Backend 只接受 Hosted 冻结的 Plan/Policy/action envelope、MvpPreparedEnvironment、attempt 和 deadline，由 Agent 根据 LocalResourceRecord 管理进程与补偿 Cleanup；它不得被要求伪造 ExecutionGrant、Fence 或 EffectRecord。Hardened Backend/TypeScript worker 才必须把动作建模为 EffectRequest 并调用 `EffectGate.perform`，由 EffectGate 校验 phase-specific context、Plan、Policy、Grant、lease/fence、admission receipt、inventory、ExecutableIdentity、ProcessLaunchBinding 和 Warden identity。
 
-### 10.2 BrowserProvider 与最小安全能力集
+两种 Profile 的 cancel acknowledgement 都不是完成证据。MVP 必须以 `LocalAgentCleanupReceipt` 证明 owned process/resource 已释放或形成 residual；Hardened 必须以 `TerminationReceipt` 和后续 CleanupReceipt 证明 target scope 与其他 inventory resource 已结算。
+
+### 10.2 Local QA Agent MVP Browser Controller
+
+MVP Browser Controller 必须运行宿主系统 Chrome，但只能管理 Agent 自己创建的专用 session：
+
+```ts
+type MvpBrowserSession = ContractMeta & {
+  browser_session_id: string;
+  run_id: UUID;
+  browser: "system_chrome";
+  executable_identity_digest: Sha256;
+  temporary_profile_ref: string;
+  downloads_ref: string;
+  process_resource_ref: DigestBoundRef;
+  allowed_origins: string[];
+  created_at: ISO8601;
+};
+
+type MvpBrowserController = {
+  create(input: { run_id: UUID; requirements: Extract<BrowserRequirements, { required: true }>; target_endpoints: string[] }): Promise<MvpBrowserSession>;
+  perform(session: MvpBrowserSession, action: BrowserAction): Promise<BackendObservation>;
+  close(session: MvpBrowserSession): Promise<{ terminated: boolean; profile_removed: boolean; downloads_settled: boolean }>;
+};
+```
+
+MVP Browser Controller 必须：
+
+- 启动独立 Chrome process tree、temporary profile 和 isolated downloads。
+- 禁止附加用户已打开的 Chrome、读取个人 cookies/extensions/Keychain 或复用个人 profile。
+- 只接受 Structured Plan 中 strict `BrowserAction`；禁止向 worker、hosted 或 NyxID 暴露 arbitrary CDP endpoint/token。
+- 默认只访问本 Run 的 loopback target；额外 origin 必须由 Plan 声明。
+- screenshot、DOM、HTTP、trace 和 download metadata 必须进入 quarantine/redaction 后才能产生 ArtifactPointer。
+- success、failure、cancel、timeout 和 Agent restart cleanup 都必须终止 process tree 并删除 profile/download staging。
+
+MVP 不承诺 OS 级 direct-socket denial。需要 hostile page、强 egress enforcement 或可证明 direct-socket blocking 时，必须使用 Hardened BrowserProvider。
+
+### 10.H2 Hardened BrowserProvider 与最小安全能力集
 
 ```ts
 type NetworkProxyBinding = ContractMeta & {
@@ -3454,6 +4015,31 @@ CaseResult 必须包含 PlanCase 声明的全部 assertion id 和 evidence requi
 
 ## 11. Artifact、Evidence 与 Cleanup 契约
 
+### 11.A Local QA Agent MVP Handoff
+
+MVP 本地 Artifact 生命周期固定为：
+
+```text
+raw observation
+→ bounded quarantine
+→ RedactionPolicy
+→ RedactionReceipt
+→ sanitized validation
+→ post-redaction digest
+→ EvidenceStagingManifest
+→ execution resource cleanup
+→ ArtifactUploadGrantRequest
+→ ArtifactUploadGrant
+→ ArtifactUploadReceipt
+→ sanitized staging cleanup
+```
+
+Local QA Agent 禁止把 raw quarantine 暴露给 `getRun`、event batch、NyxID、hosted report composer 或 Publication。Run 创建时只能携带 upload policy 和 grant-exchange capability；Upload grant 必须在 post-redaction digest 已知后签发，并同时绑定 `run_id`、agent/device audience、artifact key、post-redaction digest、media type、maximum bytes 和短 TTL。
+
+Evidence staging 完成后，Agent 必须先释放 Chrome、runner、service、container、port、network、volume 和 workspace，再等待 grant exchange/upload。云端收到对象后必须生成 `ArtifactIngestReceipt`；只有 ingestion 成功或匹配既有同 digest 对象后，Artifact 才成为 durable `ArtifactPointer`。Sanitized staging 不是长期 Artifact Store，不提供 MVP `getArtifact`，只允许在 bounded TTL 内用于 upload reconciliation。
+
+MVP `LocalAgentCleanupReceipt` 和 Hardened `CleanupReceipt` 必须投影为 common `CleanupSummary`，同时保留各自 source receipt 与 residual 明细。Quality、Report 和 RunSettlement 消费 CleanupSummary，不把 MVP receipt 假装成 `qa.cleanup-receipt/v1`。Upload failure 与 Cleanup failure 必须独立，禁止一个 outcome 覆盖另一个。
+
 ### 11.1 ArtifactPointer
 
 ```ts
@@ -3464,6 +4050,14 @@ type RedactionRule =
   | { kind: "text_pattern"; engine: "re2"; pattern: string; maximum_matches: number; action: "replace_constant" | "hmac_sha256"; replacement?: string }
   | { kind: "filesystem_path"; allowed_root_names: SandboxRootName[]; action: "replace_with_root_qualified_path" | "remove" }
   | { kind: "image_region"; detector_ref: DigestBoundRef<"qa.redaction-detector/v1">; action: "solid_fill"; fill_rgb: [number, number, number] };
+
+type EvidenceProducerBinding =
+  | { profile: "local_qa_agent_mvp"; run_id: UUID; agent_instance_id: string; local_resource_ref: DigestBoundRef }
+  | { profile: "hardened_untrusted_code"; environment_id: string; producing_effect_id: string; producing_effect_request_digest: Sha256 };
+
+type RedactorIdentity =
+  | { profile: "local_qa_agent_mvp"; agent_instance_id: string; executable_digest: Sha256; redactor_version: string }
+  | { profile: "hardened_untrusted_code"; executable_identity_ref: DigestBoundRef<"qa.executable-identity/v1"> };
 
 type RedactionPolicy = ContractMeta & {
   policy_id: string;
@@ -3487,14 +4081,12 @@ type RedactionPolicy = ContractMeta & {
     require_second_pass_scan: true;
   };
   failure_behavior: "retain_encrypted_quarantine_until_ttl_or_delete";
-  redactor_executable_identity_refs: [DigestBoundRef<"qa.executable-identity/v1">, ...DigestBoundRef<"qa.executable-identity/v1">[]];
+  allowed_redactor_identities: [RedactorIdentity, ...RedactorIdentity[]];
 };
 
 type RawQuarantineArtifact = ContractMeta & {
   quarantine_id: string;
-  environment_id: string;
-  producing_effect_id: string;
-  producing_effect_request_digest: Sha256;
+  producer: EvidenceProducerBinding;
   media_type: string;
   raw_byte_size: number;
   raw_byte_digest: Sha256;
@@ -3509,7 +4101,7 @@ type RedactionReceipt =
       receipt_id: string;
       quarantine_ref: DigestBoundRef<"qa.raw-quarantine-artifact/v1">;
       redaction_policy_ref: DigestBoundRef<"qa.redaction-policy/v1">;
-      redactor_executable_identity_ref: DigestBoundRef<"qa.executable-identity/v1">;
+      redactor_identity: RedactorIdentity;
       rule_set_digest: Sha256;
       raw_byte_digest: Sha256;
       raw_bytes_scanned: number;
@@ -3539,8 +4131,7 @@ type RedactionReceipt =
 
 type SanitizedObservation = ContractMeta & {
   observation_id: string;
-  producing_effect_id: string;
-  producing_effect_request_digest: Sha256;
+  producer: EvidenceProducerBinding;
   redaction_receipt_ref: DigestBoundRef<"qa.redaction-receipt/v1">;
   schema_ref: DigestBoundRef;
   sanitized_payload: unknown;
@@ -3630,7 +4221,7 @@ type ArtifactPointer = ContractMeta & {
 
 Raw bytes、DOM、trace、network payload、stdout/stderr 和 screenshot 必须先作为 `RawQuarantineArtifact` 进入 Runtime-only 隔离区；该对象及其 storage token 禁止经 RuntimeService、Event、hosted、NyxID、Backend 或 Publication 暴露。只有 `RedactionReceipt(kind="completed")` 精确绑定 raw digest、policy 和 sanitized digest 后才能创建 durable `SanitizedObservation` 与 `ArtifactPointer`。`ArtifactPointer.byte_digest` 必须按脱敏后原始 bytes 计算并等于 receipt 的 `sanitized_byte_digest`；失败 receipt 必须销毁或继续隔离 raw object，并阻止 Evidence sufficient、上传和发布。`opaque_path_token` 禁止暴露用户真实绝对路径。
 
-`RedactionPolicy` 必须是 Runtime redactor 可直接执行的 exact contract，禁止只包含自然语言提示、示例或“best effort”开关。每条规则必须使用固定 engine/action，RE2 pattern、JSON path、header/cookie 名称、detector ref、替换常量和所有 limit 都属于 `rule_set_digest`；需要 HMAC pseudonymization 时只能传 opaque `hmac_key_ref` 给获准 redactor domain。输入 media type、byte/decompression/archive/time/finding limit 任一超限，unknown media type、detector unavailable、规则无法执行、second-pass 仍命中 forbidden class、output schema 不通过或 sanitized bytes 超限时必须产生 failed Receipt，不得输出部分脱敏 Artifact。Completed Receipt 必须证明 exact redactor identity、完整扫描字节数、transform digest、second-pass digest、schema validation digest 和 quarantine disposition；两种 Receipt 都必须由当前 device-bound Runtime key 按 §3.6 `purpose="redaction_receipt"` 签名。调用方禁止跳过规则、把 findings 截断后声称成功，或在 Receipt 持久化前释放 sanitized bytes。
+`RedactionPolicy` 必须是 Runtime redactor 可直接执行的 exact contract，禁止只包含自然语言提示、示例或“best effort”开关。每条规则必须使用固定 engine/action，RE2 pattern、JSON path、header/cookie 名称、detector ref、替换常量和所有 limit 都属于 `rule_set_digest`；需要 HMAC pseudonymization 时只能传 opaque `hmac_key_ref` 给获准 redactor domain。输入 media type、byte/decompression/archive/time/finding limit 任一超限，unknown media type、detector unavailable、规则无法执行、second-pass 仍命中 forbidden class、output schema 不通过或 sanitized bytes 超限时必须产生 failed Receipt，不得输出部分脱敏 Artifact。Completed Receipt 必须证明与 Profile 匹配的 exact redactor identity、完整扫描字节数、transform digest、second-pass digest、schema validation digest 和 quarantine disposition。MVP Receipt 由 Agent identity 签名，Hardened Receipt 由当前 device-bound Runtime key 按 §3.6 `purpose="redaction_receipt"` 签名。调用方禁止跳过规则、把 findings 截断后声称成功，或在 Receipt 持久化前释放 sanitized bytes。
 
 v1 的 Artifact policy 固定如下：
 
@@ -3839,7 +4430,9 @@ Cleanup 必须按 Run ownership tag、ExecutableIdentity/ProcessLaunchBinding/Pr
 - `terminal` 前所有 CredentialLease 必须有 `status="settled"` receipt，所有 materialization 必须有 `kind="released"` Receipt；任何 `credential_active`、`secret_materialized` residual 或 materialization 状态未知都阻止操作完成并触发最高优先级 repair。
 - higher-fence cleanup 必须使用 capability successor、`cleanup_takeover` command 和 control-cleanup verifier；它只可减少 residual，禁止恢复 Execution lease、创建新测试资源或修改 sealed predecessor inventory。
 
-### 11.4 ArtifactStore Interface
+### 11.4 Hardened Local ArtifactStore Interface
+
+以下本地长期 ArtifactStore、capability read 和 runtime-served bytes 仅适用于 `hardened_untrusted_code`。MVP 使用 §11.A 的 upload-only handoff 和 hosted durable store。
 
 ```ts
 type ArtifactStore = {
@@ -3869,7 +4462,141 @@ type ArtifactStore = {
 
 ---
 
-## 12. Quality、Publication 与 PQL 契约
+## 12. Quality、Cloud Report、Publication 与 PQL 契约
+
+### 12.A Artifact Ingestion 与 Cloud Report Composition
+
+```ts
+type ArtifactIngestReceipt = ContractMeta & {
+  receipt_id: string;
+  run_id: UUID;
+  artifact_key: string;
+  upload_receipt_ref: DigestBoundRef<"qa.artifact-upload-receipt/v1">;
+  stored_artifact_ref?: DigestBoundRef<"qa.artifact-pointer/v1">;
+  verified_digest: Sha256;
+  verified_size_bytes: number;
+  outcome: "ingested" | "matched_existing" | "rejected";
+  reason_codes: string[];
+  ingested_at: ISO8601;
+};
+
+type ReportInputSet = ContractMeta & {
+  input_set_id: string;
+  run_id: UUID;
+  run_spec_ref: DigestBoundRef<"qa.runspec/v1">;
+  source_acquisition_ref: DigestBoundRef<"qa.source-acquisition/v1">;
+  plan_ref?: DigestBoundRef<"qa.structured-plan/v1">;
+  structured_test_result_ref?: DigestBoundRef<"qa.structured-test-result/v1">;
+  case_result_refs: DigestBoundRef<"qa.case-result/v1">[];
+  evidence_manifest_refs: DigestBoundRef<"qa.evidence-manifest/v1">[];
+  artifact_ingest_receipt_refs: DigestBoundRef<"qa.artifact-ingest-receipt/v1">[];
+  cleanup_summary_ref: DigestBoundRef<"qa.cleanup-summary/v1">;
+  execution_outcome: ExecutionOutcome;
+  evidence_outcome: EvidenceOutcome;
+  upload_outcome: UploadOutcome;
+  cleanup_outcome: CleanupOutcome;
+  input_set_digest: Sha256;
+  frozen_at: ISO8601;
+};
+
+type DeterministicReport = ContractMeta & {
+  report_core_id: string;
+  report_input_set_ref: DigestBoundRef<"qa.report-input-set/v1">;
+  quality_evaluation_ref: DigestBoundRef<"qa.quality-evaluation/v1">;
+  report_template: { template_id: string; version: string; digest: Sha256 };
+  report_rule_set: { rule_set_id: string; version: string; digest: Sha256 };
+  title: string;
+  summary: {
+    total: number;
+    passed: number;
+    failed: number;
+    error: number;
+    skipped: number;
+    inconclusive: number;
+    final_quality_outcome: FinalQualityOutcome;
+  };
+  sections: Array<{
+    section_id: string;
+    kind: "overview" | "environment" | "case_results" | "failures" | "evidence" | "cleanup" | "risk";
+    deterministic_content_ref: DigestBoundRef;
+  }>;
+  authorized_artifact_refs: DigestBoundRef<"qa.artifact-pointer/v1">[];
+  deterministic_digest: Sha256;
+  composed_at: ISO8601;
+};
+
+type NarrativeSupplement = ContractMeta & {
+  supplement_id: string;
+  report_input_set_ref: DigestBoundRef<"qa.report-input-set/v1">;
+  deterministic_report_ref: DigestBoundRef<"qa.deterministic-report/v1">;
+  outcome: "generated" | "skipped" | "failed";
+  generator?: {
+    provider: string;
+    model: string;
+    generator_version: string;
+    prompt_policy_version: string;
+    input_digest: Sha256;
+    output_digest: Sha256;
+  };
+  content_ref?: DigestBoundRef;
+  reason_codes: string[];
+  error?: ErrorEnvelope;
+  settled_at: ISO8601;
+};
+
+type ReportRecord = ContractMeta & {
+  report_id: string;
+  run_id: UUID;
+  report_input_set_ref: DigestBoundRef<"qa.report-input-set/v1">;
+  deterministic_report_ref: DigestBoundRef<"qa.deterministic-report/v1">;
+  narrative_supplement_ref?: DigestBoundRef<"qa.narrative-supplement/v1">;
+  quality_evaluation_ref: DigestBoundRef<"qa.quality-evaluation/v1">;
+  rendered_outputs: Array<{
+    format: "json" | "html" | "markdown";
+    artifact_ref: DigestBoundRef<"qa.artifact-pointer/v1">;
+    content_digest: Sha256;
+  }>;
+  outcome: "composed" | "partially_composed";
+  report_digest: Sha256;
+  stored_at: ISO8601;
+};
+
+type ReportCompositionReceipt = ContractMeta & {
+  receipt_id: string;
+  run_id: UUID;
+  report_input_set_ref: DigestBoundRef<"qa.report-input-set/v1">;
+  report_record_ref?: DigestBoundRef<"qa.report-record/v1">;
+  idempotency_key: string;
+  attempt: number;
+  outcome: "composed" | "partially_composed" | "failed" | "skipped" | "repair_backlog";
+  retryable: boolean;
+  reason_codes: string[];
+  error?: ErrorEnvelope;
+  settled_at: ISO8601;
+};
+
+type ReportComposer = {
+  freezeInputs(input: {
+    run_id: UUID;
+    structured_result_refs: DigestBoundRef[];
+    artifact_ingest_receipt_refs: DigestBoundRef<"qa.artifact-ingest-receipt/v1">[];
+    cleanup_summary_ref: DigestBoundRef<"qa.cleanup-summary/v1">;
+  }): Promise<ReportInputSet>;
+  compose(input: {
+    report_input_set: ReportInputSet;
+    quality_evaluation: QualityEvaluation;
+    template_ref: DigestBoundRef;
+    narrative_policy_ref?: DigestBoundRef;
+    idempotency_key: string;
+  }): Promise<ReportCompositionReceipt>;
+};
+```
+
+`ReportInputSet` 必须不可变，并按排序后的完整引用、Outcome、rules/template inputs 计算 digest。同一 input set、QualityEvaluation、report rule set 和 template version 必须产生相同 `DeterministicReport.deterministic_digest`。
+
+`NarrativeSupplement` 是可选增强：它可以失败或跳过，但禁止修改 CaseResult、AssertionResult、Evidence/Artifact refs、FailureClassification、FinalQualityOutcome 或 publication eligibility。其 generator/model/prompt-policy/input/output digest 必须可审计；不得把模型自然语言变成新的测试事实。
+
+`ReportRecord` 是云端长期报告权威。MVP required rendered outputs 为 JSON、HTML 和 Markdown；PDF 是 future optional renderer，不属于 A3 Exit Gate。Local QA Agent 不生成或长期保存 ReportRecord。PublicationPlan 必须引用 ReportRecord；report repair、narrative retry 或 renderer retry 禁止重新执行本地测试。
 
 ### 12.1 FailureClassification
 
@@ -3909,7 +4636,7 @@ type ExecutedQualityEvaluation = ContractMeta & {
   plan_ref: DigestBoundRef<"qa.structured-plan/v1">;
   case_result_refs: DigestBoundRef<"qa.case-result/v1">[];
   evidence_manifest_refs: DigestBoundRef<"qa.evidence-manifest/v1">[];
-  cleanup_receipt_refs: DigestBoundRef<"qa.cleanup-receipt/v1">[];
+  cleanup_summary_ref: DigestBoundRef<"qa.cleanup-summary/v1">;
   input_set_digest: Sha256;
   rule_set: QualityRuleSet;
   evaluated_at: ISO8601;
@@ -3932,6 +4659,7 @@ type ExecutedQualityEvaluation = ContractMeta & {
   execution_outcome: ExecutionOutcome;
   cleanup_outcome: CleanupOutcome;
   evidence_outcome: EvidenceOutcome;
+  upload_outcome: UploadOutcome;
   final_quality_outcome: "pass" | "fail" | "blocked" | "inconclusive";
   publication_eligibility: {
     github: boolean;
@@ -3949,7 +4677,7 @@ type NonExecutedQualityEvaluation = ContractMeta & {
   run_spec_ref?: DigestBoundRef<"qa.runspec/v1">;
   source_acquisition_ref?: DigestBoundRef<"qa.source-acquisition/v1">;
   policy_decision_ref?: DigestBoundRef<"qa.policy-decision/v1">;
-  cleanup_receipt_refs: DigestBoundRef<"qa.cleanup-receipt/v1">[];
+  cleanup_summary_ref: DigestBoundRef<"qa.cleanup-summary/v1">;
   reason:
     | "source_blocked"
     | "source_failed"
@@ -3967,6 +4695,7 @@ type NonExecutedQualityEvaluation = ContractMeta & {
   execution_outcome: "blocked" | "cancelled";
   cleanup_outcome: CleanupOutcome;
   evidence_outcome: "not_available";
+  upload_outcome: "not_required";
   final_quality_outcome: "blocked" | "inconclusive";
   publication_eligibility: {
     github: boolean;
@@ -4019,6 +4748,7 @@ type PublicationAction =
 type PublicationPlan = ContractMeta & {
   publication_plan_id: string;
   quality_evaluation_ref: DigestBoundRef<"qa.quality-evaluation/v1">;
+  report_record_ref: DigestBoundRef<"qa.report-record/v1">;
   publication_policy_ref: DigestBoundRef<"qa.publication-policy/v1">;
   authorized_artifact_refs: DigestBoundRef<"qa.artifact-pointer/v1">[];
   actions: Array<{
@@ -4031,7 +4761,7 @@ type PublicationPlan = ContractMeta & {
 };
 ```
 
-PublicationPlan 中的 body/summary/evidence reference 必须全部来自 `authorized_artifact_refs`，且不得与 `RunSpec.publication_intent` 或 QualityEvaluation eligibility 冲突。GitHub 与 PQL 必须作为独立 Action 存在，不能因一个目标失败阻断另一个目标。
+PublicationPlan 中的 body/summary/evidence reference 必须来自 `report_record_ref` 的 rendered outputs 或 `authorized_artifact_refs`，且不得与 `RunSpec.publication_intent`、QualityEvaluation eligibility 或 ReportRecord digest 冲突。GitHub 与 PQL 必须作为独立 Action 存在，不能因一个目标失败阻断另一个目标。Publication 禁止绕过 ReportRecord 直接让 Local QA Agent 或 Backend 生成发布正文。
 
 ### 12.4 PublicationReceipt
 
@@ -4148,14 +4878,15 @@ type QualityEvaluator = {
     plan_ref: DigestBoundRef<"qa.structured-plan/v1">;
     case_result_refs: DigestBoundRef<"qa.case-result/v1">[];
     evidence_manifest_refs: DigestBoundRef<"qa.evidence-manifest/v1">[];
-    cleanup_receipt_refs: DigestBoundRef<"qa.cleanup-receipt/v1">[];
+    artifact_ingest_receipt_refs: DigestBoundRef<"qa.artifact-ingest-receipt/v1">[];
+    cleanup_summary_ref: DigestBoundRef<"qa.cleanup-summary/v1">;
     rule_set: QualityRuleSet;
   }): Promise<ExecutedQualityEvaluation>;
   evaluateNonExecuted(input: {
     run_draft_ref: DigestBoundRef<"qa.run-draft/v1">;
     reason: NonExecutedQualityEvaluation["reason"];
     related_refs: DigestBoundRef[];
-    cleanup_receipt_refs: DigestBoundRef<"qa.cleanup-receipt/v1">[];
+    cleanup_summary_ref: DigestBoundRef<"qa.cleanup-summary/v1">;
     rule_set: QualityRuleSet;
   }): Promise<NonExecutedQualityEvaluation>;
 };
@@ -4163,6 +4894,7 @@ type QualityEvaluator = {
 type PublicationAdapter = {
   plan(input: {
     evaluation: QualityEvaluation;
+    report_record: ReportRecord;
     publication_policy_ref: DigestBoundRef<"qa.publication-policy/v1">;
     authorized_artifact_refs: DigestBoundRef<"qa.artifact-pointer/v1">[];
   }): Promise<PublicationPlan>;
@@ -4196,6 +4928,7 @@ type PQLFeedbackAdapter = {
 type WorkflowState =
   | "created"
   | "source_resolving"
+  | "hosted_plan_generation"
   | "design_approval_pending"
   | "designing"
   | "design_cleaning_up"
@@ -4206,6 +4939,8 @@ type WorkflowState =
   | "ready"
   | "executing"
   | "collecting_evidence"
+  | "uploading_artifacts"
+  | "ingesting_artifacts"
   | "amendment_pending"
   | "amendment_cleaning_up"
   | "amendment_designing"
@@ -4216,17 +4951,54 @@ type WorkflowState =
   | "cleaning_up"
   | "cleanup_repair_pending"
   | "evaluating"
+  | "composing_report"
+  | "report_repair_pending"
   | "publishing"
   | "publication_repair_pending"
   | "finalizing"
   | "terminal";
 ```
 
-### 13.2 主流程
+### 13.2 Profile 分支与公共云端主干
+
+公共云端主干：
 
 ```text
 created
 → source_resolving
+→ policy_review
+→ dispatching
+→ [profile-specific local execution]
+→ ingesting_artifacts
+→ evaluating
+→ composing_report
+→ publishing
+→ finalizing
+→ terminal
+```
+
+`local_qa_agent_mvp` 分支：
+
+```text
+source_resolving
+→ hosted_plan_generation
+→ policy_review
+→ dispatching
+→ preparing
+→ ready
+→ executing
+→ collecting_evidence
+→ cleaning_up
+→ uploading_artifacts
+→ ingesting_artifacts
+```
+
+MVP 的 Structured Plan 在 hosted `testing-design` 中生成和冻结；它不进入本地 Design VM，不要求 Design Grant、LocalLeaseBinding、VZ Prepare、ExecutionFence 或 signed RecoveryDecision。Agent restart 后只能 query、upload reconcile 和 Cleanup；需要重新执行时创建新的 local attempt 或新 Run，不恢复旧 Case process。
+
+`hardened_untrusted_code` 分支保留：
+
+```text
+source_resolving
 → design_approval_pending
 → designing
 → design_cleaning_up
@@ -4238,15 +5010,41 @@ created
 → executing
 → collecting_evidence
 → cleaning_up
-→ evaluating
-→ publishing
-→ finalizing
-→ terminal
+→ ingesting_artifacts
 ```
 
-`WorkflowState` 是 hosted 持久编排状态；`RuntimeRunState` 是设备侧快照。两者必须通过 fenced RuntimeEvent、Checkpoint 和 Receipt 关联，禁止按名称直接映射。
+`WorkflowState` 是 hosted 持久编排状态；`LocalQARunState` 与 `RuntimeRunState` 是不同 Profile 的设备侧快照。Hosted 必须根据 event、Snapshot、Outcome 和 Receipt 推进，不按枚举名称直接映射。Hardened 分支额外要求 fenced RuntimeEvent、Checkpoint 和 signed recovery objects。
 
-### 13.3 转移表
+### 13.3 Profile 转移表
+
+#### 13.3.1 Local QA Agent MVP
+
+| 当前状态 | 事件/条件 | 下一状态 | 必须持久化的输出 |
+|---|---|---|---|
+| `created` | RunDraft 持久化 | `source_resolving` | RunDraft、创建幂等键。 |
+| `source_resolving` | SourceAcquisition 与 RunSpec 冻结 | `hosted_plan_generation` | SourceAcquisition、effective SHA、RunSpec。 |
+| `hosted_plan_generation` | Structured Plan 生成并通过 schema | `policy_review` | Plan、plan digest、design input digest；不创建本地资源。 |
+| `policy_review` | `local_qa_agent_mvp` allow | `dispatching` | PolicyDecision、Profile applicability、LocalQARequestAuthorization。 |
+| `dispatching` | `PUT /v1/runs/{run_id}` acceptance durable | `preparing` | Agent Snapshot、sequence=1 acceptance event、request/idempotency digest。 |
+| `dispatching` | Node offline、authorization expired 或 device mismatch | `blocked` | transport/application error；禁止静默 direct fallback。 |
+| `preparing` | Container Environment 与 Readiness ready | `ready` | MvpPreparedEnvironment、MvpReadinessReceipt、resource records。 |
+| `preparing` | partial failure 且已有资源 | `cleaning_up` | partial prepare error、resource records。 |
+| `ready` | runner 开始 | `executing` | StepAttempt checkpoint。 |
+| `executing` | 测试结束或中断 | `collecting_evidence` | BackendObservation、AssertionResult、CaseResult、execution outcome。 |
+| `collecting_evidence` | redaction/validation/staging settled | `cleaning_up` | EvidenceStagingManifest、evidence outcome。 |
+| `cleaning_up` | execution resources released 或 residual settled | `uploading_artifacts` | LocalAgentCleanupReceipt、intermediate CleanupSummary。 |
+| `uploading_artifacts` | per-object grant/upload settled | `ingesting_artifacts` | ArtifactUploadGrant/Receipt、staging cleanup receipt、final CleanupSummary。 |
+| `ingesting_artifacts` | Artifact ingestion settled | `evaluating` | ArtifactIngestReceipt、durable ArtifactPointer、upload outcome。 |
+| `evaluating` | QualityEvaluation 产生 | `composing_report` | frozen ReportInputSet、QualityEvaluation。 |
+| `composing_report` | JSON/HTML/Markdown ReportRecord settled | `publishing` 或 `finalizing` | DeterministicReport、optional NarrativeSupplement、ReportRecord。 |
+| `publishing` | Publication actions settled | `finalizing` | PublicationReceipt。 |
+| `finalizing` | 七类 Outcome 与 repair disposition 完整 | `terminal` | RunSettlement。 |
+
+取消、超时和 Agent restart 从任何资源持有状态进入 `cleaning_up`。Report、Narrative、Publication 或 upload repair 不重跑本地测试。MVP 超出 Plan envelope 时进入 `amendment_pending` 或 blocked；若批准新 Plan，必须以新 request digest 创建新的 local attempt，禁止在旧进程上动态扩权。
+
+#### 13.3.2 Hardened Runtime
+
+以下详细转移表只适用于 `hardened_untrusted_code`；其中 source、artifact ingestion、Quality、Report 和 Publication 行为可与 MVP 共用：
 
 | 当前状态 | 事件/条件 | 下一状态 | 必须持久化的输出 |
 |---|---|---|---|
@@ -4275,7 +5073,7 @@ created
 | `amendment_cleaning_up` | Cleanup 有 blocking residual | `cleanup_repair_pending` | CleanupReceipt、repair resume state=`amendment_designing`。 |
 | `amendment_designing` | 新 Design Approval/Grant、Plan vN、Diff 和 Design Cleanup 完成 | `policy_review` | Plan vN、PlanDiff、amendment Design Evidence/Grant、Design CleanupReceipt；PlanAmendment 尚未冻结。 |
 | `amendment_pending` 或 `amendment_designing` | 用户/Policy 拒绝 | `cleaning_up` 或 `evaluating` | blocked reason；有资源时先 Cleanup。 |
-| `collecting_evidence` | Manifest 完成或失败 | `cleaning_up` | EvidenceManifest 或 evidence error。 |
+| `collecting_evidence` | Manifest、redaction staging 和 ArtifactUploadReceipt 已 settled | `cleaning_up` | EvidenceManifest、EvidenceStagingManifest、ArtifactUploadReceipt 或 bounded evidence/upload error。 |
 | 资源持有型非终态 | cancel_requested | `cancelling` | cancellation intent、requested_at、current fence。 |
 | `cancelling` | TerminationReceipt settled | `cleaning_up` | TerminationReceipt、inventory。 |
 | 资源持有型非终态 | deadline_exceeded | `timing_out` | timeout intent、absolute deadline、current fence。 |
@@ -4286,19 +5084,24 @@ created
 | `recovering` | signed RecoveryDecision=reconcile_and_seal | `cleaning_up` | `control_quiesce_reconcile` FenceTransition、PredecessorFencingRecord、open inventory；只允许 quiesce/reconcile/terminate/revoke，完成后生成 sealed inventory/InventorySealReceipt并重新请求 cleanup authority。 |
 | `recovering` | signed RecoveryDecision=replay_cleanup | `cleaning_up` | `control_cleanup` FenceTransition、PredecessorFencingRecord、successor CleanupCapability、sealed inventory/ref/version/digest、InventorySealReceipt、cleanup_takeover command。 |
 | `recovering` | signed RecoveryDecision=irreconcilable | `cleaning_up` 或 `evaluating` | recovery error、RuntimeRepairReceipt；有资源时先 control-only Cleanup，禁止恢复执行。 |
-| `cleaning_up` | Cleanup succeeded/not_required | `evaluating` | 全部 CleanupReceipt、settled lease/termination receipt。 |
+| `cleaning_up` | Cleanup succeeded/not_required | `ingesting_artifacts` | 全部 CleanupReceipt；Hardened Profile 还包含 settled lease/termination receipt。 |
 | `cleaning_up` | Cleanup partial/failed 且需重试或移交 | `cleanup_repair_pending` | CleanupResidual、retry budget、escalation。 |
-| `cleanup_repair_pending` | repair succeeded，或失败已不可重试且责任已移交 | 保存的 resume state 或 `evaluating` | Repair Receipt、residual disposition、告警。 |
+| `cleanup_repair_pending` | repair succeeded，或失败已不可重试且责任已移交 | 保存的 resume state 或 `ingesting_artifacts` | Repair Receipt、residual disposition、告警。 |
+| `ingesting_artifacts` | 所有 upload receipt 已校验并生成 ingest receipt，或失败已 settled | `evaluating` | ArtifactIngestReceipt、durable ArtifactPointer、upload/evidence outcome。 |
 | `blocked` | 无本地资源或 Cleanup 已 settled | `evaluating` | NonExecutedQualityEvaluation 输入。 |
 | `blocked` | 已有本地资源 | `cleaning_up` | inventory、CleanupCapability。 |
-| `evaluating` | QualityEvaluation 产生且允许发布 | `publishing` | immutable QualityEvaluation。 |
-| `evaluating` | QualityEvaluation 产生且 publication skipped | `finalizing` | QualityEvaluation、skipped PublicationReceipt。 |
+| `evaluating` | QualityEvaluation 产生 | `composing_report` | immutable QualityEvaluation、frozen ReportInputSet。 |
+| `composing_report` | ReportRecord composed/partially_composed | `publishing` 或 `finalizing` | DeterministicReport、NarrativeSupplement（可选）、ReportRecord、ReportCompositionReceipt；publication skipped 时直接 finalizing。 |
+| `composing_report` | retryable failure 或 repair backlog | `report_repair_pending` | ReportCompositionReceipt、retry budget、stable repair key。 |
+| `report_repair_pending` | report settled 或责任已移交 | `publishing` 或 `finalizing` | 追加 ReportCompositionReceipt、ReportRecord 或 residual disposition。 |
 | `publishing` | 所有 Action settled | `finalizing` | PublicationReceipt。 |
 | `publishing` | 可重试失败或 repair backlog | `publication_repair_pending` | PublicationReceipt、retry budget。 |
 | `publication_repair_pending` | Action settled/移交 | `finalizing` | 追加 PublicationReceipt、repair disposition。 |
-| `finalizing` | 强制 Receipt、五类 Outcome 和 residual disposition 校验完成 | `terminal` | final snapshot、settled_at。 |
+| `finalizing` | 强制 Receipt、七类 Outcome 和 residual disposition 校验完成 | `terminal` | final snapshot、settled_at。 |
 
 ### 13.4 状态机约束与事件优先级
+
+以下 `terminal`、cancel/timeout priority、report repair 和 new-run rerun 规则适用于两个 Profile；generation/fence、RecoveryDecision、inventory seal 和 CleanupCapability 规则只适用于 Hardened Runtime。MVP 使用 request digest、local attempt、resource record、CleanupSummary 和 no-auto-rerun 约束，不得伪造 Hardened authority object。
 
 - `terminal` 必须不可逆。terminal 后的 Cleanup/Publication repair 只能创建关联 repair operation 和追加 Receipt，禁止重新进入执行或改写既有 QualityEvaluation。
 - 已持久化的 `cancel_requested` 或 `deadline_exceeded` 优先于 Amendment、Step completion 和普通 retry；后到的完成事件只能用于对账。
@@ -4307,11 +5110,12 @@ created
 - Runtime restart 必须先关闭 admission，取得 purpose-specific successor lease/fence，写 FenceTransition/PredecessorFencingRecord并上报 Snapshot；恢复执行必须收到 signed RecoveryDecision 和 RecoveryResumeCommand，恢复清理必须使用 control_cleanup takeover 与 capability successor。禁止仅凭本地 Checkpoint 自动恢复。
 - CleanupReceipt 的存在不等于 Cleanup 完成。Cleanup 前必须不存在 pre-barrier unsettled Effect，并持有匹配的 sealed inventory 与 InventorySealReceipt；只有 succeeded/not_required，或 residual 已达到不可重试/预算耗尽且明确移交 repair responsibility，才可继续。
 - Amendment 必须创建新的 Design/Execution Grant、新 generation 和新 Sandbox；禁止恢复旧 Sandbox。Source revision 变化禁止走 Amendment，必须创建新 Run。
-- Publication 失败不得重跑测试；用户显式 rerun 必须创建新的 `run_id`。
+- Report composition、NarrativeSupplement 或 Publication 失败不得重跑测试；用户显式 rerun 必须创建新的 `run_id`。
+- ReportRecord 必须绑定 immutable ReportInputSet 和 QualityEvaluation；repair 只能追加新 Receipt/rendered output，不能修改 CaseResult、ArtifactIngestReceipt 或既有 QualityEvaluation。
 
 ---
 
-## 14. 五类 Outcome、质量结论与失败分类
+## 14. 七类 Outcome、质量结论与失败分类
 
 ### 14.1 Outcome 类型
 
@@ -4319,6 +5123,8 @@ created
 type ExecutionOutcome = "passed" | "failed" | "cancelled" | "timed_out" | "lost" | "blocked";
 type CleanupOutcome = "succeeded" | "partially_succeeded" | "failed" | "not_required";
 type EvidenceOutcome = "sufficient" | "partial" | "insufficient" | "not_available";
+type UploadOutcome = "succeeded" | "partial" | "failed" | "not_required";
+type ReportOutcome = "composed" | "partially_composed" | "failed" | "skipped";
 type PublicationOutcome = "published" | "partially_published" | "failed" | "skipped";
 type FinalQualityOutcome = "pass" | "fail" | "blocked" | "inconclusive";
 
@@ -4326,13 +5132,17 @@ type RunOutcomes = ContractMeta & {
   execution_outcome: ExecutionOutcome;
   cleanup_outcome: CleanupOutcome;
   evidence_outcome: EvidenceOutcome;
+  upload_outcome: UploadOutcome;
+  report_outcome: ReportOutcome;
   publication_outcome: PublicationOutcome;
   final_quality_outcome: FinalQualityOutcome;
 };
 
 type RunSettlement = ContractMeta & {
   outcomes_ref: DigestBoundRef<"qa.run-outcomes/v1">;
-  cleanup_receipt_refs: DigestBoundRef<"qa.cleanup-receipt/v1">[];
+  cleanup_summary_ref: DigestBoundRef<"qa.cleanup-summary/v1">;
+  artifact_ingest_receipt_refs: DigestBoundRef<"qa.artifact-ingest-receipt/v1">[];
+  report_composition_receipt_refs: DigestBoundRef<"qa.report-composition-receipt/v1">[];
   publication_receipt_refs: DigestBoundRef<"qa.publication-receipt/v1">[];
   residual_refs: ResourceRef[];
   status: "settled" | "settled_with_repair";
@@ -4340,22 +5150,25 @@ type RunSettlement = ContractMeta & {
   settled_at: ISO8601;
 };
 
+type RepairExecutionBinding =
+  | { profile: "local_qa_agent_mvp"; local_attempt: number; authorization_ref: DigestBoundRef<"qa.local-qa-request-authorization/v1"> }
+  | { profile: "hardened_untrusted_code"; generation: number; fence: ExecutionFence };
+
 type RepairOperation = ContractMeta & {
   repair_id: string;
   issuer: "fkst-hosted.authorization-authority" | "fkst-hosted.workflow";
-  audience: "fkst-local-qa-runtime" | "fkst-hosted.publication-repair";
+  audience: "fkst-local-qa-agent" | "fkst-local-qa-runtime" | "fkst-hosted.report-repair" | "fkst-hosted.publication-repair";
   stable_repair_key: string;
   original_run_id: UUID;
-  type: "cleanup" | "publication";
+  type: "cleanup" | "report" | "publication";
   target_refs: DigestBoundRef[];
   target_set_digest: Sha256;
   responsible_owner: ActorRef;
-  generation: number;
-  fence: ExecutionFence;
+  execution_binding: RepairExecutionBinding;
   status: "queued" | "running" | "settled";
   attempt_count: number;
   max_attempts: number;
-  attempt_receipt_refs: DigestBoundRef<"qa.runtime-repair-receipt/v1" | "qa.publication-receipt/v1">[];
+  attempt_receipt_refs: DigestBoundRef<"qa.runtime-repair-receipt/v1" | "qa.local-agent-cleanup-receipt/v1" | "qa.report-composition-receipt/v1" | "qa.publication-receipt/v1">[];
   final_outcome?: "succeeded" | "failed" | "partially_succeeded";
   next_attempt_at?: ISO8601;
   issued_at: ISO8601;
@@ -4366,7 +5179,7 @@ type RepairOperation = ContractMeta & {
 };
 ```
 
-`terminal` 表示 RunSettlement 已持久化，不表示五类 Outcome 全部成功。RepairOperation 是与原 Run 关联的新操作记录，必须以 `stable_repair_key`、责任 owner、独立 generation/fence 和不可变 per-attempt Receipt 表达；禁止覆盖前次 attempt 或只保留最后结果。Repair 禁止改变原 `run_id` 的 terminal snapshot、FinalQualityOutcome 或已完成 Step。
+`terminal` 表示 RunSettlement 已持久化，不表示七类 Outcome 全部成功。RepairOperation 是与原 Run 关联的新操作记录，必须以 `stable_repair_key`、责任 owner、Profile-specific execution binding 和不可变 per-attempt Receipt 表达；MVP 使用 local attempt + signed request authorization，Hardened 使用 generation/fence。禁止覆盖前次 attempt 或只保留最后结果。Repair 禁止改变原 `run_id` 的 terminal snapshot、FinalQualityOutcome 或已完成 Step。
 
 ### 14.2 映射原则
 
@@ -4410,8 +5223,10 @@ type ErrorPhase =
   | "readiness"
   | "execute"
   | "evidence"
+  | "artifact_ingestion"
   | "cleanup"
   | "quality"
+  | "report"
   | "publication"
   | "recovery"
   | "update";
@@ -4679,6 +5494,7 @@ type ErrorEnvelope = RunErrorEnvelope; // Run-scoped objects 的兼容别名；R
 | SourceAcquisition | `source-acquisition:<run-id>:<run-draft-digest>:<resolver-version>` |
 | 冻结 RunSpec | `runspec:<run-id>:<source-acquisition-digest>:<project-policy-digest>` |
 | 生成 Plan | `plan:<run-id>:<version>:<design-input-digest>` |
+| Local Agent Run admission | `local-agent-run:<run-id>:<request-key>`，同 key 以完整 request digest 决定 replay/conflict |
 | 签发 Grant | `grant:<run-id>:<type>:<plan-or-design-digest>:<approval-id>:<sequence>` |
 | LocalLeaseBinding reservation | `lease-binding:<run-id>:<phase>:<hosted-generation>:<authorization-preimage-digest>:<request-key>` |
 | Runtime Command admission | `runtime-command:<run-id>:<generation>:<command-sequence>:<command-type>`，同 key 以完整 request digest 决定 replay/conflict |
@@ -4689,9 +5505,11 @@ type ErrorEnvelope = RunErrorEnvelope; // Run-scoped objects 的兼容别名；R
 | Termination | `terminate:<run-id>:<termination-target-scope-digest>:<reason>` |
 | Inventory seal | `inventory-seal:<run-id>:<lineage-id>:<version>:<barrier-sequence>:<inventory-digest>` |
 | Redaction | `redaction:<run-id>:<raw-byte-digest>:<redaction-policy-digest>:<redactor-digest>` |
+| Artifact upload grant | `artifact-upload-grant:<run-id>:<artifact-key>:<post-redaction-byte-digest>` |
 | Artifact | `artifact:<run-id>:<step-id>:<artifact-type>:<post-redaction-byte-digest>` |
 | Cleanup | `cleanup:<run-id>:<environment-id-or-none>:<cleanup-lineage-id>:<inventory-lineage-id>:<inventory-version>:<inventory-digest>:<capability-sequence>:<reason>:<attempt>` |
 | Quality | `quality:<run-id>:<input-set-digest>:<rule-set-digest>` |
+| Report composition | `report:<run-id>:<report-input-set-digest>:<quality-digest>:<template-digest>` |
 | Publication Action | `publication:<publication-plan-digest>:<action-id>:<rendered-content-digest>` |
 | GitHub Check | `github-check:<repo>:<effective-sha>:<quality-dedup-key>` |
 | PR Comment | `pr-comment:<repo>:<pr-number>:<quality-dedup-key>` |
@@ -4703,7 +5521,29 @@ type ErrorEnvelope = RunErrorEnvelope; // Run-scoped objects 的兼容别名；R
 
 幂等键和 canonical request digest 必须存储在副作用记录中。所有 reservation、command admission、Effect、seal、Termination、Cleanup、Artifact、Update 和 Publication 接收方都必须把幂等 lookup 作为第一项状态访问：同 key、同 digest 返回既有不可变结果；同 key、不同 digest 产生 `runtime.command_conflict` 或对应领域冲突，且禁止先读取或改变 mutable reservation/fence/cursor/capacity/nonce、消费 Grant、推进 inventory 或启动副作用。重试必须先读取 Snapshot、effect ledger、inventory seal 和既有 Receipt，再决定 create、update、skip、reconcile 或 repair。
 
-### 16.2 Run Lock、Recovery Ledger 与 Effect Record
+### 16.2 Local QA Agent Small Journal
+
+MVP journal 只为幂等、查询、event cursor、resource ownership、upload/cleanup reconciliation 提供 durable facts，不签发 Grant、不维护 Fence，也不作为 Effect authority。最小逻辑记录如下：
+
+```ts
+type LocalAgentJournalProjection = ContractMeta & {
+  agent_instance_id: string;
+  schema_version: number;
+  run_request_records: Array<{ run_id: UUID; idempotency_key: string; request_digest: Sha256; authorization_digest: Sha256; disposition: "accepted" | "replayed" | "conflict" }>;
+  run_snapshots: LocalQARunSnapshot[];
+  event_high_watermarks: Array<{ run_id: UUID; through_sequence: number; through_event_digest: Sha256 }>;
+  resource_records: LocalResourceRecord[];
+  upload_attempt_refs: DigestBoundRef<"qa.artifact-upload-receipt/v1">[];
+  cleanup_attempt_refs: DigestBoundRef<"qa.local-agent-cleanup-receipt/v1">[];
+  captured_at: ISO8601;
+};
+```
+
+Agent acceptance 必须在一个 transaction 中持久化 request/idempotency result、初始 Snapshot 和 sequence=1 event。资源创建前登记 intent，创建后登记 provider identity；Crash 后只允许查询、明确 digest/object key 的 upload 对账和 owned-resource Cleanup，禁止自动重跑 Case。NyxID transport audit 是独立的路由记录，不能替代该 journal 的 acceptance、resource 或 cleanup facts。
+
+### 16.H1 Hardened Run Lock、Recovery Ledger 与 Effect Record
+
+以下 HostedWorkflowLease、FenceTransition、LocalExecutionLease、Recovery Ledger 与 Effect Record 只适用于 `hardened_untrusted_code`：
 
 ```ts
 type HostedWorkflowLease = ContractMeta & {
@@ -4884,6 +5724,7 @@ type RuntimeRepairReceipt = ContractMeta & {
   successor_cleanup_capability_refs: DigestBoundRef<"qa.cleanup-capability/v1">[];
   termination_receipt_refs: DigestBoundRef<"qa.termination-receipt/v1">[];
   cleanup_receipt_refs: DigestBoundRef<"qa.cleanup-receipt/v1">[];
+  cleanup_summary_ref: DigestBoundRef<"qa.cleanup-summary/v1">;
   credential_lease_receipt_refs: DigestBoundRef<"qa.credential-lease-receipt/v1">[];
   secret_materialization_receipt_refs: DigestBoundRef<"qa.secret-materialization-receipt/v1">[];
   browser_network_receipt_refs: DigestBoundRef<"qa.browser-network-enforcement-receipt/v1">[];
@@ -4991,7 +5832,8 @@ type RecoveryDecision =
 
 `RecoveryDecision` 必须按 §3.6 以 `purpose="recovery_decision"` 签名，并在消费前验证 Runtime/RecoveryLedger/Admission Snapshot、Checkpoint、observed/target fence、expected cursor、inventory ref/version/digest、TTL 和一次性 nonce。每个 variant 禁止其他 decision 的字段；`resume` 只允许 execution purpose 且禁止携带 CleanupCapability；`reconcile_and_seal` 只允许 `control_quiesce_reconcile` 和非创建型操作；`replay_cleanup` 必须绑定现有 sealed inventory、seal receipt、`control_cleanup` transition authorization 与等权或更窄 successor capability；`wait` 禁止改变本地 authority；`advance_from_receipt` 只能消费允许推进到目标 state 的完整权威 receipt set。过期、重放、snapshot/checkpoint 已变化、cursor 前进或 target fence 不再为当前 successor 时必须重新签发 Decision，禁止本地修补字段。Runtime startup 在收到 Decision 前不得创建 takeover lease、FenceTransition 或执行破坏性 Cleanup。
 
-type WorkflowCheckpoint = ContractMeta & {
+type HardenedWorkflowCheckpoint = ContractMeta & {
+  profile: "hardened_untrusted_code";
   workflow_state: WorkflowState;
   run_draft_ref: DigestBoundRef<"qa.run-draft/v1">;
   source_acquisition_ref?: DigestBoundRef<"qa.source-acquisition/v1">;
@@ -5030,6 +5872,7 @@ type WorkflowCheckpoint = ContractMeta & {
   evidence_manifest_refs: DigestBoundRef<"qa.evidence-manifest/v1">[];
   termination_receipt_refs: DigestBoundRef<"qa.termination-receipt/v1">[];
   cleanup_receipt_refs: DigestBoundRef<"qa.cleanup-receipt/v1">[];
+  cleanup_summary_ref: DigestBoundRef<"qa.cleanup-summary/v1">;
   quality_evaluation_ref?: DigestBoundRef<"qa.quality-evaluation/v1">;
   publication_receipt_refs: DigestBoundRef<"qa.publication-receipt/v1">[];
   amendment_request_refs: DigestBoundRef<"qa.plan-amendment-request/v1">[];
@@ -5037,13 +5880,51 @@ type WorkflowCheckpoint = ContractMeta & {
   recovery_decision_refs: DigestBoundRef<"qa.recovery-decision/v1">[];
   repair_operation_refs: DigestBoundRef<"qa.repair-operation/v1">[];
 };
+
+type MvpWorkflowCheckpoint = ContractMeta & {
+  profile: "local_qa_agent_mvp";
+  workflow_state: WorkflowState;
+  run_draft_ref: DigestBoundRef<"qa.run-draft/v1">;
+  source_acquisition_ref?: DigestBoundRef<"qa.source-acquisition/v1">;
+  run_spec_ref?: DigestBoundRef<"qa.runspec/v1">;
+  plan_refs: DigestBoundRef<"qa.structured-plan/v1">[];
+  active_plan_ref?: DigestBoundRef<"qa.structured-plan/v1">;
+  local_agent_snapshot_refs: DigestBoundRef<"qa.local-qa-run-snapshot/v1">[];
+  last_local_event_sequence?: number;
+  structured_test_result_ref?: DigestBoundRef<"qa.structured-test-result/v1">;
+  case_result_refs: DigestBoundRef<"qa.case-result/v1">[];
+  evidence_staging_manifest_ref?: DigestBoundRef<"qa.evidence-staging-manifest/v1">;
+  artifact_upload_receipt_refs: DigestBoundRef<"qa.artifact-upload-receipt/v1">[];
+  artifact_ingest_receipt_refs: DigestBoundRef<"qa.artifact-ingest-receipt/v1">[];
+  cleanup_receipt_refs: DigestBoundRef<"qa.local-agent-cleanup-receipt/v1">[];
+  cleanup_summary_ref?: DigestBoundRef<"qa.cleanup-summary/v1">;
+  quality_evaluation_ref?: DigestBoundRef<"qa.quality-evaluation/v1">;
+  report_record_ref?: DigestBoundRef<"qa.report-record/v1">;
+  publication_receipt_refs: DigestBoundRef<"qa.publication-receipt/v1">[];
+  repair_operation_refs: DigestBoundRef<"qa.repair-operation/v1">[];
+};
+
+type WorkflowCheckpoint = MvpWorkflowCheckpoint | HardenedWorkflowCheckpoint;
 ```
 
 ---
 
 ## 17. 安全与审计要求
 
-### 17.1 Sandbox
+### 17.A Local QA Agent MVP 安全边界
+
+- MVP 只接受 trusted-input policy 允许的仓库、依赖和测试定义；外部 fork、未知 lifecycle script、开放式 Shell/Agent Action、高价值 Secret 或强浏览器 egress 要求必须拒绝并升级 Profile。
+- Agent 只监听 loopback 或受控 Unix socket。所有非 public-health 请求必须同时通过 Node 注入的 local transport credential 与 Hosted-signed `LocalQARequestAuthorization`；生产禁止 `auth_method=none`。
+- Source、EnvironmentExecutionSpec、Plan、Policy 和 Profile 必须 digest-bound。Agent endpoint 禁止任意 shell、URL、cwd/env、Compose YAML、宿主路径或 CDP token。
+- Container 只挂载 immutable source 和 Run 专属 writable area；禁止 home、SSH、Keychain、个人浏览器目录、其他 repo 和 Docker socket。
+- Agent 启动专用 host Chrome process tree、temporary profile 和 isolated downloads；禁止附加个人 Chrome。MVP 不宣称 direct-socket denial。
+- 所有本地资源必须进入 LocalResourceRecord，取消、超时、失败和 restart 后按精确 ownership Cleanup。
+- raw Evidence 只进入 bounded quarantine；完成 redaction、validation 和 post-redaction digest 后才可申请 upload grant。
+- Agent restart 禁止自动重跑 Case；只允许 query、upload reconciliation 和 owned-resource Cleanup。
+
+### 17.H1 Hardened Sandbox
+
+以下要求只适用于 `hardened_untrusted_code`：
 
 - 必须默认 deny host filesystem，并只显式挂载本 Run 的 immutable source、Workspace 和批准目录；所有 path 必须使用 RootQualifiedPath/Pattern，root identity 在 environment 生命周期内不可替换，symlink、mount、case alias 和 path canonicalization 必须由 Local PEP 逐 segment no-follow 检查。
 - 必须以 signed RuntimeHardCeilings、AdmissionRequirements 和 Plan/Policy/Grant envelope 的逐字段最小值限制 CPU、内存、磁盘、进程数、open files、总时长、网络、依赖下载和 quarantine，并把 binding、apply/violation 与实际用量写入 Receipt；hard ceiling 不可由 Run 或 waiver 放宽。
@@ -5057,8 +5938,17 @@ type WorkflowCheckpoint = ContractMeta & {
 - guest worker 通道必须是 `BootBoundAuthenticatedVsockSession`，绑定完整 `GuestBootEvidence`、双方 ephemeral key、Runtime/guest boot epoch、generation/fence 和严格 sequence。该机制是 host-verified boot manifest + challenge-response，不宣称硬件 remote attestation；本地控制与 provider/helper 通道必须绑定 LocalIPCBinding 和 peer ExecutableIdentity。Loopback/Unix socket 地址本身不构成信任。
 - 所有原始观察与 Artifact bytes 必须先进入 Runtime-only raw quarantine，脱敏成功后只持久化 SanitizedObservation 和 post-redaction digest；raw quarantine 禁止通过 Event、getArtifact、日志或 Publication 暴露。
 
-### 17.2 Secret
+### 17.A2 Local QA Agent MVP Credential
 
+- Plan 和 Run request 只携带 opaque credential ref 与用途，不携带明文。
+- NyxID 可以在 Node 本地注入 Agent control credential；App/Middleware/test credential 必须按精确目标、用途和短 TTL materialize，禁止复用 control credential。
+- Secret 禁止进入 journal、event、StructuredTestResult、Evidence、Report、普通日志或 error details。
+- 需要生产 Secret、强 process-bound injection/revocation 或明文 custodian 隔离时，必须使用 Hardened Secret Broker。
++
++### 17.H2 Hardened Secret
++
++以下要求只适用于 `hardened_untrusted_code`：
++
 - Secret 必须以 opaque `secret_ref` 存在于 Plan 和 Execution Grant；Design Grant 禁止包含 Secret scope，禁止把 Secret 值或本地 lease handle 写入任务正文。
 - Secret Broker 必须作为 Warden 管理的独立非特权 helper运行，并根据已验证的 EffectRecord、Execution Grant-derived binding、Step、destination、injection mode、TTL、fence、ProcessDomainDescriptor 与实际 ProcessIdentity 签发 CredentialLease；Broker 不得决定业务授权、扩大 scope 或写 Ledger。
 - Local PEP 只能在目标进程启动或代理调用时授权物化。Supervisor 只处理 opaque ref、binding 和签名 Receipt；proxy mode 仅 broker 持有明文，guest injection 与 environment/file mode 必须明确临时 custodian、获准 descendants、继承与擦除范围。任一 binary/argv/cwd/domain/identity 变化都要求新的 launch binding 和 lease authorization。Step 完成、取消、超时、Grant 撤销、Cleanup 或 Runtime recovery 时必须撤销/reconcile lease。
@@ -5067,14 +5957,43 @@ type WorkflowCheckpoint = ContractMeta & {
 - terminal 前所有 CredentialLease 必须有 settled CredentialLeaseReceipt；撤销失败必须形成 `credential_active` CleanupResidual。
 - 本地 Runtime 的控制 API 必须认证；POC 的无认证 loopback 服务禁止进入生产。
 
-### 17.3 Grant 与密钥
+### 17.H3 Hardened Grant 与密钥
+
+以下 Design/Execution Grant 要求只适用于 `hardened_untrusted_code`。MVP 使用 §8.1 的 operation-specific `LocalQARequestAuthorization`，不得要求或生成 Execution Grant/Fence。
 
 - Authorization Authority signing key 必须只存在 hosted 受控环境。
 - Runtime 必须内置或安全更新 trusted public key set，并支持 key rotation overlap。
 - Grant 必须短 TTL、单 Run、单 device、单 Plan、单 sequence、可撤销。
 - Runtime 时间偏差超过策略阈值时必须拒绝时间敏感 Grant，并报告 clock skew。
 
-### 17.4 审计事件
+### 17.A4 Local QA Agent MVP 审计
+
+NyxID、Hosted 和 Agent 各自记录不同事实：NyxID 记录 transport actor/service/node/path/status；Hosted 记录 Workflow/Policy/Quality/Report/Publication；Agent 记录本地 request admission、state、resource、upload 和 cleanup。三侧使用 `run_id + request_id + request_digest + node_id + agent_instance_id` 关联，NyxID audit 不能替代 Agent durable acceptance 或 resource receipt。
+
+```ts
+type LocalAgentAuditEvent = ContractMeta & {
+  audit_event_id: string;
+  sequence: number;
+  previous_event_digest?: Sha256;
+  run_id?: UUID;
+  request_id?: string;
+  request_digest?: Sha256;
+  node_id?: string;
+  agent_instance_id: string;
+  actor?: ActorRef;
+  event_type: "request_admitted" | "request_rejected" | "state_changed" | "resource_created" | "resource_released" | "artifact_staged" | "upload_settled" | "cleanup_settled" | "security_violation";
+  object_refs: DigestBoundRef[];
+  outcome: "accepted" | "rejected" | "settled" | "partial" | "failed";
+  reason_codes: string[];
+  occurred_at: ISO8601;
+};
+```
+
+Agent audit 必须 append-only、bounded、脱敏并与 small journal transaction 关联。它不记录 Secret、raw Evidence、本地绝对用户路径或完整 authorization payload。
+
+### 17.H4 Hardened 审计事件
+
+以下 hash chain、device-bound signature、AuditCheckpoint 和 LedgerIntegrityCheckpoint 只适用于 `hardened_untrusted_code`：
 
 ```ts
 type AuditSubject =
@@ -5348,9 +6267,25 @@ QualityEvaluation
 
 ---
 
-## 19. macOS Runtime Daemon 生命周期
+## 19. Local Agent 生命周期与 Hardened Runtime Daemon
 
-### 19.1 安装与身份
+### 19.A Local QA Agent MVP 生命周期
+
+MVP Agent 是用户级、可独立升级的本地部署目标。它可以由用户登录项、LaunchAgent、桌面应用 helper 或同等用户级 supervisor 启动，但不得要求 root LaunchDaemon。具体安装技术不是跨边界 contract；以下行为是 contract：
+
+- Agent 必须具有稳定 `agent_instance_id`、device binding、版本和 protocol capability report。
+- Agent 只暴露 §8.1 的五个 REST endpoint，监听 loopback 或受控 Unix socket；生产禁止 `auth_method=none`、arbitrary shell/URL/cwd/env/Compose/CDP endpoint。
+- 所有非 public-health 请求同时验证 Node 注入的 local credential 和 Hosted-signed `LocalQARequestAuthorization`；显式 node pin 不可用时 fail closed。
+- Agent 升级前必须停止接纳新 Run；已有 Run 可以完成或进入 cancel/cleanup，但升级不得自动重跑测试。
+- small journal migration 必须保持 request/idempotency、run、event sequence、resource ownership、upload 和 cleanup attempt 可读。
+- Agent restart 后先恢复 journal 和 resource discovery，再开放 admission；禁止自动从 `executing` 继续 Case。
+- restart recovery 只允许状态查询、bounded cursor event read、可证明安全的 upload reconciliation 和 owned-resource Cleanup。
+- health 必须报告 admission、active runs、container provider、Chrome availability、disk pressure 和 last recovery reason。
+- uninstall 必须先拒绝新 Run并处理 active resources；无法清理的 residual 必须显示给用户并回传 hosted。
+
+### 19.H1 Hardened 安装与身份
+
+以下 §19.H1-§19.H6 只适用于 `hardened_untrusted_code`：
 
 ```ts
 type RuntimeIdentityStatement = RuntimeScopedMeta & {
@@ -5432,7 +6367,7 @@ Local QA Runtime v1 必须：
 - 建立唯一 `runtime_instance_id`、device-bound non-exportable signing key、`RuntimeIdentityStatement` 和独立 pairing epoch，但禁止复用 NyxID Node identity 作为 Runtime identity。
 - 将本地持久状态放在受权限控制的 application support 目录；禁止写入被测仓库。
 
-### 19.2 launchd
+### 19.H2 Hardened launchd
 
 `launchd` 配置必须：
 
@@ -5443,14 +6378,14 @@ Local QA Runtime v1 必须：
 - 每次启动必须扫描 local Ledger、未结算 ResourceInventory、CredentialLease 和 CleanupCapability，建立 local recovery latch并失效旧 IPC/vsock session；Hosted Decision 前只做只读 discovery并上报 Snapshot，不得创建 FenceTransition、successor lease/capability或恢复 Cleanup。收到 signed RecoveryDecision 后才按 `control_quiesce_reconcile`/`control_cleanup` purpose收敛，且在接受新 Run 前解除 recovery blocking state。
 - 在升级期间支持 drain：停止接收新 Run，允许安全 checkpoint 或取消当前 Run。
 
-### 19.3 本地认证
+### 19.H3 Hardened 本地认证
 
 - Node/Adapter、本地 CLI、BrowserProvider 和受控 helper 调用 Runtime 时必须使用签名 `LocalIPCBinding`，并通过 Unix peer credential 或 loopback mTLS 绑定实际调用方 ExecutableIdentity；仅持有 endpoint、端口或 bearer token 不足以认证。
 - LocalIPCBinding 必须绑定 RuntimeIdentityStatement、active RuntimePairingReceipt、identity/pairing/boot/session epoch、server/client executable identity、service audience、protocol version、peer credential policy、direction、TTL 和 nonce，按 §3.6 `purpose="local_ipc_binding"` 验签；retired session、sequence/digest chain gap、nonce 重放、过期、binary 替换或 peer identity 不匹配必须拒绝。
 - `probeHealth(detail="public")` 可以返回非敏感健康信息，但 authenticated health、Run、event ack 和 Artifact 必须认证。
 - 未认证请求不得 reservation、提交/取消/清理命令、查询详细 Run、ack event 或下载 Artifact；`getArtifact` 还必须拒绝 raw quarantine ref。
 
-### 19.4 健康与能力报告
+### 19.H4 Hardened 健康与能力报告
 
 ```ts
 type RuntimeOperation = "probe" | "reserve_non_browser" | "reserve_browser" | "activate_execution" | "execute_non_browser" | "execute_browser" | "quiesce_reconcile" | "cleanup" | "artifact_read" | "event_delivery" | "revocation_delivery" | "redaction" | "update_stage" | "update_activate";
@@ -5548,7 +6483,7 @@ type RuntimeHealth = RuntimeScopedMeta & {
 
 Runtime 必须在接受 reservation 和 Grant 前声明兼容 protocol/schema/capabilities，并满足 `AdmissionRequirements` 的所有逻辑配额和 emergency headroom。`status="recovering"|"draining"|"unhealthy"`、identity/pairing 无效、revocation freshness/chain 未收敛、hard ceilings 过期、Audit/Ledger integrity 未完成、disk/ledger/outbox critical 或 recovery blocking residual 存在时 `admission.state` 必须为 closed。Browser enforcement capability 或 Secret Broker binding 缺失时只关闭对应操作，不得伪装为全局 healthy；具体允许操作由签名/摘要绑定的 `RuntimeDegradedOperationMatrix` 决定。hosted 必须在 device selection、reservation 和 dispatch 前检查 compatibility 与 snapshot expiry；Runtime 必须在 admission transaction 中重新检查，禁止依赖陈旧 health response。
 
-### 19.5 升级与回滚
+### 19.H5 Hardened 升级与回滚
 
 ```ts
 type RuntimeReleaseSelection = RuntimeScopedMeta & {
@@ -5776,7 +6711,7 @@ type RuntimeUpdateReceipt =
 - activation 状态固定为 `activation_intent_durable → candidate_started → migration_committed → health_evidence_durable → selection_committed`，任一步失败进入 `rolled_back|failed`；每个 journal entry 都绑定前项、schema before/after 和 selection before/after。激活后必须先完成本地认证、SQLite integrity、Ledger/EffectGate self-check、VZ capability、Process Warden，以及条件性的 Browser enforcement capability probe，再接受新 reservation。Browser probe 失败只移除 Browser capability；核心安全自检失败必须 rollback 或 unhealthy。
 - 版本报告、anti-rollback watermark、ReleaseSelection、ActivationRequest/Result、HealthEvidence 和每次 staged/activated/rolled_back/failed Receipt 必须进入审计；Runtime-scoped update failure 必须使用 `RuntimeErrorEnvelope(phase="update")`。
 
-### 19.6 卸载
+### 19.H6 Hardened 卸载
 
 卸载必须：
 
@@ -5788,9 +6723,49 @@ type RuntimeUpdateReceipt =
 
 ---
 
-## 20. M0-M5、测试 Gate 与 Definition of Done
+## 20. Profile Roadmap、测试 Gate 与 Definition of Done
 
-### 20.1 实施顺序
+### 20.A Local QA Agent MVP A0-A3
+
+| 阶段 | 依赖 | 必须交付 |
+|---|---|---|
+| **A0 Profile 与公共契约** | 无 | ProfileApplicability、五 endpoint、LocalQARequestAuthorization、LocalQARunRequest/Snapshot/EventBatch、state/outcome、EnvironmentExecutionSpec、CleanupSummary、strict schema 和 idempotency。 |
+| **A1 NyxID + Agent 最小纵向链路** | A0 | 用户级 Agent、四层认证、explicit node pin、small journal、system Chrome temporary profile、structured result、basic execution/staging CleanupReceipt。 |
+| **A2 Container Environment 与完整执行** | A1 | immutable Source、per-run container/Compose、App/DB/Middleware、conditional readiness、testing-runner、MVP Backend context、resource ownership、cancel/timeout/restart cleanup。 |
+| **A3 Evidence、Cloud Report 与 Publication** | A2 | quarantine/redaction、post-redaction grant exchange、ArtifactUploadReceipt、cloud ingestion/storage、ReportInputSet、QualityEvaluation、deterministic JSON/HTML/Markdown、optional NarrativeSupplement、ReportRecord、Publication/repair/settlement。 |
+
+MVP 发布 Gate 必须证明：
+
+- 请求经 NyxID 到达不构成自动授权；Agent 独立验证 authorization/Profile/digest/TTL/nonce。
+- `hardened_untrusted_code` 请求被 MVP 明确拒绝。
+- 同 key 同 digest 幂等返回，同 key 不同 digest 零副作用。
+- source、container、network、volume、port、process、Chrome/profile/download/staging 都具有 run ownership。
+- container 不挂载 home、SSH、Keychain、个人 browser profile、无关 repo 或 Docker socket。
+- Browser 使用 dedicated process + temporary profile，且不开放 arbitrary CDP。
+- raw Evidence 永不进入普通 event/cloud/report；只有 post-redaction bytes 可上传。
+- Agent restart 不自动重跑测试；可以查询、对账 upload 和清理已知资源。
+- report/narrative/publication repair 不重跑测试、不改写 CaseResult 或 QualityEvaluation。
+
+MVP Definition of Done：
+
+1. [ ] `apps/hosted-control-plane` 与 `apps/local-qa-agent` 可以独立构建和发布；packages 不依赖 apps。
+2. [ ] Agent 精确提供五个 REST endpoint，生产接口无 `auth_method=none`、arbitrary shell/URL/cwd/env/Compose/CDP endpoint。
+3. [ ] 所有非 public-health request 同时验证 Node local credential 与 operation-specific Hosted signature，并绑定 method/path/digest、actor、device/agent、Run、TTL 和 nonce。
+4. [ ] MVP 只接受 trusted-input policy；Hardened 请求和未允许输入 fail closed。
+5. [ ] per-run container Environment、Readiness 和 runner E2E 可执行真实 App/Middleware。
+6. [ ] testing-runner 依据结构化 Assertion 产生 CaseResult，Backend/LLM 自报 pass 无效。
+7. [ ] host Chrome 使用 dedicated process、temporary profile 和 isolated downloads，不读取个人状态。
+8. [ ] success/failure/cancel/timeout/Agent restart 最终产生分阶段 LocalAgentCleanupReceipt、CleanupSummary 或明确 residual/repair；执行资源 Cleanup 不等待云端上传。
+9. [ ] Evidence 完成 quarantine/redaction/sanitized validation 与 post-redaction digest 后才申请 per-object grant 并上传，云端校验后产生 ArtifactIngestReceipt。
+10. [ ] ReportInputSet、QualityEvaluation、JSON/HTML/Markdown DeterministicReport 和 ReportRecord 可按 digest/version 重放。
+11. [ ] NarrativeSupplement 失败不改变 deterministic report、Quality 或 publication eligibility。
+12. [ ] execution/evidence/upload/cleanup/report/quality/publication 七类 Outcome 独立持久化，terminal 表示 settled。
+13. [ ] Mermaid、DESIGN、SPEC 和本地执行设计对 Agent/Container/Chrome/Cloud Report/Hardened Profile 语义一致。
+14. [ ] POC 之外的能力只有在对应 Gate 通过后才可标记 implemented。
+
+### 20.H1 Hardened M0-M5 实施顺序
+
+以下原 M0-M5、测试矩阵、故障注入、DoD 和追踪矩阵用于 `hardened_untrusted_code`；其中明确标记为 Source/Plan/Runner/Quality/Report/Publication/PQL 的 profile-neutral 项仍可由两个 Profile 共用。
 
 | 阶段 | 依赖 | 必须交付 |
 |---|---|---|
@@ -5834,7 +6809,7 @@ type VerificationGateResult = RuntimeScopedMeta & {
 
 签名/canonicalization、Runtime identity/pairing、Grant/fencing/revocation、Local IPC sequence、Guest channel、dependency integrity、Runtime hard ceilings、network egress、Secret materialization、Browser enforcement、quarantine/redaction、Audit/Ledger durability、crash containment/no-auto-resume 和 Cleanup ownership Gate 禁止 waiver。R0 使用 model/failpoint crash harness；R1 使用真实 adapter/process kill；R2 使用完整取消/恢复/Amendment chaos；R3 使用 update/migration/disk/outbox matrix。
 
-### 20.2 测试矩阵
+### 20.H2 Hardened / Common 测试矩阵
 
 | 层级 | 场景 | 最低覆盖 |
 |---|---|---|
@@ -5844,7 +6819,10 @@ type VerificationGateResult = RuntimeScopedMeta & {
 | Authorization integration | Design Approval→strict reservation/exact preimage→Design Grant→Plan→Policy→Execution Approval→strict reservation→Execution Grant→atomic admission | 正常、拒绝、过期、mixed variant、preimage digest mismatch、未激活 reservation、重复 activation、binding/Grant mismatch、device change、stale sequence；验证 idempotency lookup 先于 mutable checks，admission 原子创建 stable environment/empty inventory/CleanupCapability/lease/fencing/effect/outbox。 |
 | Policy/PEP | root-qualified 文件、typed command/network/Secret/Browser/VM、phase verifier、resource budget、unknown capability | Design/Execution/bootstrap/control-cleanup context 与 checked digest 正反例；EffectState 全转换、CAS race、uncertain reconcile；worker 无法 check-then-act 绕过。 |
 | Plan | PlanCase、DAG、typed PlanAction/strict BrowserAction、root-qualified paths、aggregate envelope、Assertion、EvidenceRequirement、conditional readiness | open action/unknown variant、absolute/bare path、root replacement、orphan Case/Step、跨 Case assertion、required Evidence 缺失必须 fail closed。 |
-| Amendment | 新 Step、文件/网络/Secret/权限/预算扩展 | quiesce、旧 Grant revocation、old fence、Cleanup residual、new design sandbox、reapproval/new sandbox。 |
+| Local QA Agent protocol | 五 REST endpoint、transport credential + request authorization、Profile、idempotency、bounded event batch、local state、restart behavior | 同 key replay/conflict、method/path/body digest、expired/nonce/device/profile mismatch、Node offline fail closed、Hardened downgrade denial、cursor reconnect、cancel→cleanup、restart no-auto-rerun。 |
+| MVP Container Environment | immutable Source、digest-bound EnvironmentExecutionSpec、per-run workspace/container/network/volume/port/process ownership、App/DB/Middleware、Readiness | arbitrary YAML/shell denial；home/SSH/Keychain/browser-profile/Docker-socket mount denial；prepare partial failure、cancel、timeout、Agent kill 后 cleanup/residual。 |
+| Cloud Report | post-redaction grant exchange、ArtifactIngestReceipt、CleanupSummary、ReportInputSet、QualityEvaluation、DeterministicReport、NarrativeSupplement、ReportRecord | digest replay、upload response lost、narrative skipped/failed、renderer response lost、report repair；任何情况不得改写 CaseResult/Quality 或重跑测试。 |
+| Amendment | 新 Step、文件/网络/Secret/权限/预算扩展 | MVP 生成新 Plan version/approval 或 blocked；Hardened 还要求 quiesce、旧 Grant revocation、old fence、Cleanup residual、new design sandbox、reapproval/new sandbox。 |
 | Runtime protocol | canonical 八方法 probeHealth/reserveLocalLeaseBinding/cancelReservation/submitCommand/getRun/streamEvents/ackEvents/getArtifact、独立 RuntimeTransportControlInbox、split resume、strict cleanup、Snapshot | request/response schema、identity/pairing/boot/session epoch、双向 durable sequence/previous digest/nonce、retired session、同 key 同 digest replay/不同 digest 零状态变更、RevocationBatch sequence/chain/watermark/idempotent ack、first cursor=1、ack conflict/gap、raw artifact fetch denial、旧 Runtime 迟到 completion 不推进；control inbox 不得成为第九个 RuntimeService 方法或承载 command/config。 |
 | NyxID adapter | Cloud→Node→loopback、ApprovalEvidence、断线重连、本地认证、路由错误 | 不开放公网端口；不签 Grant、不解释 scope、不读取 Secret。 |
 | Sandbox | 每 phase/generation 新 VZ Linux VM、signed boot chain、GuestBootEvidence、BootBoundAuthenticatedVsockSession、ProcessDomainDescriptor、LocalIPCBinding、DependencyAcquisitionPolicy/Receipt、RuntimeHardCeilings、ResourceLimitBinding/Receipt、NetworkFlowReceipt、root identity/mount escape、home denial | bootloader/kernel/initrd/rootfs/agent/nonce/transcript/ephemeral key、sequence/replay/restart、Unix peer/mTLS executable identity、frozen lockfile/integrity/registry redirect/script、VZ+Warden+cgroup+rlimit+storage apply、CPU/memory/disk/process/open-file/time/network/download/quarantine violations、per-flow DNS/redirect/direct-socket/private/metadata denial、root alias/symlink/mount escape 全覆盖；明确不宣称硬件 attestation，禁止回退宿主进程或复用 VM。 |
@@ -5864,7 +6842,7 @@ type VerificationGateResult = RuntimeScopedMeta & {
 | Audit/Ledger integrity | exact AuditEvent variants、event/checkpoint hash chain、LedgerIntegrityCheckpoint/VerificationReceipt、snapshot/health binding | sequence gap、same-sequence different digest、previous mismatch、checkpoint rollback、SQLite/WAL/row/outbox/effect/inventory/nonce root mismatch 全部关闭 admission；禁止清空或跳过坏记录恢复 healthy。 |
 | Security | forged attestation/pairing/Grant/RevocationBatch/RecoveryDecision/ReleaseSelection、SafeErrorDetails overflow、replay、stale/wrong-purpose fence、root escape、IPC/vsock spoof、dependency substitution、resource/egress bypass、process-bound Secret bypass、proxy bypass、raw quarantine exposure | 全部 fail closed + exact AuditEvent；任何失败不得改变 reservation/fence/cursor/nonce/watermark 或暴露原始数据。 |
 
-### 20.3 故障注入
+### 20.H3 Hardened 故障注入
 
 故障注入从 M0/R0 开始，而不是等到可恢复编排完成后才补：R0 使用可枚举 transaction/model failpoint；R1 使用真实 adapter、process 和 VM kill；R2 覆盖生命周期 chaos；R3 覆盖 update/migration/disk/outbox。至少自动化注入以下故障：
 
@@ -5894,7 +6872,7 @@ type VerificationGateResult = RuntimeScopedMeta & {
 
 系统必须通过 fenced Snapshot、canonical EffectState ledger、seal barrier、dedup key、immutable Receipt、purpose-specific FenceTransition 和 signed RecoveryDecision 收敛，禁止通过“重新跑整个 Run”掩盖一致性问题。
 
-### 20.4 Definition of Done
+### 20.H4 Hardened Definition of Done
 
 以下条件全部满足后，v1 才可以声明完成：
 
@@ -5917,7 +6895,7 @@ type VerificationGateResult = RuntimeScopedMeta & {
 17. [ ] BrowserProvider 只接受 strict BrowserAction 并通过 performAction 执行；只有未过期 BrowserEnforcementCapability 能证明完整 Chrome process tree 的 IPv4/IPv6 TCP/UDP direct-socket denial 时才广告 Browser capability。宿主 Chrome 使用临时 Profile、forced proxy、签名 BrowserNetworkEnforcementReceipt 和 opaque session；enforcement 丢失先断网再终止，worker 不获得 CDP endpoint/token。
 18. [ ] 成功、失败、取消、超时、失联、Runtime 重启和 Amendment 均通过 generalized TerminationTargetScope、signed RecoveryDecision、split Amendment/Recovery Resume 和 purpose-specific fenced Cleanup 收敛。
 19. [ ] Cleanup 使用 capability/current-or-successor、sealed snapshot ref/lineage/version/digest、InventorySealReceipt 和 cleanup lineage/attempt idempotency，只清理本 Run 资源，并完整区分 missing/unknown/active residual 与合法 preserved resource。
-20. [ ] execution、cleanup、evidence、publication、final quality 五类 Outcome 独立持久化；terminal 表示 settled，terminal 后 repair 不重开测试或改写 QualityEvaluation。
+20. [ ] execution、cleanup、evidence、publication、final quality 七类 Outcome 独立持久化；terminal 表示 settled，terminal 后 repair 不重开测试或改写 QualityEvaluation。
 21. [ ] 所有原始观察先进入 Runtime-only RawQuarantineArtifact；RedactionReceipt 成功后持久化 SanitizedObservation，ArtifactPointer 只记录 post-redaction digest。EvidenceManifest 逐项结算，缺失/脱敏失败/digest mismatch 禁止 sufficient/publication。
 22. [ ] `quality-evaluation` 支持 executed/non-executed 输入，绑定完整 input set 与 rule set，并区分 product、test、coverage、environment、flaky、policy 和 insufficient evidence。
 23. [ ] Publication 只消费 QualityEvaluation 和 Artifact allowlist；GitHub 与 PQL 是独立 Action，均有 rendered digest、dedup key、attempt、reconcile 和 Receipt。
@@ -5943,11 +6921,15 @@ type VerificationGateResult = RuntimeScopedMeta & {
 43. [ ] AuditEvent 是 exact strict union并形成无间隙 hash chain；AuditCheckpoint 与 LedgerIntegrityCheckpoint/VerificationReceipt 覆盖 SQLite/WAL、audit、outbox、effect、inventory 和 nonce/sequence watermarks，integrity failure 关闭 admission且不能通过清空历史恢复。
 44. [ ] M2 Gate 在 Design/Execution 的第一段不受信代码前同时验证 dependency、hard limits、egress、quarantine/redaction、audit 和 process/VM crash containment；任一 crash/restart 只进入 admission-closed read-only discovery，完整 Resume/Amendment 仅在 M3 通过 signed RecoveryDecision 和重新授权执行。
 
-### 20.5 需求追踪矩阵
+### 20.H5 Hardened 需求追踪矩阵
 
 | 锁定要求 | Schema / Interface | 状态/规则 | DoD |
 |---|---|---|---|
-| fkst-hosted monorepo、两个 app 独立部署、testing packages | §1、§2 | module boundary tests | #7 |
+| Local QA Agent MVP Profile 防降级 | §0-§2、LocalQARequestAuthorization | dispatch/admission | MVP #3-4 |
+| 五方法 Agent protocol 与 small journal | §8.1、§19.A | local state/idempotency/restart | MVP #2、#8 |
+| per-run Container + host Chrome | §9.A、§10.2 | prepare/readiness/execute/cleanup | MVP #5、#7-8 |
+| sanitized upload + Cloud Report | §11.A、§12.A | ingest/evaluate/compose/report repair | MVP #9-12 |
+| fkst-hosted monorepo、两个 app 独立部署、testing packages | §1、§2 | module boundary tests | Hardened #7 / MVP #1 |
 | RunDraft、SourceAcquisition、immutable source、RunSpec | §4、`DigestBoundRef` | `source_resolving` | #2 |
 | Hosted Authorization Authority、strict reservation/preimage 与原子 admission | DeviceAttestation、Approval/Grant、AdmissionRequirements、LocalLeaseBinding、CommandAdmissionReceipt | §5、§8、§16 | #3-4、#10、#27、#39 |
 | Runtime identity、pair/re-pair/revoke/reset 与 epoch binding | RuntimeIdentityStatement、RuntimePairingChallenge/Receipt、GrantDeviceBinding | §5、§19 | #39-40 |
@@ -5961,7 +6943,7 @@ type VerificationGateResult = RuntimeScopedMeta & {
 | Runtime fencing、cursor/ack 与 signed recovery | ExecutionFence、FenceTransition、PredecessorFencingRecord、RuntimeCommand/Event、RecoveryDecision、WorkflowCheckpoint | §8、§13、§16 | #18、#26、#31、#36 |
 | testing-runner 决定 Pass/Fail | BackendObservation、AssertionResult、CaseResult | §10 | #15-16 |
 | Generalized Termination、inventory seal 与补偿 Cleanup | TerminationTargetScope/Receipt、InventorySealReceipt、CleanupCapability successor、CleanupReceipt/Residual | §9-§11、`cleaning_up`/repair | #18-19、#32-33 |
-| 五类 Outcome 与 settlement | RunOutcomes、RunSettlement、RepairOperation | §14 | #20、#33-34 |
+| 七类 Outcome 与 settlement | RunOutcomes、RunSettlement、RepairOperation | §14 | #20、#33-34 |
 | Quality 与精确路由 | QualityEvaluation unions、PublicationPlan/Receipt | §12、§18 | #22-24、#34 |
 | PQL Review 与 Promotion | AssetChangeProposal、PQLReviewDecision、ProjectPackPromotionReceipt | §12、§18 | #25 |
 | Raw quarantine、enforceable redaction 与 sanitized Artifact | RedactionPolicy/Rule、RawQuarantineArtifact、RedactionReceipt、SanitizedObservation、ArtifactPointer | §10-§11、§17 | #21、#37、#42、#44 |
@@ -5972,4 +6954,4 @@ type VerificationGateResult = RuntimeScopedMeta & {
 
 ---
 
-本规范的实现应按系统 M0-M5 逐步收敛。Runtime 内部 R0-R3 只表达本地交付增量。任何阶段可以缩小功能范围，但不得绕过授权、源码冻结、Sandbox enforcement、Runner assertion、Cleanup、Outcome 分离和幂等这些系统不变量。
+当前实现应按 Agent A0-A3 逐步收敛；Hardened Profile 按系统 M0-M5 和 Runtime R0-R3 独立推进。任何阶段可以缩小功能范围，但不得绕过 Profile 防降级、请求授权、源码冻结、Runner assertion、Evidence redaction、Cleanup、Outcome 分离和幂等这些共同不变量。Hardened Profile 还不得绕过 Grant、Sandbox enforcement、fencing、authority ledger 和 signed recovery。

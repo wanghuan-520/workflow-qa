@@ -6,7 +6,13 @@ This POC proves the narrow vertical path:
 NyxID Proxy -> NyxID Node -> loopback HTTP runtime -> Google Chrome -> assertion result
 ```
 
-The runtime is intentionally restricted to its own loopback fixture page. It does not accept an arbitrary URL or shell command.
+The PoC service is intentionally restricted to its own loopback fixture page. It does not accept an arbitrary URL or shell command.
+
+## Non-production limits
+
+This is not the production Local QA Agent or the future Hardened Runtime. It has no request authentication, strict body schema, signed authorization, nonce/replay protection, durable idempotency, cancellation, SQLite journal, source checkout, container/Compose environment, readiness orchestration, generic test runner, artifact upload, cloud report composition, resource limits, or compensating resource cleanup.
+
+Run state exists only in an in-memory `Map`. The returned screenshot value is a local absolute path; the screenshot bytes are not sent through NyxID or uploaded to cloud storage.
 
 ## Local run
 
