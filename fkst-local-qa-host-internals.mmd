@@ -8,7 +8,7 @@ flowchart TB
     API --> AUTH
   end
 
-  subgraph CORE["Local QA Agent Process"]
+  subgraph CORE["Local QA Host Process"]
     direction TB
     COORD["Run Coordinator<br/>state and outcome separation"]
     JOURNAL[("Small SQLite Journal<br/>request / run / event / resource / attempts")]

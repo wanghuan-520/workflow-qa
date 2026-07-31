@@ -16,7 +16,7 @@ flowchart TB
     CLOUD --> SERVICE --> NODE
   end
 
-  subgraph AGENT["Local QA Agent MVP"]
+  subgraph AGENT["Local QA Host MVP"]
     direction TB
     API["Five authenticated endpoints<br/>health / put run / get / events / cancel"]
     COORD["Run Coordinator + Small SQLite Journal<br/>idempotency / state / event / ownership"]

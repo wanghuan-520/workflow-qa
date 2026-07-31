@@ -5,17 +5,17 @@
 > 当前实施 Profile：`local_qa_agent_mvp`
 > 未来安全 Profile：`hardened_untrusted_code`
 > 对应规范：[SPEC.zh-CN.md](SPEC.zh-CN.md)
-> 当前本地 Agent 设计：[LOCAL-QA-AGENT-DESIGN.zh-CN.md](LOCAL-QA-AGENT-DESIGN.zh-CN.md)
+> 当前本地 Host 设计：[LOCAL-QA-HOST-DESIGN.zh-CN.md](LOCAL-QA-HOST-DESIGN.zh-CN.md)
 > 未来 Hardened Runtime 设计：[LOCAL-QA-RUNTIME-DESIGN.zh-CN.md](LOCAL-QA-RUNTIME-DESIGN.zh-CN.md)
 
 ## 1. 文档状态、权威关系与 Profile
 
-本文定义系统级职责、信任边界、部署拓扑、端到端生命周期和实施顺序。跨进程字段、严格枚举、Interface、状态机和错误契约以 [SPEC.zh-CN.md](SPEC.zh-CN.md) 为准；当前 Agent 的本地进程、容器、浏览器、暂存、上传和 Cleanup 以 [LOCAL-QA-AGENT-DESIGN.zh-CN.md](LOCAL-QA-AGENT-DESIGN.zh-CN.md) 为准；未来不可信代码执行以 [LOCAL-QA-RUNTIME-DESIGN.zh-CN.md](LOCAL-QA-RUNTIME-DESIGN.zh-CN.md) 为准。
+本文定义系统级职责、信任边界、部署拓扑、端到端生命周期和实施顺序。跨进程字段、严格枚举、Interface、状态机和错误契约以 [SPEC.zh-CN.md](SPEC.zh-CN.md) 为准；当前 Host 的本地进程、容器、浏览器、暂存、上传和 Cleanup 以 [LOCAL-QA-HOST-DESIGN.zh-CN.md](LOCAL-QA-HOST-DESIGN.zh-CN.md) 为准；未来不可信代码执行以 [LOCAL-QA-RUNTIME-DESIGN.zh-CN.md](LOCAL-QA-RUNTIME-DESIGN.zh-CN.md) 为准。
 
 主要语义来源如下：
 
 - [系统 Mermaid](fkst-host-nyxid-local-qa-flow.mmd)：当前 MVP 主链和未来 Hardened 分支的系统语义基准。
-- [Agent 内部 Mermaid](fkst-local-qa-agent-internals.mmd)：当前 Local QA Agent 内部语义基准。
+- [Host 内部 Mermaid](fkst-local-qa-host-internals.mmd)：当前 Local QA Host 内部语义基准。
 - [Runtime 内部 Mermaid](fkst-local-qa-runtime-internals.mmd)：只适用于未来 Hardened Runtime。
 - [NyxID 到本地 Chrome 最小闭环验证](NyxID-Local-Chrome-Minimal-Loop-Validation.md)：只证明实际跑通过的 Cloud → Node → loopback service → Chrome → structured result 链路。
 - `old/` 与 [历史架构评审](FKST-NyxID-Local-QA-Architecture-Review.md)：仅作为历史资料，不是当前实现规范。
@@ -24,7 +24,7 @@
 
 | Profile | 状态 | 可接受输入 | 本地隔离与授权模型 |
 | --- | --- | --- | --- |
-| `local_qa_agent_mvp` | 当前实施基线 | 受信任、已审查或组织明确允许的项目代码和测试定义 | per-run 容器负责生命周期隔离；Local QA Agent 负责资源所有权、浏览器、证据和 Cleanup；不宣称抵御 hostile code |
+| `local_qa_agent_mvp` | 当前实施基线 | 受信任、已审查或组织明确允许的项目代码和测试定义 | per-run 容器负责生命周期隔离；Local QA Host 负责资源所有权、浏览器、证据和 Cleanup；不宣称抵御 hostile code |
 | `hardened_untrusted_code` | 未来安全增强 | 外部 fork、未知依赖脚本、开放式 Shell/Agent Action、真实高价值 Secret | 保留 VZ Linux VM、Design/Execution Grant、LocalLeaseBinding、EffectGate、fencing、authority ledger、Warden、Secret Broker 和 signed recovery |
 
 MVP 合规不得被描述为 Hardened Profile 合规。只要输入可能主动攻击宿主、依赖安装脚本不可信、需要开放式 Agent Action，或 Secret 泄露影响显著，就必须拒绝 MVP Profile，等待 Hardened Profile。
@@ -35,7 +35,7 @@ MVP 合规不得被描述为 Hardened Profile 合规。只要输入可能主动�
 | --- | --- |
 | Current implementation | 当前仓库中可以直接检查的 PoC 源码行为 |
 | Verified PoC | 2026-07-24 实际跑通过的 NyxID → 已运行 PoC service → Chrome 链路 |
-| Target MVP | `A0-A3` 待实现、待通过 Exit Gate 的 Local QA Agent 能力 |
+| Target MVP | `A0-A3` 待实现、待通过 Exit Gate 的 Local QA Host 能力 |
 | Future Hardened | VZ、EffectGate、fencing、authority ledger、signed recovery 等未来能力 |
 
 ## 2. 背景、目标与非目标
@@ -77,7 +77,7 @@ Create Run
 → Finalize Settlement
 ```
 
-系统应支持 PR、exact commit、手动和 API 入口；支持 Deterministic、Browser 和受限 Agent Backend；在失败、取消、超时、Node 断线和 Local QA Agent 重启后收敛到可解释状态。
+系统应支持 PR、exact commit、手动和 API 入口；支持 Deterministic、Browser 和受限 Agent Backend；在失败、取消、超时、Node 断线和 Local QA Host 重启后收敛到可解释状态。
 
 ### 2.3 非目标
 
@@ -86,7 +86,7 @@ Create Run
 - 抵御恶意 PR、恶意依赖 installer、容器逃逸或同一用户账户已经被攻陷。
 - 接管用户已经打开的 Chrome、复用个人 Profile、Cookies、Keychain 或 Extensions。
 - 让 NyxID Node Checkout 代码、启动容器、控制 Chrome、执行测试、判断 Pass/Fail 或生成报告。
-- 在 Local QA Agent 中生成最终 Quality、持久化长期报告或直接发布 GitHub/PQL。
+- 在 Local QA Host 中生成最终 Quality、持久化长期报告或直接发布 GitHub/PQL。
 - 自动执行任意 Shell、任意 CDP、任意宿主路径、任意网络目的地或任意 Secret 用途。
 - 删除现有 Hardened Runtime 设计；它作为未来 Profile 保留。
 
@@ -119,9 +119,9 @@ NyxID Cloud
 
 POC 尚未证明：
 
-- Local QA Agent 安装、认证、升级和设备注册。
+- Local QA Host 安装、认证、升级和设备注册。
 - Source materialization、容器/Compose 生命周期、真实 App/Middleware、Readiness 和资源限制。
-- testing packages 与 Local QA Agent 的正式集成。
+- testing packages 与 Local QA Host 的正式集成。
 - 临时 Chrome Profile、下载目录、进程树所有权和 Cleanup。
 - 本地持久 run/resource journal、重启后查询和资源对账。
 - Evidence quarantine、redaction、short-lived upload grant 和云端 artifact ingestion。
@@ -131,20 +131,20 @@ POC 尚未证明：
 
 ## 4. 核心架构原则与不变量
 
-1. **云端持久编排，本地薄执行。** Hosted 保存 Durable Run；Local QA Agent 只管理当前设备上的执行和资源。
+1. **云端持久编排，本地薄执行。** Hosted 保存 Durable Run；Local QA Host 只管理当前设备上的执行和资源。
 2. **NyxID 是设备通道，不是本地执行器。** NyxID 负责路由、传输认证、凭据 broker 和审计，不负责测试生命周期。
-3. **本地请求必须独立授权。** 请求经 NyxID 到达并不等于业务允许执行；Local QA Agent 必须校验目标设备、Run、Source/Plan digest、Profile、TTL、nonce 和 idempotency key。
+3. **本地请求必须独立授权。** 请求经 NyxID 到达并不等于业务允许执行；Local QA Host 必须校验目标设备、Run、Source/Plan digest、Profile、TTL、nonce 和 idempotency key。
 4. **MVP 只接受受信任输入。** 容器是生命周期隔离和资源打包手段，不是 hostile-code 安全边界。
 5. **Source 和 Plan 固定。** 测试必须绑定 immutable effective SHA 和 versioned Structured Plan；换 revision 创建新 Run。
 6. **Runner 决定 Case Pass/Fail。** Backend 和 LLM 只提供 Observation，不得自报测试结论。
 7. **宿主 Chrome 独立于容器。** Chrome 使用专用进程、临时 Profile 和独立下载目录；不得附加个人 Chrome 或暴露 arbitrary CDP。
 8. **原始 Evidence 不离开设备。** 原始日志、DOM、截图、Trace 和下载先进入 bounded quarantine；只有完成 redaction 和 validation 的 bytes 才可上传。
-9. **云端拥有长期 Artifact 和报告。** Local QA Agent 只做短期 staging；云端负责持久存储、访问、保留、删除和报告索引。
+9. **云端拥有长期 Artifact 和报告。** Local QA Host 只做短期 staging；云端负责持久存储、访问、保留、删除和报告索引。
 10. **Cleanup 是强制补偿阶段。** 成功、失败、取消、超时和 Agent 重启都必须尝试 Cleanup；Cleanup outcome 与 execution outcome 分离。
 11. **状态与 Outcome 分离。** Workflow state 表示流程位置；execution、evidence、upload、cleanup、report、quality 和 publication 分别记录结果。
 12. **所有副作用幂等。** Run 提交、容器创建、Chrome 启动、Artifact 上传、报告生成和 Publication 都使用稳定 key 和 digest 对账。
-13. **凭据保持最小用途。** NyxID 可以 broker credential，但 Local QA Agent 只能获得 opaque reference 或面向精确动作的短期 material；不得把 Secret 写入普通日志、结果或 Artifact。
-14. **Hardened 安全能力不能被静默降级。** 请求声明 `hardened_untrusted_code` 时，MVP Agent 必须拒绝，不能改用普通容器继续。
+13. **凭据保持最小用途。** NyxID 可以 broker credential，但 Local QA Host 只能获得 opaque reference 或面向精确动作的短期 material；不得把 Secret 写入普通日志、结果或 Artifact。
+14. **Hardened 安全能力不能被静默降级。** 请求声明 `hardened_untrusted_code` 时，MVP Host 必须拒绝，不能改用普通容器继续。
 15. **Terminal 表示 settled。** 必需 action 已成功、失败、跳过或进入明确 repair backlog 后才可 terminal；不表示全部成功。
 
 ## 5. 仓库、模块与部署拓扑
@@ -197,7 +197,7 @@ YueZh127/product-quality-loop
 
 不负责：直接运行项目代码、本地容器、Chrome 动作或本地 Cleanup。
 
-### 6.2 Local QA Agent
+### 6.2 Local QA Host
 
 负责：
 
@@ -212,7 +212,7 @@ YueZh127/product-quality-loop
 
 不负责：签发业务 Grant、生成最终 Quality、长期保存 Artifact/Report、直接发布 GitHub/PQL，或把普通容器宣称为 hostile-code sandbox。
 
-### 6.3 Local QA Agent 内部角色
+### 6.3 Local QA Host 内部角色
 
 | 角色 | 责任 |
 | --- | --- |
@@ -246,7 +246,7 @@ Hosted workload identity
 → NyxID Cloud-to-Node transport protection
 → Node-injected local Agent credential
 → Hosted-signed LocalQARequestAuthorization
-→ Local QA Agent admission
+→ Local QA Host admission
 ```
 
 | 层 | 证明内容 | 不能证明的内容 |
@@ -256,7 +256,7 @@ Hosted workload identity
 | Node → Agent | 调用者持有该 Agent 安装实例的本地 credential | 请求中的 Source/Plan/Profile 合法 |
 | Hosted business authorization | 精确 operation、method/path/body digest、actor、agent/device/run、TTL、nonce 和 purpose 获得签名授权 | NyxID transport 当前在线或本机 capability 满足 |
 
-Local QA Agent 对每个非 public-health request 至少验证：
+Local QA Host 对每个非 public-health request 至少验证：
 
 - local transport authentication 和目标 agent/device identity。
 - `LocalQARequestAuthorization` 的 `start | read | cancel` strict variant、签名、purpose 和 audience。
@@ -271,7 +271,7 @@ MVP 不要求完整 Design/Execution Grant、LocalLeaseBinding 或 fence protoco
 
 ## 8. Source、Plan 与执行范围
 
-PR 默认测试固定 synthetic merge commit；非 PR Run 使用 exact commit SHA。Hosted 完成 SourceAcquisition 后冻结 RunSpec，Local QA Agent 只 materialize 和验证该 immutable revision。
+PR 默认测试固定 synthetic merge commit；非 PR Run 使用 exact commit SHA。Hosted 完成 SourceAcquisition 后冻结 RunSpec，Local QA Host 只 materialize 和验证该 immutable revision。
 
 Structured Plan 至少声明：
 
@@ -284,7 +284,7 @@ Structured Plan 至少声明：
 
 MVP 不允许 Backend 在执行中扩大范围。出现新增命令、目录、网络、Secret、Browser 权限或显著预算时，Run 进入 `amendment_pending` 或 blocked；修订后必须产生新的 Plan version 和批准结果。Source revision 变化必须创建新 Run。
 
-## 9. Local QA Agent MVP 生命周期
+## 9. Local QA Host MVP 生命周期
 
 | 阶段 | 行为 | 主要产物 |
 | --- | --- | --- |
@@ -364,7 +364,7 @@ Browser Run 使用本机安装的 Chrome executable，但必须：
 
 ## 11. Hardened Untrusted-Code Profile
 
-以下任一条件成立时，MVP Agent 必须拒绝并要求 Hardened Profile：
+以下任一条件成立时，MVP Host 必须拒绝并要求 Hardened Profile：
 
 - 外部 fork 或无法信任的仓库代码。
 - 未审查的 dependency installer 或 project lifecycle script。
@@ -442,7 +442,7 @@ Quality 不因 Report narrative、Publication 或 Cleanup 失败被改写；但 
 
 | 决策 | 获得 | 代价 |
 | --- | --- | --- |
-| 薄 Local QA Agent | 更快实现三个核心需求，复用 NyxID 和 testing packages | 只能处理受信任输入，不提供 hostile-code 安全保证 |
+| 薄 Local QA Host | 更快实现三个核心需求，复用 NyxID 和 testing packages | 只能处理受信任输入，不提供 hostile-code 安全保证 |
 | 容器运行 App/Middleware | 环境可重复、资源容易按 Run 清理 | 依赖本机 container engine，不能替代 VM 安全边界 |
 | 宿主 Chrome 临时 Profile | 使用真实系统浏览器且不触碰个人状态 | 浏览器与容器跨边界，需要端口、下载和 Cleanup 关联 |
 | 云端报告生成与存储 | 统一模板、Quality、访问、保留和 Publication；本地更轻 | 需要可靠 artifact upload 和离线/重试处理 |
@@ -459,7 +459,7 @@ Quality 不因 Report narrative、Publication 或 Cleanup 失败被改写；但 
 
 Exit Gate：相同 request bytes 产生相同 digest；strict union、unknown field/version、idempotency conflict 全部可预测。
 
-### A1：NyxID + Local QA Agent 最小纵向链路
+### A1：NyxID + Local QA Host 最小纵向链路
 
 - 用户级 Agent、生产本地认证和五个 REST endpoint。
 - 专用 scoped NyxID identity、显式 node pin、Node 本地 credential、Hosted-signed request authorization 和三侧 audit correlation。
@@ -495,13 +495,13 @@ Exit Gate：正常通过、测试失败、upload partial、cleanup partial、nar
 - [ ] DESIGN、SPEC、Agent design、Hardened Runtime design 和三张 Mermaid 对 active MVP 与 future Hardened Profile 的术语一致。
 - [ ] `apps/hosted-control-plane` 与 `apps/local-qa-agent` 独立构建和发布，packages 不依赖 apps。
 - [ ] NyxID 只负责路由、认证、credential broker 和审计，不执行测试或报告逻辑。
-- [ ] Local QA Agent 只接受与目标 device、Run、Source、Plan、Profile、TTL 和 nonce 匹配的请求。
+- [ ] Local QA Host 只接受与目标 device、Run、Source、Plan、Profile、TTL 和 nonce 匹配的请求。
 - [ ] MVP 明确限制为受信任输入；Hardened 请求不会被降级为 container-only 执行。
 - [ ] per-run workspace/container/network/volume/port/process/Chrome/profile/download/staging 都有 owner record。
 - [ ] Agent 只启动专用 host Chrome 和 temporary profile，不附加个人 Chrome，不暴露 arbitrary CDP。
 - [ ] `testing-runner` 根据结构化 Assertion 决定 Case Pass/Fail，Backend/LLM 自报结论无效。
 - [ ] raw Evidence 不进入普通 event、cloud storage 或 report；只有 post-redaction bytes 可上传。
-- [ ] Local Agent 不长期提供 Artifact read service；云端持有 durable ArtifactPointer 和 ReportRecord。
+- [ ] Local QA Host 不长期提供 Artifact read service；云端持有 durable ArtifactPointer 和 ReportRecord。
 - [ ] ReportInputSet、QualityEvaluation、DeterministicReport 和 ReportRecord 可按 digest/version 重放。
 - [ ] NarrativeSupplement 失败或变化不能改变测试事实、Quality 或 publication eligibility。
 - [ ] success/failure/cancel/timeout/restart 都进入 Cleanup，execution 与 cleanup outcome 独立。

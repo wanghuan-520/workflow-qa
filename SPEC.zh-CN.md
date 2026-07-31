@@ -3,9 +3,9 @@
 > **文档状态：** 目标实现规范，尚未表示完整系统已经实现。  
 > **适用版本：** v2 profile-based contract；当前实施 `local_qa_agent_mvp`，未来安全增强 `hardened_untrusted_code`。
 > **最后校准日期：** 2026-07-30。
-> **配套设计：** [DESIGN.zh-CN.md](./DESIGN.zh-CN.md) / [LOCAL-QA-AGENT-DESIGN.zh-CN.md](./LOCAL-QA-AGENT-DESIGN.zh-CN.md) / [LOCAL-QA-RUNTIME-DESIGN.zh-CN.md](./LOCAL-QA-RUNTIME-DESIGN.zh-CN.md)。
+> **配套设计：** [DESIGN.zh-CN.md](./DESIGN.zh-CN.md) / [LOCAL-QA-HOST-DESIGN.zh-CN.md](./LOCAL-QA-HOST-DESIGN.zh-CN.md) / [LOCAL-QA-RUNTIME-DESIGN.zh-CN.md](./LOCAL-QA-RUNTIME-DESIGN.zh-CN.md)。
 > **架构图：** [SVG](./fkst-host-nyxid-local-qa-flow.svg) / [Mermaid](./fkst-host-nyxid-local-qa-flow.mmd)。  
-> **Agent 内部图：** [SVG](./fkst-local-qa-agent-internals.svg) / [Mermaid](./fkst-local-qa-agent-internals.mmd) / [PNG](./fkst-local-qa-agent-internals.png)。
+> **Host 内部图：** [SVG](./fkst-local-qa-host-internals.svg) / [Mermaid](./fkst-local-qa-host-internals.mmd) / [PNG](./fkst-local-qa-host-internals.png)。
 > **Future Hardened Runtime 内部图：** [SVG](./fkst-local-qa-runtime-internals.svg) / [Mermaid](./fkst-local-qa-runtime-internals.mmd) / [PNG](./fkst-local-qa-runtime-internals.png)。
 > **评审依据：** [FKST-NyxID-Local-QA-Architecture-Review.md](./FKST-NyxID-Local-QA-Architecture-Review.md)。  
 > **已验证 POC：** [NyxID-Local-Chrome-Minimal-Loop-Validation.md](./NyxID-Local-Chrome-Minimal-Loop-Validation.md)。
@@ -39,7 +39,7 @@ type ProfileApplicability = "common" | ExecutionProfile;
 - 标记为 Hardened-only 的既有 Runtime、Grant、LocalLeaseBinding、fencing、VZ、EffectGate、authority ledger、Warden、Secret Broker、signed recovery 和 update 规则，禁止被解释为 MVP 的前置条件。
 - Profile 未标注但明确引用 `RuntimeIdentityStatement`、`LocalLeaseBinding`、`ExecutionFence`、`EffectGate`、VZ guest、authority ledger 或 `RuntimeService` 八方法的规则，默认属于 `hardened_untrusted_code`。
 - Profile 未标注且只引用 Source、Plan、Assertion、CaseResult、EvidenceManifest、QualityEvaluation、ReportRecord、Publication 或 PQL 的规则，默认属于 `common`。
-- Hosted 必须在 dispatch 前冻结 Profile。MVP Agent 收到 `hardened_untrusted_code` 请求必须拒绝，禁止静默降级。
+- Hosted 必须在 dispatch 前冻结 Profile。MVP Host 收到 `hardened_untrusted_code` 请求必须拒绝，禁止静默降级。
 
 本文只把以下链路视为已被 POC 证明：
 
@@ -64,7 +64,7 @@ POC **没有**证明双阶段授权、隔离 Workspace、真实 App/Middleware �
 
 ### 1.1 目标
 
-系统必须允许 `fkst-hosted` 创建可恢复的 QA Run，经用户或组织策略批准后，通过可替换的设备传输通道在用户电脑上的 Local QA Agent 中执行自动化测试，并把结构化结果、Evidence、Artifact upload、Cleanup、云端报告、质量裁决和发布结果持久化到云端。
+系统必须允许 `fkst-hosted` 创建可恢复的 QA Run，经用户或组织策略批准后，通过可替换的设备传输通道在用户电脑上的 Local QA Host 中执行自动化测试，并把结构化结果、Evidence、Artifact upload、Cleanup、云端报告、质量裁决和发布结果持久化到云端。
 
 ### 1.2 Profile 锁定决策
 
@@ -74,11 +74,11 @@ POC **没有**证明双阶段授权、隔离 Workspace、真实 App/Middleware �
 2. **NyxID 边界。** NyxID 只提供设备路由、传输认证、credential broker 和审计；禁止启动容器、Chrome 或项目进程，禁止执行测试、判断 Pass/Fail、生成报告或发布结果。
 3. **输入边界。** MVP 只允许受信任或已审查输入；外部 fork、未知 lifecycle script、开放式 Agent Action、生产 Secret 或私网访问必须使用 Hardened Profile，否则 fail closed。
 4. **本地执行。** App、数据库和 Middleware 必须位于 per-run container/Compose project；容器不得挂载用户 home、SSH、Keychain、个人浏览器目录、无关仓库或 Docker socket。
-5. **浏览器。** 需要浏览器时，Local QA Agent 必须启动宿主系统 Chrome 的专用进程、临时 Profile 和独立下载目录；禁止附加用户现有 Chrome、复用个人状态或暴露 arbitrary CDP。
+5. **浏览器。** 需要浏览器时，Local QA Host 必须启动宿主系统 Chrome 的专用进程、临时 Profile 和独立下载目录；禁止附加用户现有 Chrome、复用个人状态或暴露 arbitrary CDP。
 6. **测试裁决。** `testing-runner` 必须根据结构化 assertion 决定 Case Pass/Fail；Backend 或 LLM 自报结论禁止成为测试 Oracle。
 7. **本地状态。** Agent 必须维护最小 durable run/resource/upload journal，用于幂等、状态查询、resource ownership、restart cleanup 和 upload reconciliation；它不是完整 authority ledger。
 8. **Evidence。** raw observation 必须先进入 bounded local quarantine；只有完成 redaction、sanitized validation 并基于 post-redaction bytes 计算 digest 的 Artifact 才可上传。
-9. **云端报告。** durable Artifact Store、QualityEvaluation、DeterministicReport、optional NarrativeSupplement、ReportRecord 和 Publication 必须由 hosted control plane 拥有；Local QA Agent 禁止成为长期报告或 Artifact read authority。
+9. **云端报告。** durable Artifact Store、QualityEvaluation、DeterministicReport、optional NarrativeSupplement、ReportRecord 和 Publication 必须由 hosted control plane 拥有；Local QA Host 禁止成为长期报告或 Artifact read authority。
 10. **Cleanup。** success、failure、cancel、timeout 和 Agent restart 都必须尝试 Cleanup；Evidence staging 后先释放执行资源，sanitized staging 再随 upload settlement/TTL 清理；execution、evidence、upload、cleanup、report、quality 和 publication outcome 必须独立。
 11. **Profile 防降级。** 容器不得被称为与 VZ/EffectGate 等价的 hostile-code Sandbox；Hardened 请求不得改用 MVP provider。
 
@@ -108,7 +108,7 @@ POC **没有**证明双阶段授权、隔离 Workspace、真实 App/Middleware �
 - 本规范不锁定 MVP container provider、cloud Artifact Store/KMS 或 Report renderer 的具体供应商，但替换 provider 禁止改变 ownership、digest、redaction、retention、cleanup 和 settlement 语义。
 - Hardened Profile 当前仍以 macOS `Virtualization.framework` 为目标；其他强隔离 provider 必须通过独立 contract 与安全验收引入。
 - 本规范不要求 NyxID 成为唯一传输实现；本机 CLI、企业 Device Agent 或其他自托管通道可以实现同一 transport-neutral Agent 协议。
-- 本规范不允许 PQL 直接调度 Local QA Agent/Runtime、签发 Grant 或发布产品缺陷。
+- 本规范不允许 PQL 直接调度 Local QA Host/Runtime、签发 Grant 或发布产品缺陷。
 
 ---
 
@@ -122,10 +122,10 @@ POC **没有**证明双阶段授权、隔离 Workspace、真实 App/Middleware �
 | SourceAcquisition / RunSpec | hosted source resolver | Source 必须冻结为可重放对象；Agent materialize 后验证 effective SHA 与 digest。 |
 | Structured Plan | testing-design | Plan 进入审批后不可原地修改；revision 变化创建新 Run。 |
 | 设备路由、传输认证和 credential broker | NyxID | NyxID 不解释或扩大业务授权，不拥有测试和报告事实。 |
-| 本地 run admission 与 resource ownership | Local QA Agent | 验证 local transport credential、LocalQARequestAuthorization、Profile、TTL、nonce 和 idempotency；只管理本 Run 资源。 |
-| Environment 生命周期 | Local QA Agent + EnvironmentFactory | hosted 发送意图并消费 Receipt，不直接管理本地容器和进程。 |
+| 本地 run admission 与 resource ownership | Local QA Host | 验证 local transport credential、LocalQARequestAuthorization、Profile、TTL、nonce 和 idempotency；只管理本 Run 资源。 |
+| Environment 生命周期 | Local QA Host + EnvironmentFactory | hosted 发送意图并消费 Receipt，不直接管理本地容器和进程。 |
 | Step Pass/Fail | testing-runner | Backend 只返回 Observation 和 Artifact。 |
-| Raw quarantine/redaction | Local QA Agent + test-artifacts | raw bytes 禁止进入普通 event 或离开设备。 |
+| Raw quarantine/redaction | Local QA Host + test-artifacts | raw bytes 禁止进入普通 event 或离开设备。 |
 | Durable Artifact 与 ArtifactIngestReceipt | hosted artifact service | 本地只短期 staging；云端负责访问、保留和删除。 |
 | Final Quality Outcome | quality-evaluation | Report narrative 和 Publication 禁止自行推导或改写。 |
 | DeterministicReport / ReportRecord | hosted report composer/store | 相同 input/rules/template digest 必须可重放。 |
@@ -1287,7 +1287,7 @@ type PlanAmendment = ContractMeta & {
 
 ## 8. Transport-neutral Local Execution 协议与 NyxID Adapter
 
-### 8.1 Local QA Agent MVP Interface
+### 8.1 Local QA Host MVP Interface
 
 MVP 协议必须与 NyxID 私有 API 解耦。NyxID 只把 authenticated request 路由到目标 Agent；Agent 必须独立验证 hosted authorization、Profile、请求摘要、TTL、nonce 和 idempotency。
 
@@ -1309,8 +1309,8 @@ type LocalAgentHealth = ContractMeta & {
   profile: "local_qa_agent_mvp";
   agent_version: string;
   protocol_versions: string[];
-  capabilities: Array<"containers" | "host_chrome" | "artifact_upload" | "event_stream">;
-  container_provider?: string;
+  capabilities: Array<"docker_compose" | "host_chrome" | "artifact_upload">;
+  docker_compose: { available: boolean; version?: string };
   chrome: { available: boolean; executable_identity_digest?: Sha256 };
   active_runs: number;
   admission: "open" | "closed";
@@ -1359,7 +1359,7 @@ type LocalQARequestAuthorization =
   | (LocalQARequestAuthorizationBase & {
       operation: "read";
       http_method: "GET";
-      read_scope: "snapshot" | "events";
+      read_scope: "snapshot_with_event_delta";
     })
   | (LocalQARequestAuthorizationBase & {
       operation: "cancel";
@@ -1374,9 +1374,9 @@ type MvpReadinessProbe =
   | { kind: "container_health"; logical_service: string; timeout_millis: number }
   | { kind: "command"; logical_service: string; command_ref: DigestBoundRef<"qa.approved-command/v1">; timeout_millis: number };
 
-type EnvironmentExecutionSpec = ContractMeta & {
+type DockerComposeExecutionSpec = ContractMeta & {
   environment_spec_id: string;
-  provider: "docker_compose" | "docker" | "podman";
+  provider: "docker_compose";
   project_key: string;
   source_mount: { mode: "read_only" | "copy_on_write"; mount_path: string };
   environment_definition:
@@ -1413,15 +1413,18 @@ type BrowserRequirements =
       browser_action_set_digest: Sha256;
     };
 
-type ArtifactUploadGrantExchangeCapability = ContractMeta & {
-  capability_id: string;
-  issuer: "fkst-hosted.artifact-upload-authority";
+type ArtifactUploadSession = ContractMeta & {
+  session_id: string;
+  issuer: "fkst-hosted.artifact-ingestion-authority";
   audience: { agent_instance_id: string; device_id: string };
   run_id: UUID;
-  artifact_upload_policy_ref: DigestBoundRef<"qa.artifact-upload-policy/v1">;
-  grant_exchange_endpoint_ref: string;
-  maximum_artifact_count: number;
+  allowed_operation: "upload_uncommitted";
+  object_key_namespace: string;
+  allowed_media_types: Array<"application/json" | "text/plain" | "image/png">;
+  maximum_object_count: number;
   maximum_total_bytes: number;
+  upload_endpoint_ref: string;
+  commit_endpoint_ref: string;
   issued_at: ISO8601;
   expires_at: ISO8601;
   nonce: string;
@@ -1438,24 +1441,69 @@ type LocalQARunRequest = ContractMeta & {
   run_spec_ref: DigestBoundRef<"qa.runspec/v1">;
   source_acquisition_ref: DigestBoundRef<"qa.source-acquisition/v1">;
   plan_ref: DigestBoundRef<"qa.structured-plan/v1">;
-  environment: EnvironmentExecutionSpec;
+  environment: DockerComposeExecutionSpec;
   browser: BrowserRequirements;
   opaque_credential_refs: DigestBoundRef[];
   evidence_policy_ref: DigestBoundRef<"qa.redaction-policy/v1">;
-  artifact_upload_policy_ref: DigestBoundRef<"qa.artifact-upload-policy/v1">;
-  artifact_upload_grant_exchange_capability: ArtifactUploadGrantExchangeCapability;
+  artifact_upload_session: ArtifactUploadSession;
   issued_at: ISO8601;
   deadline_at: ISO8601;
 };
 
-type LocalResourceRecord = {
-  resource_id: string;
-  run_id: UUID;
-  type: "workspace" | "container" | "network" | "volume" | "port" | "process" | "chrome" | "browser_profile" | "downloads" | "raw_quarantine" | "artifact_staging";
-  provider_ref: string;
-  ownership_label: string;
-  state: "planned" | "active" | "releasing" | "released" | "missing" | "unknown";
+type LocalHandleState = "planned" | "active" | "releasing" | "released" | "missing" | "unknown";
+
+type MvpProcessIdentity = {
+  pid: number;
+  process_start_token: string;
+  process_group_identity: string;
+  executable_digest: Sha256;
 };
+
+type EnvironmentHandle = ContractMeta & {
+  kind: "environment";
+  handle_id: string;
+  run_id: UUID;
+  ownership_label: string;
+  docker_context_digest: Sha256;
+  compose_project_name: string;
+  compose_file_digest: Sha256;
+  workspace_identity: string;
+  service_container_ids: string[];
+  network_ids: string[];
+  volume_ids: string[];
+  published_ports: Array<{ logical_name: string; host_port: number; reservation_token: string }>;
+  process_identities: MvpProcessIdentity[];
+  state: LocalHandleState;
+};
+
+type BrowserHandle = ContractMeta & {
+  kind: "browser";
+  handle_id: string;
+  run_id: UUID;
+  ownership_label: string;
+  browser_session_id: string;
+  chrome_process: MvpProcessIdentity;
+  chrome_descendant_processes: MvpProcessIdentity[];
+  temporary_profile_identity: string;
+  downloads_identity: string;
+  state: LocalHandleState;
+};
+
+type StagingHandle = ContractMeta & {
+  kind: "staging";
+  handle_id: string;
+  run_id: UUID;
+  ownership_label: string;
+  raw_quarantine_identity: string;
+  sanitized_entries: Array<{ artifact_key: string; digest: Sha256; size_bytes: number; media_type: "application/json" | "text/plain" | "image/png" }>;
+  total_size_bytes: number;
+  expires_at: ISO8601;
+  upload_session_ref: DigestBoundRef<"qa.artifact-upload-session/v1">;
+  ingestion_state: "not_started" | "uploading" | "uploaded_uncommitted" | "committed" | "failed";
+  state: LocalHandleState;
+};
+
+type OwnedHandle = EnvironmentHandle | BrowserHandle | StagingHandle;
 
 type StructuredTestResult = ContractMeta & {
   result_id: string;
@@ -1478,8 +1526,7 @@ type EvidenceStagingEntry = {
   case_ids: string[];
   step_ids: string[];
   assertion_ids: string[];
-  grant_exchange_state: "pending" | "issued" | "not_required";
-  upload_grant_ref?: DigestBoundRef<"qa.artifact-upload-grant/v1">;
+  upload_state: "pending" | "uploaded_uncommitted" | "committed" | "not_required";
 };
 
 type EvidenceStagingManifest = ContractMeta & {
@@ -2118,17 +2165,17 @@ Runtime v1 可以通过 loopback HTTP + authenticated streaming 实现，但 wir
 
 ### 8.3 NyxID Adapter 映射
 
-#### 8.3.1 Local QA Agent MVP
+#### 8.3.1 Local QA Host MVP
 
 | Agent 操作 | NyxID 下行/上行映射 | 要求 |
 |---|---|---|
 | `GET /v1/health` | Cloud-originated query → Node route → Agent | 不启动资源；public/authenticated detail 分级。 |
-| `PUT /v1/runs/{run_id}` | Hosted request → explicit node-pinned service → loopback/Unix Agent | Node 不修改 signed authorization、Profile、digest、deadline 或 grant-exchange capability。 |
+| `PUT /v1/runs/{run_id}` | Hosted request → explicit node-pinned service → loopback/Unix Host | Node 不修改 signed authorization、Profile、digest、deadline 或 grant-exchange capability。 |
 | `GET /v1/runs/{run_id}` | Cloud-originated query → Node route → Agent snapshot | 返回 structured result、upload 和 cleanup refs，不返回 raw evidence。 |
 | `GET /v1/runs/{run_id}/events` | Cloud-originated bounded read → Node route → Agent event batch | 按 `(run_id, sequence)` 去重；断线后用 `after_sequence` 恢复；不暗示 Agent 可 unsolicited push。 |
 | `POST /v1/runs/{run_id}:cancel` | Hosted cancellation → Node route → Agent | Agent 持久化 cancel intent，停止 owned process tree，并进入 execution Cleanup。 |
 
-NyxID Adapter 必须使用 Node 主动建立的出站连接，对 loopback/Unix Agent 注入生产本地 credential，并把 routing error 与 Agent application error 分开编码。生产 Hosted identity 必须 scope 到明确 service/node；显式 Node 不可用时 fail closed。NyxID 禁止执行 container/Chrome/test/report action，禁止把 credential broker 或 SSH exec 扩大为通用 QA shell authority。Artifact bytes 不经这些 Run response 返回，而由 Agent 使用 per-object grant 上传 Hosted artifact ingestion。
+NyxID Adapter 必须使用 Node 主动建立的出站连接，对 loopback/Unix Host 注入生产本地 credential，并把 routing error 与 Host application error 分开编码。生产 Hosted identity 必须 scope 到明确 service/node；显式 Node 不可用时 fail closed。NyxID 禁止执行 container/Chrome/test/report action，禁止把 credential broker 或 SSH exec 扩大为通用 QA shell authority。Artifact bytes 不经这些 Run response 返回，而由 Host 使用 per-object grant 上传 Hosted artifact ingestion。
 
 #### 8.3.2 Hardened Runtime
 
@@ -2443,7 +2490,7 @@ type RuntimeEventBatch = RuntimeScopedMeta & {
 
 ## 9. `EnvironmentFactory`、Credential 与 Execution Profile 生命周期
 
-### 9.A Local QA Agent MVP Environment
+### 9.A Local QA Host MVP Environment
 
 MVP `EnvironmentFactory` 必须复用 Prepare、conditional Readiness、resource registration 和 compensation Cleanup 语义，但具体 provider 是 per-run container/Compose adapter，而不是 VZ guest。
 
@@ -3804,7 +3851,7 @@ Deterministic、Browser 和 Codex Backend 必须实现同一 observation 接口�
 
 两种 Profile 的 cancel acknowledgement 都不是完成证据。MVP 必须以 `LocalAgentCleanupReceipt` 证明 owned process/resource 已释放或形成 residual；Hardened 必须以 `TerminationReceipt` 和后续 CleanupReceipt 证明 target scope 与其他 inventory resource 已结算。
 
-### 10.2 Local QA Agent MVP Browser Controller
+### 10.2 Local QA Host MVP Browser Controller
 
 MVP Browser Controller 必须运行宿主系统 Chrome，但只能管理 Agent 自己创建的专用 session：
 
@@ -4015,7 +4062,7 @@ CaseResult 必须包含 PlanCase 声明的全部 assertion id 和 evidence requi
 
 ## 11. Artifact、Evidence 与 Cleanup 契约
 
-### 11.A Local QA Agent MVP Handoff
+### 11.A Local QA Host MVP Handoff
 
 MVP 本地 Artifact 生命周期固定为：
 
@@ -4034,7 +4081,7 @@ raw observation
 → sanitized staging cleanup
 ```
 
-Local QA Agent 禁止把 raw quarantine 暴露给 `getRun`、event batch、NyxID、hosted report composer 或 Publication。Run 创建时只能携带 upload policy 和 grant-exchange capability；Upload grant 必须在 post-redaction digest 已知后签发，并同时绑定 `run_id`、agent/device audience、artifact key、post-redaction digest、media type、maximum bytes 和短 TTL。
+Local QA Host 禁止把 raw quarantine 暴露给 `getRun`、event batch、NyxID、hosted report composer 或 Publication。Run 创建时只能携带 upload policy 和 grant-exchange capability；Upload grant 必须在 post-redaction digest 已知后签发，并同时绑定 `run_id`、agent/device audience、artifact key、post-redaction digest、media type、maximum bytes 和短 TTL。
 
 Evidence staging 完成后，Agent 必须先释放 Chrome、runner、service、container、port、network、volume 和 workspace，再等待 grant exchange/upload。云端收到对象后必须生成 `ArtifactIngestReceipt`；只有 ingestion 成功或匹配既有同 digest 对象后，Artifact 才成为 durable `ArtifactPointer`。Sanitized staging 不是长期 Artifact Store，不提供 MVP `getArtifact`，只允许在 bounded TTL 内用于 upload reconciliation。
 
@@ -4596,7 +4643,7 @@ type ReportComposer = {
 
 `NarrativeSupplement` 是可选增强：它可以失败或跳过，但禁止修改 CaseResult、AssertionResult、Evidence/Artifact refs、FailureClassification、FinalQualityOutcome 或 publication eligibility。其 generator/model/prompt-policy/input/output digest 必须可审计；不得把模型自然语言变成新的测试事实。
 
-`ReportRecord` 是云端长期报告权威。MVP required rendered outputs 为 JSON、HTML 和 Markdown；PDF 是 future optional renderer，不属于 A3 Exit Gate。Local QA Agent 不生成或长期保存 ReportRecord。PublicationPlan 必须引用 ReportRecord；report repair、narrative retry 或 renderer retry 禁止重新执行本地测试。
+`ReportRecord` 是云端长期报告权威。MVP required rendered outputs 为 JSON、HTML 和 Markdown；PDF 是 future optional renderer，不属于 A3 Exit Gate。Local QA Host 不生成或长期保存 ReportRecord。PublicationPlan 必须引用 ReportRecord；report repair、narrative retry 或 renderer retry 禁止重新执行本地测试。
 
 ### 12.1 FailureClassification
 
@@ -4761,7 +4808,7 @@ type PublicationPlan = ContractMeta & {
 };
 ```
 
-PublicationPlan 中的 body/summary/evidence reference 必须来自 `report_record_ref` 的 rendered outputs 或 `authorized_artifact_refs`，且不得与 `RunSpec.publication_intent`、QualityEvaluation eligibility 或 ReportRecord digest 冲突。GitHub 与 PQL 必须作为独立 Action 存在，不能因一个目标失败阻断另一个目标。Publication 禁止绕过 ReportRecord 直接让 Local QA Agent 或 Backend 生成发布正文。
+PublicationPlan 中的 body/summary/evidence reference 必须来自 `report_record_ref` 的 rendered outputs 或 `authorized_artifact_refs`，且不得与 `RunSpec.publication_intent`、QualityEvaluation eligibility 或 ReportRecord digest 冲突。GitHub 与 PQL 必须作为独立 Action 存在，不能因一个目标失败阻断另一个目标。Publication 禁止绕过 ReportRecord 直接让 Local QA Host 或 Backend 生成发布正文。
 
 ### 12.4 PublicationReceipt
 
@@ -5017,7 +5064,7 @@ source_resolving
 
 ### 13.3 Profile 转移表
 
-#### 13.3.1 Local QA Agent MVP
+#### 13.3.1 Local QA Host MVP
 
 | 当前状态 | 事件/条件 | 下一状态 | 必须持久化的输出 |
 |---|---|---|---|
@@ -5521,7 +5568,7 @@ type ErrorEnvelope = RunErrorEnvelope; // Run-scoped objects 的兼容别名；R
 
 幂等键和 canonical request digest 必须存储在副作用记录中。所有 reservation、command admission、Effect、seal、Termination、Cleanup、Artifact、Update 和 Publication 接收方都必须把幂等 lookup 作为第一项状态访问：同 key、同 digest 返回既有不可变结果；同 key、不同 digest 产生 `runtime.command_conflict` 或对应领域冲突，且禁止先读取或改变 mutable reservation/fence/cursor/capacity/nonce、消费 Grant、推进 inventory 或启动副作用。重试必须先读取 Snapshot、effect ledger、inventory seal 和既有 Receipt，再决定 create、update、skip、reconcile 或 repair。
 
-### 16.2 Local QA Agent Small Journal
+### 16.2 Local QA Host Small Journal
 
 MVP journal 只为幂等、查询、event cursor、resource ownership、upload/cleanup reconciliation 提供 durable facts，不签发 Grant、不维护 Fence，也不作为 Effect authority。最小逻辑记录如下：
 
@@ -5911,11 +5958,11 @@ type WorkflowCheckpoint = MvpWorkflowCheckpoint | HardenedWorkflowCheckpoint;
 
 ## 17. 安全与审计要求
 
-### 17.A Local QA Agent MVP 安全边界
+### 17.A Local QA Host MVP 安全边界
 
 - MVP 只接受 trusted-input policy 允许的仓库、依赖和测试定义；外部 fork、未知 lifecycle script、开放式 Shell/Agent Action、高价值 Secret 或强浏览器 egress 要求必须拒绝并升级 Profile。
 - Agent 只监听 loopback 或受控 Unix socket。所有非 public-health 请求必须同时通过 Node 注入的 local transport credential 与 Hosted-signed `LocalQARequestAuthorization`；生产禁止 `auth_method=none`。
-- Source、EnvironmentExecutionSpec、Plan、Policy 和 Profile 必须 digest-bound。Agent endpoint 禁止任意 shell、URL、cwd/env、Compose YAML、宿主路径或 CDP token。
+- Source、DockerComposeExecutionSpec、Plan、Policy 和 Profile 必须 digest-bound。Agent endpoint 禁止任意 shell、URL、cwd/env、Compose YAML、宿主路径或 CDP token。
 - Container 只挂载 immutable source 和 Run 专属 writable area；禁止 home、SSH、Keychain、个人浏览器目录、其他 repo 和 Docker socket。
 - Agent 启动专用 host Chrome process tree、temporary profile 和 isolated downloads；禁止附加个人 Chrome。MVP 不宣称 direct-socket denial。
 - 所有本地资源必须进入 LocalResourceRecord，取消、超时、失败和 restart 后按精确 ownership Cleanup。
@@ -5938,7 +5985,7 @@ type WorkflowCheckpoint = MvpWorkflowCheckpoint | HardenedWorkflowCheckpoint;
 - guest worker 通道必须是 `BootBoundAuthenticatedVsockSession`，绑定完整 `GuestBootEvidence`、双方 ephemeral key、Runtime/guest boot epoch、generation/fence 和严格 sequence。该机制是 host-verified boot manifest + challenge-response，不宣称硬件 remote attestation；本地控制与 provider/helper 通道必须绑定 LocalIPCBinding 和 peer ExecutableIdentity。Loopback/Unix socket 地址本身不构成信任。
 - 所有原始观察与 Artifact bytes 必须先进入 Runtime-only raw quarantine，脱敏成功后只持久化 SanitizedObservation 和 post-redaction digest；raw quarantine 禁止通过 Event、getArtifact、日志或 Publication 暴露。
 
-### 17.A2 Local QA Agent MVP Credential
+### 17.A2 Local QA Host MVP Credential
 
 - Plan 和 Run request 只携带 opaque credential ref 与用途，不携带明文。
 - NyxID 可以在 Node 本地注入 Agent control credential；App/Middleware/test credential 必须按精确目标、用途和短 TTL materialize，禁止复用 control credential。
@@ -5966,7 +6013,7 @@ type WorkflowCheckpoint = MvpWorkflowCheckpoint | HardenedWorkflowCheckpoint;
 - Grant 必须短 TTL、单 Run、单 device、单 Plan、单 sequence、可撤销。
 - Runtime 时间偏差超过策略阈值时必须拒绝时间敏感 Grant，并报告 clock skew。
 
-### 17.A4 Local QA Agent MVP 审计
+### 17.A4 Local QA Host MVP 审计
 
 NyxID、Hosted 和 Agent 各自记录不同事实：NyxID 记录 transport actor/service/node/path/status；Hosted 记录 Workflow/Policy/Quality/Report/Publication；Agent 记录本地 request admission、state、resource、upload 和 cleanup。三侧使用 `run_id + request_id + request_digest + node_id + agent_instance_id` 关联，NyxID audit 不能替代 Agent durable acceptance 或 resource receipt。
 
@@ -6269,9 +6316,9 @@ QualityEvaluation
 
 ## 19. Local Agent 生命周期与 Hardened Runtime Daemon
 
-### 19.A Local QA Agent MVP 生命周期
+### 19.A Local QA Host MVP 生命周期
 
-MVP Agent 是用户级、可独立升级的本地部署目标。它可以由用户登录项、LaunchAgent、桌面应用 helper 或同等用户级 supervisor 启动，但不得要求 root LaunchDaemon。具体安装技术不是跨边界 contract；以下行为是 contract：
+MVP Host 是用户级、可独立升级的本地部署目标。它可以由用户登录项、LaunchAgent、桌面应用 helper 或同等用户级 supervisor 启动，但不得要求 root LaunchDaemon。具体安装技术不是跨边界 contract；以下行为是 contract：
 
 - Agent 必须具有稳定 `agent_instance_id`、device binding、版本和 protocol capability report。
 - Agent 只暴露 §8.1 的五个 REST endpoint，监听 loopback 或受控 Unix socket；生产禁止 `auth_method=none`、arbitrary shell/URL/cwd/env/Compose/CDP endpoint。
@@ -6725,11 +6772,11 @@ type RuntimeUpdateReceipt =
 
 ## 20. Profile Roadmap、测试 Gate 与 Definition of Done
 
-### 20.A Local QA Agent MVP A0-A3
+### 20.A Local QA Host MVP A0-A3
 
 | 阶段 | 依赖 | 必须交付 |
 |---|---|---|
-| **A0 Profile 与公共契约** | 无 | ProfileApplicability、五 endpoint、LocalQARequestAuthorization、LocalQARunRequest/Snapshot/EventBatch、state/outcome、EnvironmentExecutionSpec、CleanupSummary、strict schema 和 idempotency。 |
+| **A0 Profile 与公共契约** | 无 | ProfileApplicability、五 endpoint、LocalQARequestAuthorization、LocalQARunRequest/Snapshot/EventBatch、state/outcome、DockerComposeExecutionSpec、CleanupSummary、strict schema 和 idempotency。 |
 | **A1 NyxID + Agent 最小纵向链路** | A0 | 用户级 Agent、四层认证、explicit node pin、small journal、system Chrome temporary profile、structured result、basic execution/staging CleanupReceipt。 |
 | **A2 Container Environment 与完整执行** | A1 | immutable Source、per-run container/Compose、App/DB/Middleware、conditional readiness、testing-runner、MVP Backend context、resource ownership、cancel/timeout/restart cleanup。 |
 | **A3 Evidence、Cloud Report 与 Publication** | A2 | quarantine/redaction、post-redaction grant exchange、ArtifactUploadReceipt、cloud ingestion/storage、ReportInputSet、QualityEvaluation、deterministic JSON/HTML/Markdown、optional NarrativeSupplement、ReportRecord、Publication/repair/settlement。 |
@@ -6819,8 +6866,8 @@ type VerificationGateResult = RuntimeScopedMeta & {
 | Authorization integration | Design Approval→strict reservation/exact preimage→Design Grant→Plan→Policy→Execution Approval→strict reservation→Execution Grant→atomic admission | 正常、拒绝、过期、mixed variant、preimage digest mismatch、未激活 reservation、重复 activation、binding/Grant mismatch、device change、stale sequence；验证 idempotency lookup 先于 mutable checks，admission 原子创建 stable environment/empty inventory/CleanupCapability/lease/fencing/effect/outbox。 |
 | Policy/PEP | root-qualified 文件、typed command/network/Secret/Browser/VM、phase verifier、resource budget、unknown capability | Design/Execution/bootstrap/control-cleanup context 与 checked digest 正反例；EffectState 全转换、CAS race、uncertain reconcile；worker 无法 check-then-act 绕过。 |
 | Plan | PlanCase、DAG、typed PlanAction/strict BrowserAction、root-qualified paths、aggregate envelope、Assertion、EvidenceRequirement、conditional readiness | open action/unknown variant、absolute/bare path、root replacement、orphan Case/Step、跨 Case assertion、required Evidence 缺失必须 fail closed。 |
-| Local QA Agent protocol | 五 REST endpoint、transport credential + request authorization、Profile、idempotency、bounded event batch、local state、restart behavior | 同 key replay/conflict、method/path/body digest、expired/nonce/device/profile mismatch、Node offline fail closed、Hardened downgrade denial、cursor reconnect、cancel→cleanup、restart no-auto-rerun。 |
-| MVP Container Environment | immutable Source、digest-bound EnvironmentExecutionSpec、per-run workspace/container/network/volume/port/process ownership、App/DB/Middleware、Readiness | arbitrary YAML/shell denial；home/SSH/Keychain/browser-profile/Docker-socket mount denial；prepare partial failure、cancel、timeout、Agent kill 后 cleanup/residual。 |
+| Local QA Host protocol | 五 REST endpoint、transport credential + request authorization、Profile、idempotency、bounded event batch、local state、restart behavior | 同 key replay/conflict、method/path/body digest、expired/nonce/device/profile mismatch、Node offline fail closed、Hardened downgrade denial、cursor reconnect、cancel→cleanup、restart no-auto-rerun。 |
+| MVP Container Environment | immutable Source、digest-bound DockerComposeExecutionSpec、per-run workspace/container/network/volume/port/process ownership、App/DB/Middleware、Readiness | arbitrary YAML/shell denial；home/SSH/Keychain/browser-profile/Docker-socket mount denial；prepare partial failure、cancel、timeout、Agent kill 后 cleanup/residual。 |
 | Cloud Report | post-redaction grant exchange、ArtifactIngestReceipt、CleanupSummary、ReportInputSet、QualityEvaluation、DeterministicReport、NarrativeSupplement、ReportRecord | digest replay、upload response lost、narrative skipped/failed、renderer response lost、report repair；任何情况不得改写 CaseResult/Quality 或重跑测试。 |
 | Amendment | 新 Step、文件/网络/Secret/权限/预算扩展 | MVP 生成新 Plan version/approval 或 blocked；Hardened 还要求 quiesce、旧 Grant revocation、old fence、Cleanup residual、new design sandbox、reapproval/new sandbox。 |
 | Runtime protocol | canonical 八方法 probeHealth/reserveLocalLeaseBinding/cancelReservation/submitCommand/getRun/streamEvents/ackEvents/getArtifact、独立 RuntimeTransportControlInbox、split resume、strict cleanup、Snapshot | request/response schema、identity/pairing/boot/session epoch、双向 durable sequence/previous digest/nonce、retired session、同 key 同 digest replay/不同 digest 零状态变更、RevocationBatch sequence/chain/watermark/idempotent ack、first cursor=1、ack conflict/gap、raw artifact fetch denial、旧 Runtime 迟到 completion 不推进；control inbox 不得成为第九个 RuntimeService 方法或承载 command/config。 |
@@ -6925,7 +6972,7 @@ type VerificationGateResult = RuntimeScopedMeta & {
 
 | 锁定要求 | Schema / Interface | 状态/规则 | DoD |
 |---|---|---|---|
-| Local QA Agent MVP Profile 防降级 | §0-§2、LocalQARequestAuthorization | dispatch/admission | MVP #3-4 |
+| Local QA Host MVP Profile 防降级 | §0-§2、LocalQARequestAuthorization | dispatch/admission | MVP #3-4 |
 | 五方法 Agent protocol 与 small journal | §8.1、§19.A | local state/idempotency/restart | MVP #2、#8 |
 | per-run Container + host Chrome | §9.A、§10.2 | prepare/readiness/execute/cleanup | MVP #5、#7-8 |
 | sanitized upload + Cloud Report | §11.A、§12.A | ingest/evaluate/compose/report repair | MVP #9-12 |

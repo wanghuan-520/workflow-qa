@@ -1,7 +1,7 @@
 # FKST Hardened Local QA Runtime 实现设计
 
 > 状态：未来 `hardened_untrusted_code` Profile 实现设计，尚未表示对应能力已经实现
-> 当前 MVP 实现设计：[LOCAL-QA-AGENT-DESIGN.zh-CN.md](LOCAL-QA-AGENT-DESIGN.zh-CN.md)
+> 当前 MVP 实现设计：[LOCAL-QA-HOST-DESIGN.zh-CN.md](LOCAL-QA-HOST-DESIGN.zh-CN.md)
 > 未来部署范围：`fkst-hosted/apps/local-qa-runtime`，`hardened_untrusted_code`
 > 配套目标设计：[DESIGN.zh-CN.md](DESIGN.zh-CN.md)
 > 配套字段与协议规范：[SPEC.zh-CN.md](SPEC.zh-CN.md)
@@ -10,7 +10,7 @@
 
 ## 1. 文档定位与权威关系
 
-本文只定义未来 `hardened_untrusted_code` Profile 的进程拓扑、模块边界、authority ledger、安全隔离和恢复算法。当前 `local_qa_agent_mvp` 的轻量实现由 [LOCAL-QA-AGENT-DESIGN.zh-CN.md](LOCAL-QA-AGENT-DESIGN.zh-CN.md) 定义，不以本文的 VZ、Grant、Fence、EffectGate 或 signed recovery 为前置条件。本文重点回答以下 Hardened 问题：
+本文只定义未来 `hardened_untrusted_code` Profile 的进程拓扑、模块边界、authority ledger、安全隔离和恢复算法。当前 `local_qa_agent_mvp` 的轻量实现由 [LOCAL-QA-HOST-DESIGN.zh-CN.md](LOCAL-QA-HOST-DESIGN.zh-CN.md) 定义，不以本文的 VZ、Grant、Fence、EffectGate 或 signed recovery 为前置条件。本文重点回答以下 Hardened 问题：
 
 - 恶意仓库、依赖脚本、开放式 Agent Action 和高价值 Secret 如何与宿主隔离。
 - Design/Execution Grant、LocalLeaseBinding、Fence 和 EffectGate 如何形成唯一副作用授权路径。
@@ -25,7 +25,7 @@
 
 1. `SPEC.zh-CN.md` 决定跨边界字段、签名、摘要、状态机和错误契约。
 2. `DESIGN.zh-CN.md` 决定系统级职责、授权权威、Workspace/Sandbox/Environment 语义和完整 QA Run 生命周期。
-3. [LOCAL-QA-AGENT-DESIGN.zh-CN.md](LOCAL-QA-AGENT-DESIGN.zh-CN.md) 决定当前 MVP 的内部拓扑、算法和最小持久化；本文决定未来 Runtime 的 authority、安全和恢复实现。
+3. [LOCAL-QA-HOST-DESIGN.zh-CN.md](LOCAL-QA-HOST-DESIGN.zh-CN.md) 决定当前 MVP 的内部拓扑、算法和最小持久化；本文决定未来 Runtime 的 authority、安全和恢复实现。
 4. 当前架构 Mermaid 决定系统级组件与授权方向。
 5. POC 只证明其真实运行过的 Cloud → Node → loopback service → Chrome 链路，不替代生产设计。
 
