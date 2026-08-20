@@ -1,0 +1,43 @@
+sequenceDiagram
+  actor U as 用户 / Agent
+  participant P as PQL
+  participant T as Testing Packages
+  participant N as NyxID
+  participant TT as Talos Testing Tool
+  participant S as Talos Scheduler
+  participant W as talos-worker
+  participant R as Local QA Runtime
+  participant B as Browser Action Executor
+
+  U->>P: 1. 提出测试需求
+  P->>T: 2. 编译测试计划
+  T-->>P: 3. 返回 StructuredPlan
+  P->>N: 4. 通过 NyxID 提交 Testing Tool 请求
+  N->>TT: 5. 验证身份并转发请求
+  TT->>S: 6. 创建 QARun 并请求调度
+  S->>W: 7. 分配 TestingTask 和测试机器
+  W->>R: 8. 启动本机环境和临时 Chrome
+  R->>T: 9. 读取下一条 typed testing action
+  T-->>R: 10. 返回 BrowserAction / AssertionSpec
+  R->>B: 11. 执行 BrowserAction
+  B-->>R: 12. 返回 Observation / screenshot
+  R->>T: 13. 根据 Observation 计算断言
+  T-->>R: 14. 返回 AssertionResult / CaseResult
+  R-->>W: 15. 返回结果、证据引用和清理状态
+  W-->>S: 16. 回传执行结果
+  S-->>TT: 17. 更新 QARun 状态
+
+  loop 直到测试结束
+    P->>N: 18. get/events 查询状态
+    N->>TT: 转发查询
+    TT-->>N: 返回状态和结果引用
+    N-->>P: 返回 bounded snapshot/events
+  end
+
+  P-->>U: 19. 展示测试结果
+
+  Note over P,T: PQL 决定测什么；Testing Packages 是库，负责测试语义
+  Note over N,TT: NyxID 负责身份和转发；Talos Testing Tool 是对外 Tool 边界
+  Note over TT,S: Testing Tool 管理 QARun；Scheduler 负责机器调度
+  Note over W,R: worker 是桥梁；Runtime 负责本机浏览器和清理
+  Note over R,B: 内部复用 browse/session 的 Playwright 实现；PQL 不直接调用 browse Tool

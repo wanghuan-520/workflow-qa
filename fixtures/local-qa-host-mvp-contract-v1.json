@@ -1,0 +1,28 @@
+{
+  "schema_version": "qa.local-host-mvp-fixtures/v1",
+  "status": "draft",
+  "normative": false,
+  "completion_gate": "MVP-A0",
+  "known_gaps": ["strict_parser_vectors", "frozen_limits", "signed_binding_negative_cases", "versioned_delivery_transitions"],
+  "fixture_set": "contract",
+  "cases": [
+    {"id":"valid-browser-run","kind":"accept","profile":"local_qa_agent_mvp","expected":"accepted","journal_mutation":true,"side_effects":false},
+    {"id":"same-key-same-digest","kind":"idempotent-retry","expected":"original_acceptance","journal_mutation":false,"side_effects":false,"consume_nonce":false},
+    {"id":"same-key-different-digest","kind":"conflict","expected":"idempotency_conflict","journal_mutation":false,"side_effects":false,"consume_nonce":false},
+    {"id":"run-id-different-digest","kind":"conflict","expected":"run_identity_conflict","journal_mutation":false,"side_effects":false},
+    {"id":"unknown-field","kind":"reject","expected":"unknown_field","journal_mutation":false,"side_effects":false},
+    {"id":"unknown-profile","kind":"reject","expected":"unsupported_profile","journal_mutation":false,"side_effects":false},
+    {"id":"hardened-profile","kind":"reject","profile":"hardened_untrusted_code","expected":"unsupported_profile","journal_mutation":false,"side_effects":false},
+    {"id":"non-empty-secret-refs","kind":"reject","expected":"secret_refs_unsupported","journal_mutation":false,"side_effects":false},
+    {"id":"expired-authorization","kind":"reject","expected":"authorization_expired","journal_mutation":false,"side_effects":false},
+    {"id":"wrong-device","kind":"reject","expected":"authorization_binding_mismatch","journal_mutation":false,"side_effects":false},
+    {"id":"wrong-environment-digest","kind":"reject","expected":"environment_binding_mismatch","journal_mutation":false,"side_effects":false},
+    {"id":"nonce-replay","kind":"reject","expected":"nonce_replay","journal_mutation":false,"side_effects":false},
+    {"id":"second-active-run","kind":"reject","expected":"device_busy","journal_mutation":false,"side_effects":false},
+    {"id":"cursor-too-old","kind":"read-recovery","expected":"cursor_expired","journal_mutation":false,"side_effects":false},
+    {"id":"event-digest-conflict","kind":"integrity","expected":"event_integrity_error","journal_mutation":false,"side_effects":false},
+    {"id":"terminal-upload-pending","kind":"delivery","expected":"upload_outcome_mutable","journal_mutation":true,"mutable_fields":["upload_outcome","upload_outcome_version"],"immutable_fields":["execution_outcome","evidence_outcome","cleanup_outcome","resource_owner_identity","resource_lineage","resource_provider_identity"],"execution_reopened":false,"side_effects":false},
+    {"id":"upload-ttl-expired","kind":"delivery","expected":"upload_expired","journal_mutation":true,"side_effects":true,"side_effect_class":"retention","execution_side_effects":false,"immutable_resource_fields":["resource_owner_identity","resource_lineage","resource_provider_identity","stable_provider_key"],"mutable_resource_fields":["resource_lifecycle_state","resource_lifecycle_version"],"expected_retention_effects":["sanitized_staging_deleted","owned_handle_lifecycle_updated","subsequent_upload_rejected"]},
+    {"id":"hosted-report-disposition-mirrored","kind":"hosted-projection","authority":"hosted","expected":"report_impossible_mirrored","local_decision":false,"execution_reopened":false,"journal_mutation":true,"side_effects":false}
+  ]
+}
