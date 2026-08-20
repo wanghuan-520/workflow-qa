@@ -4,13 +4,32 @@
 >
 > Repo：[ChronoAIProject/fkst-hosted](https://github.com/ChronoAIProject/fkst-hosted)
 >
-> 最后边界校正：2026-08-18
+> 最后边界校正：2026-08-20
 >
 > 本文保留 Hosted Artifact ingestion、Final Quality、Report、Publication 和 Settlement 的后续领域分析。它不是本轮四模块活动审计，也不再定义 Testing operational QARun、机器 placement、lease/fence 或 worker execution。
 >
 > 最新 Target 中：Talos 是 Testing Tool/QARun operational authority，详见 [talos 详细缺口](talos-gap-analysis.zh-CN.md)；PQL 产品侧运行投影见 [product-quality-loop 详细缺口](product-quality-loop-gap-analysis.zh-CN.md)；本机执行见 [local-qa-runtime 详细缺口](local-qa-runtime-gap-analysis.zh-CN.md)。
 >
 > 本文旧版依据了 Hosted-owned scheduler/direct NyxID dispatch 方案。涉及 Durable QARun、设备选择、QA scheduler、dispatch attempt 和 local event polling 的章节只保留为历史设计素材，不得作为最新 implementation target 或已交付事实。
+
+## 0. 2026-08-20 fkst-hosted 全局边界校正
+
+本轮同时核查了 `fkst-hosted develop@5af95163cbcdad5dcffac1cc17418bc5417ba98c` 和 `feat/local-qa-runtime@4b173897...`。结论是：`fkst-hosted` 已有可复用的 Hosted session/runtime 基础，但没有面向 Talos Testing 的 Hosted QA 控制面；Local QA feature branch 的 walking skeleton 不能外推为默认分支能力。
+
+已具备且可复用：
+
+- `SessionBackend`、Kubernetes/OpenSandbox lifecycle、execd transport、leader election、full resync/sweep、环境存储、对象存储和 bounded contract infrastructure。
+- OpenSandbox 的 create guard、credential sentinel、补偿删除和 auth rejection probe，可作为隔离与恢复模式参考。
+
+仍缺且不应归因给 Local QA app 单独解决：
+
+- Hosted `Session/Job/Attempt/Artifact/Agent/Lease/RunSettlement/Publication` 公共 contracts、schema/version/content digest。
+- durable Hosted run ledger、idempotent admission、attempt transition、settlement history 和可靠 job queue。当前 reconciler 的 bounded `mpsc::try_send` 在队列满时丢弃 hint，依赖 sweep/full resync，不能代替 durable Talos dispatch。
+- Hosted Artifact grant/ingest/publication/quality/report contract；现有 `qa.local-evidence/v1` 明确是 `local-only:not-uploadable`，现有 chrono-storage session logs 也不等于 QA Artifact service。
+- NyxID principal/agent/worker identity 的统一绑定；当前 Github user、webhook HMAC、storage service token 是三条边界，不能直接作为 QA Run authority。
+- Talos adapter、Talos QARun/TestingTask/Attempt、worker placement/lease/fence 仍属于 Talos owning repo。
+
+因此 Hosted 的正确方向是：使用 adapter 消费 Talos terminal refs、Testing Packages CaseResult/Evidence refs 和 Runtime Cleanup/Upload receipts，负责后续 Artifact ingestion、Quality、Report、Publication、Settlement；不要重新实现 Talos operational QARun 或把 GitHub session reconciler 当作 QA scheduler。
 
 ## 1. 最新 Target 下的 Hosted 职责
 

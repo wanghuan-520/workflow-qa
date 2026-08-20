@@ -2,11 +2,51 @@
 
 > Repo：[ChronoAIProject/talos](https://github.com/ChronoAIProject/talos)
 >
-> 审计日期：2026-08-18
+> 审计日期：2026-08-20
 >
 > Baseline：[`main@a32e537f8ded5d52886cd6ebec0a1ea59aeb3ecb`](https://github.com/ChronoAIProject/talos/commit/a32e537f8ded5d52886cd6ebec0a1ea59aeb3ecb)
 >
 > Target：[PQL Testing 简化时序图](../design-proposals/diagrams/pql-testing-simple-flow.mmd) 与 [Talos Testing Tool 最小 MVP 设计](../design-proposals/talos-testing-tool-mvp-design.zh-CN.md)
+
+## 0. 2026-08-20 线上合同与 Tool 可行性校正
+
+### 0.1 结论
+
+Testing 可以成为 Talos 服务的第一方 `talos.testing` Tool family，但不能复用现有 generic `TaskCreate(kind=browse|computer_use, goal)` 作为测试合同，也不能通过 interactive Session 拼出确定性 QA run。
+
+建议由 Talos owning repo 暴露五个 bounded operation：
+
+```text
+talos.testing.get_capabilities
+talos.testing.submit
+talos.testing.get
+talos.testing.events
+talos.testing.cancel
+```
+
+内部保持：
+
+```text
+QARun -> TestingTask -> TestingAttempt -> fixed TestingExecutor -> LocalQARuntimeAdapter
+```
+
+### 0.2 本轮核实的当前事实
+
+- `main@a32e537f8ded5d52886cd6ebec0a1ea59aeb3ecb` 仍是线上对应 Baseline，worker 已升级到 `v0.5.0`。
+- 线上 Talos `/openapi.json` 与该 commit 的 `specs/talos-openapi.yaml` 规范化 SHA-256 一致：`1b9b101e677ccb3140bdc0a70fb3f9b475f54ef06163eb1d40468a1447fc9920`；不存在已观察到的部署漂移。
+- 当前 `TaskKind` 只有 `browse | computer_use`；没有 `testing`、QARun、TestingAttempt、generation/fence、Testing event cursor、CaseResultSet/EvidenceManifest/CleanupReceipt projection。
+- 当前通用 claim 是 list-then-save，Mongo task 和 machine lease 分开写，没有 CAS/事务/fence；cancel 会先标记 terminal 并释放 lease，而正在运行的 Playwright action 没有 AbortSignal；lease 过期会重新提交任务，可能重复非幂等 Browser effect。
+- 当前 artifact 仍只有 `{name, content_type, size, uri}` metadata；不能证明 bytes、digest、provenance 或 ingest receipt。
+- 当前 worker daemon 的单次 `runOnce()` 是串行消费；machine `capacity > 1` 不会自动形成同一 daemon 的并发 testing slots，且 scheduler capability matching 读取 machine tags，不读取 pool tags。Testing MVP 必须显式建模 per-machine active slot 和并发上限。
+- `talos-worker-setup` skill 的 rendezvous/body credential、pool sharing 和 capability tags 是可复用部署基础；Ornn URL 当前不可用，不能作为额外公开合同来源。
+
+### 0.3 直接优先级
+
+**P0：** QARun + 五 operation + strict versioned schemas/idempotency；`kind=testing` union；固定 TestingExecutor/Runtime adapter；atomic reservation/claim；attempt generation/fence/stale-writer rejection；local acceptance 后 no-rerun；active cancel/deadline/abort。
+
+**P1：** immutable Snapshot/events/opaque cursor resync；正交 execution/evidence/upload/cleanup outcomes；scoped Artifact upload/digest/receipt；durable callback/outbox；restart/reconcile；capability attestation 和真实 macOS arm64 canary。
+
+**P2：** API/CLI/performance/mobile backend、更多浏览器和 Secret/profile/hardened profile。所有扩展都必须 fail closed，不得降级到 `browse` 或 `computer_use`。
 
 ## 1. 执行摘要
 

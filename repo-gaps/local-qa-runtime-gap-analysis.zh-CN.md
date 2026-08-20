@@ -2,7 +2,7 @@
 
 > Repo：[ChronoAIProject/fkst-hosted](https://github.com/ChronoAIProject/fkst-hosted)
 >
-> 审计日期：2026-08-18
+> 审计日期：2026-08-20
 >
 > Baseline：[`feat/local-qa-runtime@4b17389711fc420bfef56765d7d6af34e1702eb0`](https://github.com/ChronoAIProject/fkst-hosted/commit/4b17389711fc420bfef56765d7d6af34e1702eb0)
 >
@@ -13,6 +13,38 @@
 > Target Profile：`local_qa_agent_mvp`。Target 架构见 [Talos Testing Tool 最小 MVP 设计](../design-proposals/talos-testing-tool-mvp-design.zh-CN.md)；本地执行规范仍参考 [Local QA Host MVP 设计](../local-qa-host-mvp-design.zh-CN.md)。
 >
 > Talos Tool/QARun/attempt/fence 缺口见 [talos 详细缺口](talos-gap-analysis.zh-CN.md)；PQL client/运行投影见 [product-quality-loop 详细缺口](product-quality-loop-gap-analysis.zh-CN.md)；Hosted Artifact/Final Quality/Report 属于后续外部领域。
+
+## 0. 2026-08-20 Talos adapter 边界校正
+
+### 0.1 推荐接入路径
+
+```text
+NyxID / Talos Testing Tool
+  -> Talos QARun / TestingAttempt
+  -> talos-worker TestingExecutor
+  -> LocalQARuntimeAdapter (loopback or Unix socket)
+  -> Local QA Host
+  -> Worker protocol
+  -> Browser adapter + Testing Packages + Evidence/Cleanup
+```
+
+Talos 拥有 `QARun`、`TestingTask`、`TestingAttempt`、placement、lease、generation、fence、cancel control 和 bounded terminal projection；Local QA Runtime 拥有本机 admission、workspace/process/port/Chrome、Evidence staging、Journal、Cleanup 和本地 execution facts。Runtime 不应直连 Talos public API，也不应使用 Talos 的通用 Browser executor 代替固定 TestingExecutor。
+
+### 0.2 本轮核实状态
+
+- `feat/local-qa-runtime@4b17389711fc420bfef56765d7d6af34e1702eb0` 未发生实现漂移；它仍是 Candidate，不能外推为 `fkst-hosted develop@5af95163` 已交付能力。
+- Host 仍只接受 `{"kind":"inert"}`，production 仍使用 `PassingExecutor`，并在没有真实 effect 时写入 evidence/upload/terminal 状态。
+- Journal v4 reopen、执行中 cancel、executor error、restart stranded attempt 仍是先于 Talos 接入必须修复的正确性问题。
+- Browser adapter、Worker protocol、Evidence stager、Environment ownership 都是可复用组件，但当前 Host 没有 production peer；`qa.local-worker-protocol/v1` 也缺 deadline、heartbeat、cancel、cleanup/fence 语义。
+- Talos 线上服务已激活并支持 proxy-compatible worker body credentials、single-action interactive session 和 worker v0.5.0；这些是 adapter substrate，不是 Testing Tool 已完成的证据。
+
+### 0.3 Runtime 直接缺口
+
+**P0：** 修复 schema v4 reopen；替换 synthetic `PassingExecutor`；定义并验证版本化 local admission（run/task/attempt/machine/generation/fence/deadline）；接入固定 Testing Packages invocation；持久化真实 execution/evidence/cleanup outcomes。
+
+**P1：** Host↔Worker↔Browser↔Evidence assembly、Source/workspace、Environment/readiness、cancel/timeout、restart-to-lost、same-machine reconcile、sanitized PNG/JSON、upload grant/lost-ack。
+
+**明确不归 Runtime：** Talos QARun/placement/lease/fence 的公共控制面、PQL selection、Testing Packages assertion 语义、Hosted Artifact/Quality/Report/Settlement。
 
 ## 1. 执行摘要
 

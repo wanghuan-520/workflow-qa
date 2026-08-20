@@ -2,11 +2,42 @@
 
 > Repo：[ChronoAIProject/fkst-packages-testing](https://github.com/ChronoAIProject/fkst-packages-testing)
 >
-> 审计日期：2026-08-18
+> 审计日期：2026-08-20
 >
 > Baseline：[`dev@ac953ff0bb3f1c909728e66c3968cbb3ed5e3cf1`](https://github.com/ChronoAIProject/fkst-packages-testing/commit/ac953ff0bb3f1c909728e66c3968cbb3ed5e3cf1)
 >
 > Target：[PQL Testing 简化时序图](../design-proposals/diagrams/pql-testing-simple-flow.mmd) 与 [Testing Packages 调整方案](../design-proposals/repo-adjustments/fkst-packages-testing-adjustments.zh-CN.md)
+
+## 0. 2026-08-20 Talos Tool 方向增量审计
+
+### 0.1 结论
+
+`fkst-packages-testing` 适合作为 Talos Testing Tool 的 **测试语义和 runner package**，不应成为 NyxID/Talos HTTP 服务，也不应接管机器、worker、Sandbox、Chrome 或 Artifact 长期存储。它已经具备足够的语义内核，但尚未具备可由 Talos 安装、校验和调用的发布合同。
+
+```text
+PQL approved input
+  -> Testing Packages StructuredPlan / typed action / assertion
+  -> Local QA Runtime capability ports
+  -> CaseResultSet + EvidenceManifest
+  -> Talos bounded terminal projection
+```
+
+### 0.2 本轮核实的新增事实
+
+- 当前 `dev@ac953ff0` 仍为有效 Baseline；仓库有 14 个 `packages/*`、13 份 Markdown contract、371 个 Lua 和 42 个 JavaScript 文件，不能按脚手架描述。
+- `testing-runner` 被声明为 `stateless_adapter`，可复用 `StructuredPlan`、single-use grant、argv/HTTP capability containment、replay guard、agentic-browser typed-action loop、CaseResultSet/EvidenceManifest validator。
+- 当前 tree 没有 JSON Schema 文件，外部 Talos/Runtime 不能依赖 Lua validator 细节完成 admission；需要发布 machine-readable schema 或等价生成物。
+- 仓库没有 tag/release/根级安装制品定义；`fkst.workspace.toml` 还固定依赖 `fkst-packages@d4146d7...`，`.fkst/substrate-ref` 固定 `fkst-substrate@e3355b4...`。这些构建期依赖必须进入 package manifest/SBOM，不能由 worker 运行时 hydrate floating branch。
+- HEAD 有成功的 host/package/generic-host/AI pipeline CI，但没有当前 SHA 对应的 live-CDP 成功 gate；因此 Browser 语义代码存在，不等于 Talos 真实机器 Browser E2E 已验证。
+- `fkst_native.lua` 仍把普通 UI exploration 返回 `browser-exploration-deferred`，`module_cdp_execution.lua` 明确阻止 mutation action；这些应写成 P2/非 MVP，而不是暗示通用 computer-use 已完成。
+
+### 0.3 对 Talos 接入的直接缺口
+
+**P0：** `testing-package-manifest.v1`、`testing-runner-invocation.v1`、provider-neutral capability ports、canonical-first CLI/HTTP output、Talos fixed `TestingExecutor` adapter。
+
+**P1：** point-of-use cancel/deadline/fence、effect 后 assertion 前的 `lost/inconclusive`、scoped Artifact grant/digest/receipt、publication 与 delivery repair 分离、跨 route conformance。
+
+**P2：** live-CDP gate、多 Browser Case、API/CLI Talos profile、普通 UI exploration 和 mutation executor。它们不能阻塞 Browser-only MVP，也不得通过 `browse` fallback 实现。
 
 ## 1. 执行摘要
 

@@ -50,13 +50,12 @@
 | App | 部署位置 | 责任 |
 | --- | --- | --- |
 | `apps/hosted-control-plane` | FKST 云端 | Durable Run、输入冻结、设备/profile 调度、业务授权、Artifact ingestion、Quality、Report、Publication、repair、settlement |
-| `apps/local-qa-host` | 用户电脑 | 当前 MVP 的 admission、Journal、Source/Compose/Chrome、runner adapter、Evidence、Cleanup、Upload |
-| `apps/local-qa-runtime` | 用户电脑 | 未来 Hardened Profile 的 Rust Supervisor、Ledger、EffectGate、VZ VM、Warden、Secret Broker 和 signed recovery |
+| `apps/local-qa-runtime` | 用户电脑 | 当前 MVP Local QA Host 的 admission、Journal、Source/Compose/Chrome、runner adapter、Evidence、Cleanup、Upload；目录中同时保留未来 Hardened 的 inert shells |
 
 三个名称表达两个本地执行 Profile：
 
-- `apps/local-qa-host` 对应当前 `local_qa_agent_mvp`。
-- `apps/local-qa-runtime` 对应未来 `hardened_untrusted_code`。
+- `apps/local-qa-runtime` 当前承载 `local_qa_agent_mvp` 的 Local QA Host。
+- 未来 `hardened_untrusted_code` 必须使用独立 crate/package、feature 和 dependency graph；是否迁移到单独目录要由独立迁移 PR 决定，不能把 proposed 路径写成已存在实现。
 - Hardened 请求不能因设备能力不足而降级到 MVP。
 
 ### 3.2 Packages

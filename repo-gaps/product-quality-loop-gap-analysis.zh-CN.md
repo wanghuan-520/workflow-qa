@@ -2,11 +2,44 @@
 
 > Repo：[YueZh127/product-quality-loop](https://github.com/YueZh127/product-quality-loop)
 >
-> 审计日期：2026-08-18
+> 审计日期：2026-08-20
 >
 > Baseline：[`main@5096cde5349c66fa9725b39e4008951887b17cd0`](https://github.com/YueZh127/product-quality-loop/commit/5096cde5349c66fa9725b39e4008951887b17cd0)
 >
 > Target：[PQL Testing 简化时序图](../design-proposals/diagrams/pql-testing-simple-flow.mmd) 与 [Talos Testing Tool 最小 MVP 设计](../design-proposals/talos-testing-tool-mvp-design.zh-CN.md)
+
+## 0. 2026-08-20 Talos Tool 方向增量审计
+
+### 0.1 结论
+
+PQL 应作为 Testing 的产品语义和质量决策层，通过 NyxID 调用 Talos 的 bounded Testing Tool；PQL 不应变成 Talos 服务，也不应拥有 worker、browser、Sandbox、lease 或本机执行状态。
+
+```text
+需求/变更
+  -> ProjectPack / TestSelection / approved asset
+  -> Testing Packages StructuredPlan
+  -> PQL TestingToolClient
+  -> NyxID talos service
+  -> Talos QARun
+  -> terminal CaseResult/Evidence/Cleanup refs
+  -> PQL TestingRunRecord / quality projection
+```
+
+### 0.2 当前事实与校正
+
+- 当前 Baseline 仍为 `main@5096cde5349c66fa9725b39e4008951887b17cd0`；没有 Talos 引用、Talos task schema、TestingToolClient 或 worker/browser dispatch contract。
+- 最近合入的 Project Pack update 能力是真实的审批绑定、digest/ref lineage 和 no-clobber candidate staging；应视为已实现的资产治理能力，不再标为旧 issue 的“缺失”。但它不是 Case 激活、生产执行或 Talos orchestration。
+- `pql_heartbeat.py` 是单轮 heartbeat，PQL 不是 daemon；长期 loop、QA Run lifecycle、Sandbox、Secret Broker、Cleanup 和 publication 仍应由外部 Host/Talos/Hosted owning modules 持有。
+- 当前 `fkst.lock` 仍 pin `fkst-packages-testing@58783c61...`，早于 Testing Packages `dev@ac953ff0...`；在升级并通过联合 conformance 前，不能声称 PQL 与当前 Testing Packages 已兼容。
+- 当前 CI workflow 只监听 `dev`，默认分支是 `main`；这属于发布治理 P0，而不是 Talos Tool 实现。Issue 状态也不能代替代码事实。
+
+### 0.3 PQL 为 Talos Tool 还需要什么
+
+**P0：** `pql.testing-design-input-set.v1`、approved Snapshot/Selection/Asset ref+digest 闭合、provider-neutral `TestingToolClient`（`get_capabilities/submit/get/events/cancel`）、`TestingRunRecord` 和 lost-ack/idempotency/error fixtures。
+
+**P1：** Talos terminal snapshot/event reconcile、opaque cursor resync、execution/evidence/upload/cleanup 正交展示、Hosted feedback ingestion/checkpoint，以及禁止 Tool 不可用时 silent fallback 到 direct executor。
+
+**不应做：** PQL 不选择 pool/machine，不读取或转发 NyxID bearer，不直连 Local Runtime，不解释 lease/fence，不把 Talos `completed` 转成 Case passed 或 Final Quality passed。
 
 ## 1. 执行摘要
 

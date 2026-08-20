@@ -1,10 +1,44 @@
 # Repo Gap 文档索引
 
-> 最后审计：2026-08-18
+> 最后审计：2026-08-20
 >
 > Target：[PQL Testing 简化时序图](../design-proposals/diagrams/pql-testing-simple-flow.mmd) 与 [Talos Testing Tool 最小 MVP 设计](../design-proposals/talos-testing-tool-mvp-design.zh-CN.md)
 >
 > 实施路线：[PQL Testing 跨仓实施 Roadmap](../ROADMAP.zh-CN.md)
+
+## 0. 本轮结论：Testing 可以成为 Talos Tool
+
+结论是 **可以**，但准确形态是 Talos 服务的一组第一方有界 Testing operations，而不是把现有 `browse` task、interactive Session 或自由文本 `goal` 直接包装成测试。
+
+```text
+PQL / Agent
+  -> NyxID talos service
+  -> Talos Testing Tool / QARun
+  -> TestingTask / TestingAttempt
+  -> talos-worker TestingExecutor
+  -> LocalQARuntimeAdapter
+  -> Local QA Runtime
+  -> Testing Packages + isolated system Chrome
+  -> CaseResultSet + EvidenceManifest + CleanupReceipt
+```
+
+推荐公开 Tool family：
+
+```text
+talos.testing.get_capabilities
+talos.testing.submit
+talos.testing.get
+talos.testing.events
+talos.testing.cancel
+```
+
+本轮补充实证：
+
+- `talos-worker-setup` 说明的 pool、machine、worker token、capability tags、outbound claim、NyxID public rendezvous 和 org sharing 可直接作为部署与调度基础。
+- Ornn 公共页面 `https://ornn.chrono-ai.fun/skills/talos-worker-setup` 在 2026-08-20 实际返回 `Skill Not Found`；因此它不是当前可依赖的公开合同。可验证依据是本机安装的 skill 快照、Talos owning repo 和 NyxID catalog/OpenAPI。
+- Talos 线上 `/openapi.json` 与 `main@a32e537f` 的 `specs/talos-openapi.yaml` 规范化 SHA-256 一致：`1b9b101e677ccb3140bdc0a70fb3f9b475f54ef06163eb1d40468a1447fc9920`。
+- 当前线上合同仍只有 `browse | computer_use`，没有 `testing`、`QARun`、attempt generation/fence、Testing events 或 canonical result/evidence/cleanup projection。
+- NyxID 负责 caller identity、route、approval 和 transport audit；Talos 负责 QARun/placement/lease/fence；Runtime 负责本机 effect/cleanup；Testing Packages 负责 Assertion/CaseResult。四者不能互相替代。
 
 ## 1. 文档用途
 
