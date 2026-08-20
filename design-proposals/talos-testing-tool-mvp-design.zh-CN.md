@@ -1476,6 +1476,7 @@ PQL + Talos Testing Tool MVP 只有在以下条件全部满足时完成：
 本文是完整 Talos Testing 架构的首个可交付切片。更完整的设计见：
 
 - [Talos 有界 Testing 工具与本地 QA 执行架构设计提案](./talos-bounded-testing-tool-architecture.zh-CN.md)
+- [PQL Testing 模块职责总结](./pql-testing-module-responsibilities.zh-CN.md)
 - [FKST Local QA Host MVP 设计](../local-qa-host-mvp-design.zh-CN.md)
 - [Local QA Runtime 实现缺口](../repo-gaps/local-qa-runtime-gap-analysis.zh-CN.md)
 - [Testing Packages 调整方案](./repo-adjustments/fkst-packages-testing-adjustments.zh-CN.md)
