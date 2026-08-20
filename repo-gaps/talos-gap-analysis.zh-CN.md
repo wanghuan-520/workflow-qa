@@ -7,6 +7,8 @@
 > Baseline：[`main@a32e537f8ded5d52886cd6ebec0a1ea59aeb3ecb`](https://github.com/ChronoAIProject/talos/commit/a32e537f8ded5d52886cd6ebec0a1ea59aeb3ecb)
 >
 > Target：[PQL Testing 简化时序图](../design-proposals/diagrams/pql-testing-simple-flow.mmd) 与 [Talos Testing Tool 最小 MVP 设计](../design-proposals/talos-testing-tool-mvp-design.zh-CN.md)
+>
+> Hosted decision gate：Authorization Authority 和最小 ArtifactStore 的 owner/认证/storage 边界为 **Proposed / Decision pending**，详见 [边界决策提案](../design-proposals/hosted-authorization-artifact-boundary-decision.zh-CN.md)。本文中的 Hosted 接线要求在决策接受前只冻结 Talos consumer contract，不代表 `fkst-hosted` 已接受 owner 责任。
 
 ## 0. 2026-08-20 线上合同与 Tool 可行性校正
 
@@ -42,7 +44,7 @@ QARun -> TestingTask -> TestingAttempt -> fixed TestingExecutor -> LocalQARuntim
 
 ### 0.3 直接优先级
 
-**P0：** QARun + 五 operation + strict versioned schemas/idempotency；`kind=testing` union；固定 TestingExecutor/Runtime adapter；atomic reservation/claim；attempt generation/fence/stale-writer rejection；Hosted operation-specific authorization request/replay + Talos current-claim resolver；local acceptance 后 no-rerun；active cancel/deadline/abort；MVP Artifact grant/receipt/lost-ack integration。
+**P0：** QARun + 五 operation + strict versioned schemas/idempotency；`kind=testing` union；固定 TestingExecutor/Runtime adapter；atomic reservation/claim；attempt generation/fence/stale-writer rejection；local acceptance 后 no-rerun；active cancel/deadline/abort。Hosted operation-specific authorization 和 MVP Artifact grant/receipt/lost-ack 是条件性 P0：先通过 Hosted decision gate，再按被接受的 owner 接线；Talos current-claim resolver 仍由 Talos owning repo 负责。
 
 **P1：** immutable Snapshot/events/opaque cursor resync 的生产加固；正交 execution/evidence/upload/cleanup outcomes；durable callback/outbox；restart/reconcile；capability attestation 和真实 macOS arm64 canary。
 
@@ -74,7 +76,7 @@ Talos Testing Tool 应负责：
 - 将 `QARun` 拆分为 `TestingTask`/`TestingAttempt`。
 - 根据 capability/policy 选择 pool 和 machine。
 - 管理 reservation、lease、generation、fence、heartbeat、deadline 和 stale writer rejection。
-- 在 reservation 和 exact attempt binding 后请求 Hosted Authorization Authority issue/replay operation-specific authorization，并提供 signed current-claim resolver。
+- 在 reservation 和 exact attempt binding 后，按被接受的 Hosted decision 请求 operation-specific authorization；无论 signer owner 为何，Talos 都提供 signed current-claim resolver。
 - 通过固定 `TestingExecutor` 调用本机 Local QA Runtime。
 - 接收 bounded terminal result 与 opaque result/evidence/cleanup refs。
 
@@ -165,10 +167,10 @@ cancel 后，后续 heartbeat/worker API 会返回 `task_cancelled`。但：
 | Testing placement | 部分实现 | 通用 pool/machine/capability scheduler 已有 | `kind=testing`、runtime capability、single-active local acceptance |
 | `TestingExecutor` | 缺失 | worker 有 Browser executor | 固定 testing executor 和 Runtime adapter |
 | lease/generation/fence | 部分实现 | lease/heartbeat 已有 | generation/fence/stale completion、post-acceptance no-rerun |
-| Runtime authorization | 缺失 | 只有 worker/lease token 边界 | Hosted authorization issue/replay adapter、signed lease claim ref、current-claim resolver、start/cancel/reconcile operation binding |
+| Runtime authorization | 缺失 | 只有 worker/lease token 边界 | decision-pending authorization issue/replay adapter、signed lease claim ref、current-claim resolver、start/cancel/reconcile operation binding |
 | bounded events | 缺失 | task GET + callback | immutable event sequence、cursor、snapshot resync |
 | testing result ABI | 缺失 | status/findings/artifacts/error | CaseResult/Evidence/Cleanup refs 与独立 outcomes |
-| Artifact delivery | 部分实现 | metadata refs 已有 | upload grant、digest/size/media validation、lost-ack reconcile |
+| Artifact delivery | 部分实现 | metadata refs 已有 | 先接受 owner/storage 决策，再实现 upload grant、digest/size/media validation、lost-ack reconcile |
 | cancel/cleanup | 部分实现 | cancel 可被 worker 后续调用观察 | action 中断、Runtime cleanup、ack 与 completion 分离 |
 | 多副本调度 | 未验证 | 当前 claim 非原子，要求单 replica | atomic reservation/claim/CAS |
 
@@ -261,7 +263,7 @@ adapter 必须映射而不是合并 Talos 与 Runtime 状态：Talos 管 operati
 
 ### 6.3 Authorization 和 current-claim contract
 
-Talos 在 capability reservation 和 exact attempt binding 后调用 Hosted Authorization Authority，取得或幂等重放 `LocalQARequestAuthorization`。TestingExecutor 必须：
+Talos 在 capability reservation 和 exact attempt binding 后调用决策所接受的 Authorization Authority，取得或幂等重放 `LocalQARequestAuthorization`。在 owner 决策接受前，以下内容只是 Talos consumer contract；TestingExecutor 必须：
 
 - 验证 authorization ref/digest、signature envelope、operation、method/path/body digest、expiry 和 attempt/claim binding。
 - 对 `start`、`cancel`、`reconcile` 分别取得 operation-specific authorization，不跨 operation 重放。
@@ -361,14 +363,14 @@ Event stream 要求：
 - callback host allowlist fail closed；空 allowlist 不应默认允许任意 HTTP(S) host。
 - delivery repair 不触发 test rerun。
 
-## 10. P0：MVP Artifact 和独立终态
+## 10. Conditional P0（Decision pending）：MVP Artifact 和独立终态
 
 ### 10.1 Artifact contract
 
 当前 worker 自报 URI 不是可信 ingestion。Target 需要：
 
 1. Runtime 对 sanitized bytes 计算 digest/media/size。
-2. Hosted MVP ArtifactStore 为单对象签发 upload grant；Talos 只投影 authorization context 和稳定 refs，不成为 byte authority。
+2. 被接受的 MVP ArtifactStore owner 为单对象签发 upload grant；当前提议 owner 是 `fkst-hosted`，但在决策接受前不得写成已冻结事实。Talos 只投影 authorization context 和稳定 refs，不成为 byte authority。
 3. 上传后验证 object key、digest、media、size 和 run/case identity。
 4. 返回 opaque Artifact ref 与 ingest receipt。
 5. bytes stored/ack lost 时使用同 object key/digest 查询或重放。
@@ -432,13 +434,13 @@ cleanup_outcome
 
 1. 固定 `TestingExecutor`。
 2. `LocalQARuntimeAdapter`。
-3. Hosted Authorization issue/replay adapter 和 `start/cancel/reconcile` binding。
+3. 在 Hosted decision gate 接受后，实现 Authorization issue/replay adapter 和 `start/cancel/reconcile` binding。
 4. heartbeat/cancel/deadline mapping。
 5. terminal result projection。
 
-### T4：MVP Artifact 和 delivery
+### T4：MVP Artifact 和 delivery（Hosted decision gate 后）
 
-1. 对接 Hosted per-object upload grant/prepare/commit/lookup。
+1. 对接被接受 owner 的 per-object upload grant/prepare/commit/lookup；proposed owner 为 `fkst-hosted`。
 2. digest-bound refs/receipts；Talos 不搬运 bytes。
 3. durable outbox/callback。
 4. lost-ack reconcile。
@@ -459,7 +461,7 @@ Talos Testing Tool MVP 完成时应满足：
 - `QARun` 与内部 task/attempt 分离，duplicate submit 可正确 replay/conflict。
 - `kind=testing` 不依赖自由文本 goal 或 generic plugin。
 - placement、lease、generation、fence 和 local acceptance 边界可验证。
-- reservation 后可幂等取得 Hosted operation-specific authorization；Runtime 可独立验证 Hosted signature 和 Talos current claim，raw lease/worker token 不越过 Runtime 边界。
+- Hosted decision gate 已接受并记录 owner/认证/storage 边界；reservation 后可幂等取得 operation-specific authorization，Runtime 可独立验证 business authorization signature 和 Talos current claim，raw lease/worker token 不越过 Runtime 边界。
 - stale worker 不能继续 Browser effect、upload 或 completion。
 - worker 通过固定 executor 调 Runtime，不复制 Testing Packages 语义。
 - Snapshot/Events 能在 duplicate、cursor expiry 和 control-plane restart 后收敛。

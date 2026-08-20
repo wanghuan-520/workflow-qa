@@ -6,7 +6,7 @@
 >
 > 实施路线：[PQL Testing 跨仓实施 Roadmap](../ROADMAP.zh-CN.md)
 >
-> 已知 Roadmap drift：当前 R6 仍把最小 ArtifactStore 与 Quality/Report 一起标为 Post-MVP，且 R3 尚未列出 Hosted Authorization/current-claim 接线。在 Roadmap 单独刷新前，以本文和各详细 Gap 的 MVP/Post-MVP 边界为准。
+> 架构决策状态：Hosted Authorization Authority 和最小 ArtifactStore 的 owner/MVP 必需性为 **Proposed / Decision pending**，详见 [边界决策提案](../design-proposals/hosted-authorization-artifact-boundary-decision.zh-CN.md)。Roadmap 已将该候选依赖拆为 `MVP-H` workstream，并把 Post-MVP Quality/Report 保留在 R6；在提案被 maintainer 接受前，本文不得把 `fkst-hosted` 描述为已冻结 owner。
 
 ## 0. 本轮结论：Testing 可以成为 Talos Tool
 
@@ -69,7 +69,7 @@ talos.testing.cancel
 | `ChronoAIProject/fkst-packages-testing` | [`dev@ac953ff0`](https://github.com/ChronoAIProject/fkst-packages-testing/commit/ac953ff0bb3f1c909728e66c3968cbb3ed5e3cf1) | Testing Packages 默认开发分支 | 语义和参考生命周期较完整，生产 runner packaging 与 Runtime/Talos 接线缺失 |
 | `YueZh127/product-quality-loop` | [`main@5096cde5`](https://github.com/YueZh127/product-quality-loop/commit/5096cde5349c66fa9725b39e4008951887b17cd0) | PQL 默认分支 | 产品测试闭环已存在，生产 Testing Tool client 与运行投影缺失 |
 | `ChronoAIProject/talos` | [`main@a32e537f`](https://github.com/ChronoAIProject/talos/commit/a32e537f8ded5d52886cd6ebec0a1ea59aeb3ecb) | Talos 默认分支 | 通用任务、机器调度和 Browser 基础已存在，Testing Tool/QARun ABI 缺失 |
-| `ChronoAIProject/fkst-hosted` | [`feat/local-qa-runtime@c79d11d`](https://github.com/ChronoAIProject/fkst-hosted/commit/c79d11d99ba854d14ce41b2849ba0bbf5c50e522) | 审计 `apps/local-qa-runtime`、相关 contracts，以及 Hosted Authorization/Artifact 依赖 | Runtime 组件 walking skeleton 已存在；真实执行主链、业务授权和 MVP ArtifactStore 未闭合 |
+| `ChronoAIProject/fkst-hosted` | [`feat/local-qa-runtime@c79d11d`](https://github.com/ChronoAIProject/fkst-hosted/commit/c79d11d99ba854d14ce41b2849ba0bbf5c50e522) | 审计 `apps/local-qa-runtime`、相关 contracts，以及 proposed Hosted Authorization/Artifact 边界 | Runtime 组件 walking skeleton 已存在；真实执行主链未闭合，Hosted owner 决策和候选能力也未完成 |
 
 `feat/local-qa-runtime` 已从初始审计的 `4b173897` 推进到 `c79d11d`，但仍是相对 `develop` 明显分叉的 Candidate。复核确认 `PassingExecutor`、inert admission、Journal v4 reopen 和 local-only Evidence 等关键阻断仍存在；本文档中的 Runtime 结论不得外推为 `develop` 或主线已交付能力。
 
@@ -81,9 +81,9 @@ talos.testing.cancel
 | Product Quality Loop | [product-quality-loop 详细缺口](product-quality-loop-gap-analysis.zh-CN.md) | 缺少生产 `TestingToolClient`、NyxID transport 和 `TestingRunRecord` reconcile |
 | Talos | [talos 详细缺口](talos-gap-analysis.zh-CN.md) | 缺少 `kind=testing`、QARun Tool API 和 attempt/generation/fence 语义 |
 | Local QA Runtime | [local-qa-runtime 详细缺口](local-qa-runtime-gap-analysis.zh-CN.md) | production 仍使用 `PassingExecutor`，且 Journal schema v4 无法正常 reopen |
-| Hosted MVP 依赖 | [fkst-hosted 详细缺口](fkst-hosted-gap-analysis.zh-CN.md) | 缺少 operation-specific `LocalQARequestAuthorization` 签发，以及 Artifact `prepare/commit/lookup`、ingest receipt 和 lost-ack reconcile |
+| Hosted MVP 候选依赖（Decision pending） | [fkst-hosted 详细缺口](fkst-hosted-gap-analysis.zh-CN.md) | 先接受 owner/认证/storage 决策，再实现 operation-specific authorization 与 Artifact `prepare/commit/lookup`、receipt 和 lost-ack reconcile |
 
-`fkst-hosted` 文档同时包含两类内容：Authorization 和最小 ArtifactStore 是 Browser MVP 的活动依赖；Final Quality、Report、Publication、Settlement 和 HostedQualityFeedback 是 Post-MVP。其旧版 Hosted-owned scheduler/QARun 内容只保留为历史设计，不得拆成当前实现任务。
+`fkst-hosted` 文档同时包含三类内容：Authorization 和最小 ArtifactStore 是 Browser MVP 的 **候选依赖**，owner/认证/storage 边界等待架构决策；Final Quality、Report、Publication、Settlement 和 HostedQualityFeedback 是 Post-MVP；旧版 Hosted-owned scheduler/QARun 内容只保留为历史迁移对照，禁止拆成当前实现任务。
 
 ## 4. 权威对象与职责
 
@@ -93,9 +93,9 @@ talos.testing.cancel
 | `StructuredPlan`、typed action、`AssertionResult`、`CaseResultSet`、`EvidenceManifest` | Testing Packages | 定义测试语义；是库/runner，不是机器调度服务 |
 | `QARun` snapshot/events/cancel | Talos Testing Tool | 对外 operational run authority |
 | `TestingTask`、`TestingAttempt`、placement、lease、generation、fence | Talos Scheduler / worker | 决定在哪里、何时执行 |
-| operation-specific `LocalQARequestAuthorization`、签名 key lifecycle | Hosted Authorization Authority | reservation 后签发绑定 run/attempt/lease claim/machine/generation/fence/request digest 的业务授权；不拥有调度 |
+| operation-specific `LocalQARequestAuthorization`、签名 key lifecycle | Proposed Hosted Authorization Authority（Decision pending） | 提议在 reservation 后签发绑定 run/attempt/lease claim/machine/generation/fence/request digest 的业务授权；不拥有调度 |
 | workspace、process、port、Chromium、local Evidence、Cleanup | Local QA Runtime Journal | 本机 effect 和资源 ownership 权威 |
-| Artifact grant、`prepare/commit/lookup`、ingest receipt、lost-ack | Hosted ArtifactStore | Browser MVP 的最小 Evidence 交付依赖；不拥有 CaseResult 或 QARun |
+| Artifact grant、`prepare/commit/lookup`、ingest receipt、lost-ack | Proposed Hosted ArtifactStore（Decision pending） | Browser MVP 的候选 Evidence 交付依赖；提议复用已有 object-storage adapter，但不复用 session-log 领域语义；不拥有 CaseResult 或 QARun |
 | Final Quality、Report、Publication、Settlement、HostedQualityFeedback | Hosted 后续领域 | Post-MVP，不阻塞首个 Browser execution，但不得与 MVP ArtifactStore 混为同一延期项 |
 
 运行结果必须正交保存：
@@ -134,7 +134,7 @@ Talos task `completed` 只表示 attempt 已闭合，不表示 Case passed、Evi
 | 18 | PQL `get/events` 轮询 | PQL + Talos | 两端均缺生产 Testing Tool 对接 | [PQL](product-quality-loop-gap-analysis.zh-CN.md)、[Talos](talos-gap-analysis.zh-CN.md) |
 | 19 | PQL 展示测试结果 | PQL | 本地报告能力已存在；Talos terminal projection consumer 缺失 | [PQL](product-quality-loop-gap-analysis.zh-CN.md) |
 
-`pql-testing-simple-flow` 是 overview，不是完整安全协议。详细 Target 还要求两条不能从 19 步中省略的 MVP 链路：
+`pql-testing-simple-flow` 是 overview，不是完整安全协议。详细 Target 提出以下两条不能从完整 Browser MVP 中省略的链路；其中 Hosted owner 和接口只有在 [边界决策提案](../design-proposals/hosted-authorization-artifact-boundary-decision.zh-CN.md) 被接受后才成为 Active implementation target：
 
 ```text
 Talos reservation + exact attempt binding
@@ -165,7 +165,7 @@ PQL revision / approved input lineage
   -> PQL TestingRunRecord
 ```
 
-首个 Browser-only 垂直链路完成前，至少需要共同冻结：
+首个 Browser-only 垂直链路完成前，至少需要共同冻结；Hosted 相关合同必须先通过 `MVP-H` decision gate：
 
 - `pql.testing-design-input-set.v1`。
 - `testing-package-manifest.v1`。
@@ -185,7 +185,7 @@ PQL revision / approved input lineage
 4. 同一事实只能有一个 authority，不能同时由 Hosted、Talos、Runtime 或 Testing Packages 重复拥有。
 5. delivery repair、Artifact repair 和 report repair 不得触发已经产生副作用的 Case 自动重跑。
 6. `CancelAck` 只表示取消意图已接受，不表示执行已停止或 Cleanup 已完成。
-7. 每次 Target 变更必须同时检查本索引、详细 Gap 和 Roadmap；Target 中的 MVP 必选依赖不得只出现在历史或 Post-MVP 章节。
+7. 每次 Target 变更必须同时检查本索引、详细 Gap、架构决策状态和 Roadmap；`Decision pending` 不得写成 Active，MVP 候选依赖也不得继续与 Post-MVP Quality/Report 混在同一阶段。
 8. 简化时序图可以省略内部交互，但必须在本索引显式列出所有会导致 admission fail closed 或 terminal refs 不可消费的强制链路。
 
 ## 8. workflow-qa 自身维护 Gap

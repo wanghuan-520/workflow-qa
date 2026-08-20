@@ -12,7 +12,7 @@
 >
 > Target Profile：`local_qa_agent_mvp`。Target 架构见 [Talos Testing Tool 最小 MVP 设计](../design-proposals/talos-testing-tool-mvp-design.zh-CN.md)；本地执行规范仍参考 [Local QA Host MVP 设计](../local-qa-host-mvp-design.zh-CN.md)。
 >
-> Talos Tool/QARun/attempt/fence 缺口见 [talos 详细缺口](talos-gap-analysis.zh-CN.md)；PQL client/运行投影见 [product-quality-loop 详细缺口](product-quality-loop-gap-analysis.zh-CN.md)；Hosted Authorization 和最小 ArtifactStore 是 MVP 外部依赖，Final Quality/Report/Settlement 属于 Post-MVP。
+> Talos Tool/QARun/attempt/fence 缺口见 [talos 详细缺口](talos-gap-analysis.zh-CN.md)；PQL client/运行投影见 [product-quality-loop 详细缺口](product-quality-loop-gap-analysis.zh-CN.md)；Hosted Authorization 和最小 ArtifactStore 是 **Proposed / Decision pending** 的 MVP 候选外部依赖，详见 [边界决策提案](../design-proposals/hosted-authorization-artifact-boundary-decision.zh-CN.md)；Final Quality/Report/Settlement 属于 Post-MVP。
 
 ## 0. 2026-08-20 Talos adapter 边界校正
 
@@ -28,7 +28,7 @@ NyxID / Talos Testing Tool
   -> Browser adapter + Testing Packages + Evidence/Cleanup
 ```
 
-Talos 拥有 `QARun`、`TestingTask`、`TestingAttempt`、placement、lease、generation、fence、cancel control、current-claim authority 和 bounded terminal projection；Hosted Authorization Authority 签发 operation-specific business authorization；Local QA Runtime 拥有本机 admission、workspace/process/port/Chrome、Evidence staging、Journal、Cleanup 和本地 execution facts。Runtime 不应直连 Talos public API，也不应使用 Talos 的通用 Browser executor 代替固定 TestingExecutor。
+Talos 拥有 `QARun`、`TestingTask`、`TestingAttempt`、placement、lease、generation、fence、cancel control、current-claim authority 和 bounded terminal projection；被接受决策指定的 Authorization Authority 签发 operation-specific business authorization，当前 proposed owner 是 `fkst-hosted`；Local QA Runtime 拥有本机 admission、workspace/process/port/Chrome、Evidence staging、Journal、Cleanup 和本地 execution facts。Runtime 不应直连 Talos public API，也不应使用 Talos 的通用 Browser executor 代替固定 TestingExecutor。
 
 ### 0.2 本轮核实状态
 
@@ -40,11 +40,11 @@ Talos 拥有 `QARun`、`TestingTask`、`TestingAttempt`、placement、lease、ge
 
 ### 0.3 Runtime 直接缺口
 
-**P0：** 修复 schema v4 reopen；替换 synthetic `PassingExecutor`；定义并验证版本化 local admission（run/task/attempt/machine/generation/fence/deadline）；校验 local credential、Hosted operation-specific authorization 和 Talos current claim；接入固定 Testing Packages invocation；持久化真实 execution/evidence/cleanup outcomes；对接最小 Artifact `prepare/commit/lookup` 和 lost-ack receipt。
+**P0：** 修复 schema v4 reopen；替换 synthetic `PassingExecutor`；定义并验证版本化 local admission（run/task/attempt/machine/generation/fence/deadline）；接入固定 Testing Packages invocation；持久化真实 execution/evidence/cleanup outcomes。business authorization、Talos current claim 与最小 Artifact `prepare/commit/lookup`/lost-ack receipt 的 Runtime 接线是条件性 P0：先通过 Hosted owner/认证/storage decision gate。
 
 **P1：** Host↔Worker↔Browser↔Evidence assembly 的生产加固、Source/workspace、Environment/readiness、cancel/timeout、restart-to-lost、same-machine reconcile、sanitized PNG/JSON、delivery/TTL repair 和安装运维。
 
-**明确不归 Runtime：** Talos QARun/placement/lease/fence 的公共控制面、Hosted authorization 签发和 ArtifactStore、PQL selection、Testing Packages assertion 语义、Hosted Quality/Report/Settlement。
+**明确不归 Runtime：** Talos QARun/placement/lease/fence 的公共控制面、被接受 owner 的 authorization 签发和 ArtifactStore、PQL selection、Testing Packages assertion 语义、Hosted Quality/Report/Settlement。
 
 ## 1. 执行摘要
 
@@ -418,9 +418,9 @@ HTTP submit
 | Restart recovery | claimed attempt stranded | admission gate、discovery、restart-to-lost、cleanup/upload reconcile、no-rerun | generic-host restart/replay acceptance | Host kill 后不重复 Case；known resource 精确清理；unknown ownership blocking residual |
 | Evidence safety | local object staging primitive | bounded quarantine、safe projection、PNG/JSON validation、manifest、TTL | EvidenceStager atomic write/digest | raw data 不进入 Journal/Event/cloud；只有 screenshot + bounded JSON 可上传 |
 | Cleanup-before-upload | 无 Run-wide cleanup | exact reverse cleanup、receipt、release active slot，再等待 cloud | Browser cleanup + environment cleanup patterns | Hosted 离线不阻塞本地 Cleanup 或 local terminal |
-| Upload | 无 | per-object grant、stable object key/digest、attempt、lost-ack、expiry | Hosted MVP ArtifactStore primitives | response lost 不重复 Artifact；TTL 到期 `upload_expired` |
+| Upload | 无 | per-object grant、stable object key/digest、attempt、lost-ack、expiry | Decision-pending MVP ArtifactStore primitives | response lost 不重复 Artifact；TTL 到期 `upload_expired` |
 | Installation/pairing | `local-demo` 手工启动 | signed user artifact、LaunchAgent、pairing、local credential rotation/revoke/reset | 现有安装/credential PoC 经验 | 已安装 Host 只接受 loopback/socket adapter + local credential + signed authorization；不直接暴露 NyxID route |
-| Artifact/Report handoff | 无 | MVP pointer-only result/evidence/cleanup projection；Post-MVP ReportInputSet | Testing Packages terminal projection、Hosted Artifact ingestion | Artifact receipt 可交付；后续 Quality/Report repair 不重跑 Case |
+| Artifact/Report handoff | 无 | MVP pointer-only result/evidence/cleanup projection；Post-MVP ReportInputSet | Testing Packages terminal projection、decision-pending Artifact ingestion | Artifact receipt 可交付；后续 Quality/Report repair 不重跑 Case |
 
 ## 7. 可实施工作包
 
@@ -588,7 +588,7 @@ Evidence validation complete
 - sanitized staging TTL 和 `upload_expired`。
 - signed Host artifact、LaunchAgent、pairing 和 credential lifecycle。
 - LocalQARuntimeAdapter 的 loopback/Unix-socket transport mapping；Runtime 不暴露 NyxID public route。
-- Hosted MVP Artifact ingestion receipt 和 pointer-only terminal handoff；Quality/Report handoff保持 Post-MVP。
+- Hosted decision gate 接受后的 MVP Artifact ingestion receipt 和 pointer-only terminal handoff；Quality/Report handoff保持 Post-MVP。
 
 Local Host 不决定 `report_impossible`。Hosted 根据 immutable `ReportInputSet` 的完整性和 policy 决定该结果。
 
@@ -605,8 +605,8 @@ Local Host 不决定 `report_impossible`。Hosted 根据 immutable `ReportInputS
 | `fkst-packages-testing/examples/generic-host/**` | 生命周期、durability、crash/recovery 的参考实现 | 直接作为 FKST production Local QA Host 发布 |
 | Talos | QARun、TestingTask/Attempt、placement、lease、generation、fence、cancel control | 本地资源、Assertion/CaseResult 和 raw Evidence |
 | NyxID | caller identity、approval、服务路由和 transport audit | QARun state、placement、Pass/Fail 和 Artifact bytes |
-| Hosted Authorization Authority | operation-specific business authorization、signing key lifecycle、verifier key distribution | operational QARun、placement、current claim、raw lease token 和本地资源 |
-| Hosted MVP ArtifactStore | per-object grant、prepare/commit/lookup、ingest receipt、lost-ack | CaseResult、QARun、raw quarantine 和本地 Cleanup |
+| Proposed Hosted Authorization Authority（Decision pending） | operation-specific business authorization、signing key lifecycle、verifier key distribution | operational QARun、placement、current claim、raw lease token 和本地资源 |
+| Proposed Hosted MVP ArtifactStore（Decision pending） | per-object grant、prepare/commit/lookup、ingest receipt、lost-ack | CaseResult、QARun、raw quarantine 和本地 Cleanup |
 | Hosted Post-MVP | Final Quality、Report、Publication、Settlement、feedback | operational QARun、机器调度、本地资源和 raw quarantine |
 
 当前 issue drafts 使用目标目录 `apps/local-qa-host`，审计代码仍位于 `apps/local-qa-runtime`。目录最终命名和迁移需要单独冻结，不能与功能接线混在同一个改动中；在迁移前应以实际路径为准。
@@ -767,7 +767,7 @@ PYTHON=python3.12 scripts/run.sh example generic-host
 - 只有 validated PNG 和 bounded sanitized JSON 进入 uploadable Artifact set。
 - lost acknowledgement 使用同一 object key/digest 对账，不重复创建 logical Artifact。
 - Hosted 离线时本地仍可 Cleanup 和 terminal；TTL 到期有明确 `upload_expired`。
-- MVP ArtifactStore 返回稳定 ingest receipt；Hosted Post-MVP 从 immutable ReportInputSet 生成 Quality/Report，repair 不修改本地执行事实或重跑 Case。
+- Hosted decision gate 被接受后，MVP ArtifactStore 返回稳定 ingest receipt；Hosted Post-MVP 从 immutable ReportInputSet 生成 Quality/Report，repair 不修改本地执行事实或重跑 Case。
 
 ## 12. MVP 非目标
 

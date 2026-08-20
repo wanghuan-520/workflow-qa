@@ -2,11 +2,13 @@
 
 > 状态：Proposed Implementation Roadmap
 >
-> 日期：2026-08-18
+> 日期：2026-08-20
 >
 > Target：[PQL Testing 简化时序图](design-proposals/diagrams/pql-testing-simple-flow.mmd) 与 [Talos Testing Tool 最小 MVP 设计](design-proposals/talos-testing-tool-mvp-design.zh-CN.md)
 >
 > Gap 索引：[repo-gaps/README.zh-CN.md](repo-gaps/README.zh-CN.md)
+>
+> Hosted 决策状态：Authorization Authority 和最小 ArtifactStore 为 **Proposed / Decision pending**，详见 [边界决策提案](design-proposals/hosted-authorization-artifact-boundary-decision.zh-CN.md)。`MVP-H` workstream 只在提案被 maintainer 接受后成为 Active implementation target；R6 只保留 Post-MVP Quality/Report/Publication/Settlement。
 
 ## 1. Roadmap 目标
 
@@ -52,6 +54,7 @@
 - 不连接用户已经打开的普通 Chrome。
 - 不使用 persistent login profile。
 - 不开放 arbitrary shell、argv、cwd、env、CDP endpoint 或动态 plugin。
+- operation-specific Authorization 和稳定 Artifact receipt 是完整 Browser MVP 的候选依赖；其 owner、object-storage 复用和 Runtime 认证边界必须先通过 `MVP-H` decision gate。
 
 ### 2.2 全阶段不变量
 
@@ -73,7 +76,7 @@
 | `ChronoAIProject/fkst-packages-testing` | [`dev@ac953ff0`](https://github.com/ChronoAIProject/fkst-packages-testing/commit/ac953ff0bb3f1c909728e66c3968cbb3ed5e3cf1) | StructuredPlan、runner、Assertion/CaseResult、Evidence contract |
 | `YueZh127/product-quality-loop` | [`main@5096cde5`](https://github.com/YueZh127/product-quality-loop/commit/5096cde5349c66fa9725b39e4008951887b17cd0) | Snapshot/Selection、Testing Tool client、TestingRunRecord |
 | `ChronoAIProject/talos` | [`main@a32e537f`](https://github.com/ChronoAIProject/talos/commit/a32e537f8ded5d52886cd6ebec0a1ea59aeb3ecb) | Testing Tool/QARun、调度、attempt/lease/fence、worker |
-| `ChronoAIProject/fkst-hosted` | [`feat/local-qa-runtime@4b173897`](https://github.com/ChronoAIProject/fkst-hosted/commit/4b17389711fc420bfef56765d7d6af34e1702eb0) | Runtime admission、Journal、本机环境、Browser、Evidence、Cleanup |
+| `ChronoAIProject/fkst-hosted` | [`feat/local-qa-runtime@c79d11d`](https://github.com/ChronoAIProject/fkst-hosted/commit/c79d11d99ba854d14ce41b2849ba0bbf5c50e522) | Runtime admission、Journal、本机环境、Browser、Evidence、Cleanup；Hosted Authorization/Artifact owner 仍待决策 |
 
 `feat/local-qa-runtime` 相对 `develop` 已明显分叉。本 Roadmap 中的 Runtime 实施和验证必须固定到明确 commit/branch，不能直接推断主线已包含对应能力。
 
@@ -81,13 +84,14 @@
 
 | 阶段 | 名称 | 初始状态 | 主要产出 | 下一阶段 Gate |
 | --- | --- | --- | --- | --- |
-| R0 | 正确性修复与跨仓契约冻结 | Ready | 可 reopen Journal、共享 contract/fixtures | 合法/非法 fixture 在各语言和仓库得到一致结果 |
+| R0 | 正确性修复与跨仓契约冻结 | Ready | 可 reopen Journal、共享 contract/fixtures、Hosted decision inputs | 合法/非法 fixture 一致，`MVP-H` owner/认证/storage 决策材料完整 |
 | R1 | Local Runtime 诚实执行主链 | Blocked by R0 | Host -> Worker -> Browser -> Result -> Evidence -> Cleanup | 本地 whole-flow gate 通过且不再 synthetic passed |
 | R2 | Testing Packages 产品化 | 可与 R1 后半段并行 | package manifest、runner invocation、canonical outputs | fake/Runtime adapter 产生相同 Case/Assertion 语义 |
-| R3 | Talos Testing Tool 和调度接入 | Blocked by R1/R2 contracts | QARun API、kind=testing、TestingExecutor、fence | Talos canary 可运行真实 Runtime attempt |
-| R4 | PQL Testing Tool 集成 | Blocked by R3 API | TestingToolClient、TestingRunRecord、结果展示 | PQL 能提交、追踪、取消并展示 terminal refs |
-| R5 | 跨仓 Canary 和生产加固 | Blocked by R1-R4 | 失败矩阵、conformance CI、canary rollout | 浏览器 MVP 全局退出标准通过 |
-| R6 | Hosted Artifact/Quality/Report | Post-MVP | ingestion、QualityEvaluation、Report/Settlement | delivery/report repair 不改变执行事实 |
+| MVP-H | Hosted Authorization + 最小 Artifact delivery | Decision pending | accepted owner、operation authorization、`prepare/commit/lookup`、receipts | 决策被接受且 Authorization/Artifact canary gate 通过 |
+| R3 | Talos Testing Tool 和调度接入 | Blocked by R1/R2 contracts；Hosted 接线等待 `MVP-H` 决策 | QARun API、kind=testing、TestingExecutor、fence | Talos canary 可运行真实 Runtime attempt |
+| R4 | PQL Testing Tool 集成 | Blocked by R3 API；稳定 Artifact refs 等待 `MVP-H` 决策 | TestingToolClient、TestingRunRecord、结果展示 | PQL 能提交、追踪、取消并展示 terminal refs |
+| R5 | 跨仓 Canary 和生产加固 | Blocked by R1-R4；完整 MVP 等待 `MVP-H` | 失败矩阵、conformance CI、canary rollout | Browser MVP 全局退出标准通过 |
+| R6 | Hosted Quality/Report/Publication/Settlement | Post-MVP | ReportInputSet、QualityEvaluation、Report/Publication/Settlement | report/publication repair 不改变执行事实 |
 | Future | 多 backend 与 Hardened Runtime | Post-R5 | API/CLI、多浏览器、Secret、VM/EffectGate | 各自独立规范和安全 Gate |
 
 ## 5. R0：正确性修复与跨仓契约冻结
@@ -135,6 +139,7 @@ R0-B Cross-repo contract and fixture freeze
 - `talos.testing-tool-request/v1`。
 - `talos.testing-task/v1`。
 - `qa.local-run-admission/v2`。
+- proposed `LocalQARequestAuthorization`、Talos signed current-claim 和 per-object Artifact grant/receipt 边界；owner 决策未接受前只冻结 consumer requirements 和 negative fixtures，不冻结 Hosted repo/endpoint。
 - `CaseResultSet`、`EvidenceManifest`、`CleanupReceipt` ref/digest binding。
 - `run_id`、`task_id`、`attempt_id`、`generation`、`fence_token`。
 - canonicalization profile、digest algorithm/encoding 和 bounded SafeError。
@@ -161,6 +166,7 @@ R0-B Cross-repo contract and fixture freeze
 
 - 不实现完整 Talos Tool API。
 - 不接 PQL production client。
+- 不实现 Hosted Authorization/Artifact production service；R0 只准备并接受或否决 `MVP-H` 决策及合同输入。
 - 不实现 Hosted Final Quality/Report。
 - 不扩展 API/CLI backend。
 
@@ -254,15 +260,19 @@ bash apps/local-qa-runtime/tests/local-qa-host-mvp-e2e.sh --all
 - 提供 fake capability ports 和 Local Runtime adapter conformance fixtures。
 - package mismatch、unsupported major/capability/entrypoint fail closed。
 
-### 7.3 Canonical result convergence
+### 7.3 共享 canonical contract 与 Browser production writer
 
-- CLI、HTTP、Browser 原生输出同一 canonical result/evidence family。
+- CLI、HTTP、Browser 共享同一 canonical schema、validator、digest profile 和 Case/Assertion 语义。
+- Browser production route 原生输出 canonical result/evidence pair，作为当前跨仓 Browser MVP Gate。
+- CLI/HTTP production writer 的完整迁移继续按 `fkst-packages-testing` upstream P0 backlog 推进，但不阻塞 Browser canary；这里的非阻塞只表示跨仓阶段依赖，不修改 owning repo Issue priority。
 - 将 Issue #656 Candidate 中有效 helper/hardening 接入 production run path。
 - canonical artifacts 写成功后才生成 legacy compatibility projection。
 - publication 只消费公共 validator。
 - malformed canonical output 不得 fallback 为 legacy passed。
 - Browser action success 与 Case passed 分离。
 - effect 后 assertion 前 crash 映射为 lost/inconclusive。
+
+优先级对照和 upstream Issue 状态见 [Testing Packages Gap §5.3](repo-gaps/fkst-packages-testing-gap-analysis.zh-CN.md)。
 
 ### 7.4 资源 ownership 迁移
 
@@ -286,7 +296,8 @@ bash apps/local-qa-runtime/tests/local-qa-host-mvp-e2e.sh --all
 退出标准：
 
 - 同一 invocation 通过 fake adapter 和 Local Runtime adapter 时产生相同 Case/Assertion 语义。
-- CLI/HTTP/Browser 使用同一公共 validator 和 result family。
+- Browser production route 原生写 canonical pair，所有 route 使用同一公共 validator 和 result family。
+- CLI/HTTP full writer convergence 仍是 upstream P0，但不是 R3/R5 Browser-only canary 的前置 Gate；其未完成状态必须显式记录，不能被误写为已交付。
 - Testing Packages 不保存 Talos lease/fence，也不直接拥有本机资源。
 - replay、delivery repair 和 publication repair不重复 target effect。
 
@@ -336,6 +347,7 @@ talos.testing.cancel
 - 实现 `LocalQARuntimeAdapter` 的 submit/get/events/cancel/reconcile。
 - worker 只负责 claim、heartbeat、cancel/deadline 和 bounded result projection。
 - worker 不 checkout、不启动 Chrome、不计算 assertion。
+- Hosted Authorization issue/replay adapter 和 Artifact port 只有在 `MVP-H` 决策被接受后接入；在此之前 Talos 只冻结所需 request/claim/ref 投影，不假定 `fkst-hosted` endpoint 已存在。
 
 ### 8.5 Retry 和 fencing
 
@@ -462,6 +474,7 @@ PQL Snapshot / Selection / InputSet
 
 ### 10.5 MVP 全局退出标准
 
+- `MVP-H` owner、object-storage 复用和 Runtime 认证边界已经由 maintainer 接受，并记录 accepted ADR/Decision Issue。
 - provenance 从 PQL Snapshot 一直闭合到 CaseResultSet。
 - 真实 Browser action 和 assertion 在 canary machine 执行。
 - duplicate/lost acknowledgement 不产生第二次执行。
@@ -472,18 +485,51 @@ PQL Snapshot / Selection / InputSet
 - success/failure/cancel/timeout/crash 均有 CleanupReceipt 或明确 residual。
 - Talos 和 PQL 都不把 task completed 推断为 Final Quality。
 
-## 11. R6：Hosted Artifact、Final Quality 和 Report
+## 11. MVP-H：Hosted Authorization 和最小 Artifact delivery（Decision pending）
 
-R6 不阻塞第一个 Talos Testing MVP，但在需要长期结果、质量判断和正式报告时实施。
+`MVP-H` 是与 R1-R4 并行、且在 R5 全局退出前必须完成的条件性 workstream，不是已冻结实现任务。当前状态为 `Decision pending`；只有 [Hosted Authorization 与 MVP ArtifactStore 边界决策](design-proposals/hosted-authorization-artifact-boundary-decision.zh-CN.md) 被 owning repo maintainers 接受后，才能进入 `Planned` 或 `Ready`。
 
-负责领域：Hosted Artifact/Quality/Report owners。
+Proposed owner：`ChronoAIProject/fkst-hosted`。若决策选择独立 service/repo，本节中的 owner、Issue 和接线路径必须先同步更新。
+
+决策 Gate：
+
+- 确认 Authorization Authority 和 ArtifactStore 的 owning repo/deployment owner。
+- 确认复用现有 object-storage adapter/provider，但不把 session logs 当作 QA Artifact domain。
+- 确认 `LocalQARequestAuthorization`、Talos current claim、Runtime local credential 和 Artifact grant 的独立认证边界。
+- 确认 `prepare/commit/lookup`、receipt、retention/expiry/deletion 和 lost-ack reconcile owner。
+- 在决策文件、Decision Issue/ADR 和本 Roadmap 中同时记录 `Accepted`。
+
+决策接受后的实现：
+
+- operation-specific authorization issue/replay/conflict、signing key lifecycle、rotation/revocation、nonce 和 verifier key distribution。
+- per-object upload grant、stable object key 和短 TTL。
+- `prepare/commit/lookup` 与 digest/media/size/run/case/assertion validation。
+- `ArtifactUploadReceipt`、`ArtifactIngestReceipt` 和 bytes stored/ack lost reconcile。
+- Talos reservation/current-claim 与 Runtime start/cancel/reconcile conformance fixtures。
+- Artifact outage、grant expiry、cross-run read/overwrite 和 stale fence negative tests。
+
+约束：
+
+- Hosted 不重复拥有 Talos operational `QARun`、placement、lease/generation/fence 或 current claim。
+- raw lease/worker token 和 provider-wide storage credential 不进入 Runtime request、Journal、Event、Artifact 或日志。
+- Artifact repair 不创建新的 `TestingAttempt`，也不修改 execution facts。
+- Runtime 只上传 sanitized、validated、digest-bound Artifact；raw quarantine 不离开设备。
+
+退出标准：
+
+- Runtime 同时验证 local credential、Hosted business authorization 和 Talos current claim；任一不可验证时在 effect 前 fail closed。
+- Artifact 重试不重复创建 logical object，stable `lookup` 可收敛 bytes stored/ack lost。
+- Talos/PQL 只消费 bounded refs/digests/receipts，不搬运 Artifact bytes。
+- owner、contract、provider、retention 和 production canary 均有固定证据。
+
+## 12. R6：Hosted Quality、Report、Publication 和 Settlement
+
+R6 是 Post-MVP 阶段，不阻塞第一个已通过 `MVP-H` Gate 的 Browser Testing MVP。
+
+负责领域：Hosted Quality/Report/Publication/Settlement owners；具体 repo owner 可在 `MVP-H` 接受时一并确认，也可独立决策。
 
 实现：
 
-- per-object upload grant。
-- digest/media/size/run/case/assertion validation。
-- ArtifactUploadReceipt 和 ArtifactIngestReceipt。
-- bytes stored/ack lost reconcile。
 - immutable `ReportInputSet`。
 - `QualityEvaluation`。
 - deterministic JSON ReportRecord 和 Markdown/HTML renderer。
@@ -493,18 +539,17 @@ R6 不阻塞第一个 Talos Testing MVP，但在需要长期结果、质量判�
 
 约束：
 
-- Hosted 不重复拥有 Talos operational QARun。
-- report repair 不修改 execution facts。
-- Artifact/report/publication repair 不创建新 TestingAttempt。
+- Hosted 不重复拥有 Talos operational `QARun`。
+- report/publication repair 不修改 execution facts，也不创建新 `TestingAttempt`。
 - `report_impossible` 由 Hosted 根据 ReportInputSet 和 policy 决定，不由 Runtime 推断。
 
 退出标准：
 
-- Artifact 重试不重复创建 logical object。
 - Quality/Report 可从相同 ReportInputSet 重放。
 - execution、evidence、upload、cleanup、quality、report、publication 可独立解释。
+- publication/settlement lost acknowledgement 不改变已经冻结的 execution 或 Artifact facts。
 
-## 12. Future：多 Backend 和 Hardened Runtime
+## 13. Future：多 Backend 和 Hardened Runtime
 
 以下工作不进入 Browser-only MVP：
 
@@ -520,7 +565,7 @@ Future 工作必须建立独立规范和 Gate，不能通过扩大 Browser MVP c
 
 现有 Hardened backlog 继续由 [TODOS.md](TODOS.md) 跟踪；不得把 Hardened shell/scaffold 描述成当前 MVP 的安全保证。
 
-## 13. 建议 Issue 分解
+## 14. 建议 Issue 分解
 
 | 顺序 | Repo | 建议 Issue | 所属阶段 |
 | ---: | --- | --- | --- |
@@ -529,14 +574,16 @@ Future 工作必须建立独立规范和 Gate，不能通过扩大 Browser MVP c
 | 3 | `fkst-hosted` | Replace production PassingExecutor with real Worker/Browser/Evidence execution | R1 |
 | 4 | `fkst-hosted` | Add cancel, timeout, restart reconcile and orthogonal outcomes | R1 |
 | 5 | `fkst-packages-testing` | Publish testing package manifest and runner invocation contracts | R2 |
-| 6 | `fkst-packages-testing` | Converge CLI/HTTP/Browser canonical result and Evidence paths | R2 |
+| 6 | `fkst-packages-testing` | Ship Browser canonical writer/shared validator; continue CLI/HTTP convergence at upstream P0 | R2 Browser Gate + non-blocking upstream P0 |
 | 7 | `talos` | Add Testing Tool API, QARun and strict testing task model | R3 |
 | 8 | `talos` | Add TestingExecutor, Runtime adapter and attempt generation/fence | R3 |
 | 9 | `product-quality-loop` | Add TestingToolClient and TestingRunRecord | R4 |
 | 10 | 四仓 | Add Browser-only cross-repo canary conformance gate | R5 |
-| 11 | Hosted domain | Add digest-bound Artifact ingestion and immutable ReportInputSet | R6 |
+| 11 | workflow-qa + proposed Hosted owner | Accept/reject Authorization and Artifact boundary, object-storage reuse and Runtime auth decision | `MVP-H` decision gate |
+| 12 | Proposed `fkst-hosted` owner | Add operation authorization and digest-bound Artifact `prepare/commit/lookup` | `MVP-H`（仅在决策接受后） |
+| 13 | Hosted Quality/Report owner | Add immutable ReportInputSet, QualityEvaluation and Report/Settlement | R6 |
 
-## 14. 阶段依赖图
+## 15. 阶段依赖图
 
 ```text
 R0-A Journal correctness ─────────────┐
@@ -545,6 +592,7 @@ R0-B Contract freeze ─────────────────┘     
                                                                      ├─> R3 Talos Testing Tool
 R0-B Contract freeze ──> R2 Testing Packages productization ────────┘
                                                                           │
+MVP-H decision accepted -> Authorization/Artifact implementation --------┤
                                                                           v
                                                                     R4 PQL integration
                                                                           │
@@ -553,25 +601,27 @@ R0-B Contract freeze ──> R2 Testing Packages productization ─────�
                                                                           │
                                                         ┌─────────────────┴───────────────┐
                                                         v                                 v
-                                               R6 Hosted reports                 Future backends/hardening
+                                         R6 Hosted Quality/Report              Future backends/hardening
 ```
 
 允许并行：
 
 - R0-A 与 R0-B。
 - R1 execution spine 与 R2 canonical/package 工作在合同冻结后并行。
-- R6 的 Artifact schema 设计可提前，但 production 接入不能阻塞 R1-R5，也不能重定义 Talos QARun。
+- `MVP-H` 的 consumer requirements、negative fixtures 和决策材料可与 R1/R2 并行；owner 决策未接受时不能创建 owner-specific production implementation Issue。
+- R6 的 ReportInputSet/Quality schema 设计可提前，但 production 接入不能重定义 Talos QARun，也不能被称为 Browser MVP Gate。
 
 禁止提前：
 
 - R0 未完成时开始四仓各自定义 wire contract。
+- `MVP-H` 决策未接受时把 `fkst-hosted`、object-storage provider 或 production endpoint 写成已冻结事实。
 - R1 未证明真实本地执行时直接声明 Talos canary 可用。
 - R3 API 未稳定时在 PQL 固化 provider-specific transport shape。
 - R5 未通过时扩展 Secret、API/CLI 或 Hardened execution。
 
-## 15. Roadmap 更新规则
+## 16. Roadmap 更新规则
 
-每个阶段状态只允许使用：`Planned`、`Ready`、`In Progress`、`Blocked`、`Done`。
+普通实施阶段状态只允许使用：`Planned`、`Ready`、`In Progress`、`Blocked`、`Done`。架构决策门单独使用：`Proposed`、`Decision pending`、`Accepted`、`Rejected`；`Decision pending` 不能等同于 `Ready`。
 
 阶段进入 `Done` 必须同时满足：
 
