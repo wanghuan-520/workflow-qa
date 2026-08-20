@@ -303,9 +303,9 @@ get_capabilities
 - 支持 bounded retry，但不能在未知 acceptance 下重新执行有副作用 command。
 - Artifact bytes 不通过 NyxID 长响应传输。
 
-## 4.3 历史授权草案（活动 Target 见 2.5）
+## 4.3 历史授权草案（当前候选边界见 2.5；owner 仍为 Decision pending）
 
-旧草案把 authorization 与 Hosted-owned device/dispatch 混合。活动 Target 保留 Hosted business signer，但 binding 改为 Talos reservation、signed lease claim ref、machine/worker/generation/fence 和 operation-specific request tuple，详见 2.5。不得恢复 Hosted direct dispatch 或让 Hosted 保存 raw lease token。
+旧草案把 authorization 与 Hosted-owned device/dispatch 混合。当前候选边界保留独立 business signer，但其 owning repo 仍等待决策；binding 改为 Talos reservation、signed lease claim ref、machine/worker/generation/fence 和 operation-specific request tuple，详见 2.5。不得恢复 Hosted direct dispatch 或让 Hosted 保存 raw lease token。
 
 ## 5. 历史设计：Hosted-owned scheduler/reconcile（已被 Talos Target 取代）
 
@@ -360,6 +360,13 @@ Host 计算 post-redaction digest、media、size 后，向 Hosted 请求：
 ```text
 ArtifactUploadGrant
   run_id
+  task_id
+  attempt_id
+  generation
+  fence
+  runtime_instance_id
+  subject/audience
+  claim_ref/digest
   object_key
   artifact_role
   digest
@@ -375,6 +382,10 @@ ArtifactUploadGrant
 - grant 不能列举其他 Run。
 - 不能覆盖不同 digest。
 - 不能读取 raw quarantine。
+- `subject` 必须是被接受 attempt 的 Runtime installation/instance，`audience` 必须是 Artifact upload endpoint/provider；grant 不能被其他 machine、worker 或 Run 使用。
+- `generation`、`fence` 和 `claim_ref/digest` 必须绑定当前 attempt；stale/revoked claim 在 bytes 被接受前必须 fail closed。
+- `prepare` 只能由已认证的 Talos/TestingExecutor control-plane caller 请求，或由带有 local credential 和对应 signed authorization 的 Runtime adapter 请求；不能由匿名或 provider-wide storage credential 调用。
+- upload path 必须在 ArtifactStore gateway 或等价的 provider policy 中校验 subject、audience、attempt/fence 和 expiry；仅凭未绑定的 presigned URL 不能满足 MVP 边界。
 - 短 TTL、single object。
 
 ## 6.2 缺少 Artifact ingestion validator

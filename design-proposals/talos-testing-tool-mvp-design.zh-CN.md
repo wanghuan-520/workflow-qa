@@ -12,6 +12,8 @@
 >
 > **实现状态：** 本文定义需要实现的 MVP，不表示 Talos 已支持 kind=testing。当前 Talos task 仍只有 browse 和 computer_use。
 >
+> **Hosted 边界状态：** Hosted Authorization Authority 和最小 ArtifactStore 的 owner/MVP 必需性为 **Proposed / Decision pending**，详见 [Hosted Authorization 与 MVP ArtifactStore 边界决策](hosted-authorization-artifact-boundary-decision.zh-CN.md)。Talos 负责 QARun、placement、lease、generation 和 fence；在该决策被接受前，Hosted 接口只是 consumer contract。
+>
 > **流程图：** [Talos Testing MVP 流程图](./diagrams/talos-testing-mvp-flow.mmd)
 
 ---
@@ -206,7 +208,7 @@ flowchart LR
   R[Local QA Runtime]
   P[Testing Packages<br/>Plan compiler + execution contracts]
   C[Temporary system Chrome process]
-  F[Hosted ArtifactStore]
+  F["Proposed Hosted ArtifactStore<br/>(Decision pending)"]
 
   A --> PQL
   PQL -->|approved Snapshot / Selection / InputSet| P
@@ -230,7 +232,8 @@ flowchart LR
 | talos-worker | claim、heartbeat、TestingTask dispatch、cancel/deadline、bounded result | checkout、Compose、Chrome、CaseResult 计算 |
 | Local QA Runtime | admission、Journal、workspace、environment、browser、evidence、cleanup | 最终产品 Quality、组织权限 |
 | Testing Packages | Structured Plan、typed action、Observation、AssertionResult、CaseResultSet | Talos lease、worker token、本机资源 ownership |
-| Hosted ArtifactStore | per-object grant、sanitized Artifact bytes、digest、object ref、ingest receipt | 执行状态、Quality 判断、本地 raw quarantine |
+| 业务执行授权 | Proposed Hosted QA Authorization Authority（Decision pending） | operation-specific authorization；不拥有 QARun、placement、lease/generation/fence |
+| 长期 Artifact | Proposed Hosted ArtifactStore（Decision pending） | per-object grant、sanitized Artifact bytes、digest、object ref、ingest receipt；不拥有执行状态、Quality 判断、本地 raw quarantine |
 
 ### 3.1 QARun 与 TestingTask
 
@@ -995,19 +998,24 @@ raw observation
   -> post-redaction SHA-256
   -> EvidenceManifest
   -> cleanup raw quarantine
-  -> Hosted ArtifactStore upload/commit
+  -> Proposed Hosted ArtifactStore upload/commit (Decision pending)
   -> immutable ref + digest
 ~~~
 
 Tool、heartbeat 和 events 不得 inline 返回 screenshot base64、raw DOM/trace/network body/download、cookie/header/Secret、local path、unbounded log 或 raw stack。
 
-### 7.5 Hosted ArtifactStore MVP port
+### 7.5 Proposed Hosted ArtifactStore MVP port（Decision pending）
+
+以下只定义候选 consumer contract。只有 owner、storage provider 和 Runtime 认证边界被接受后，才可作为 Active contract 或 production implementation target。
 
 ~~~text
-prepare(run_id, evidence_id, media_type, size, digest)
+prepare(run_id, task_id, attempt_id, generation, fence,
+        runtime_instance_id, subject, audience,
+        evidence_id, claim_ref, media_type, size, digest, idempotency_key)
   -> upload_grant + stable_object_key
 
-commit(stable_object_key, size, digest)
+commit(stable_object_key, attempt_id, generation, fence, claim_ref,
+       runtime_instance_id, subject, audience, size, digest)
   -> artifact_ref + ingest_receipt
 
 lookup(stable_object_key, digest)
@@ -1018,6 +1026,10 @@ lookup(stable_object_key, digest)
 
 - object key + digest 幂等；
 - same key/different digest fail closed；
+- grant 必须绑定当前 attempt 的 generation/fence/claim、Runtime instance、subject/audience、object identity、method/path、nonce/not-before/expiry 和 idempotency key；
+- `prepare` 必须由认证的 Talos/TestingExecutor caller，或 local credential + 对应 signed authorization 调用；provider-wide storage credential 不得进入 Runtime；
+- upload gateway 或等价 provider policy 必须在 bytes 被接受前校验 subject/audience、attempt/fence、revocation 和 expiry；未绑定 current claim 的裸 presigned URL 不满足 MVP；
+- stale/revoked generation、fence 或 Runtime identity 必须在 bytes 被接受前 fail closed，`commit` 还要再次校验相同 binding；
 - upload bytes 后 ack 丢失可查询或重试；
 - Artifact outage 不阻止本地 execution freeze 和 cleanup；
 - sanitized staging 有固定 TTL；
@@ -1300,7 +1312,7 @@ Exit gate：现有 browse、computer_use 和 session conformance tests 不回归
 
 Exit gate：成功、assertion failure、cancel、timeout、Chrome crash、Runtime restart 都能闭合且不留下未知资源。
 
-### M4：Evidence 和 Hosted ArtifactStore
+### M4：Evidence 和 Proposed Hosted ArtifactStore（Decision pending）
 
 产出：
 

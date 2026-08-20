@@ -139,7 +139,7 @@ R0-B Cross-repo contract and fixture freeze
 - `talos.testing-tool-request/v1`。
 - `talos.testing-task/v1`。
 - `qa.local-run-admission/v2`。
-- proposed `LocalQARequestAuthorization`、Talos signed current-claim 和 per-object Artifact grant/receipt 边界；owner 决策未接受前只冻结 consumer requirements 和 negative fixtures，不冻结 Hosted repo/endpoint。
+- `MVP-H` pending contract inputs：只冻结 `LocalQARequestAuthorization`、Talos signed current-claim 和 per-object Artifact grant/receipt 的 consumer requirements 与 negative fixtures；owner 决策未接受前不冻结 Hosted repo/endpoint，也不把这些字段计入 R0 的 accepted contract set。
 - `CaseResultSet`、`EvidenceManifest`、`CleanupReceipt` ref/digest binding。
 - `run_id`、`task_id`、`attempt_id`、`generation`、`fence_token`。
 - canonicalization profile、digest algorithm/encoding 和 bounded SafeError。
@@ -158,9 +158,9 @@ R0-B Cross-repo contract and fixture freeze
 
 退出标准：
 
-- Rust、TypeScript、Lua/Python consumer 对相同 fixture 给出一致 acceptance/rejection。
+- R0 accepted contract set 的 Rust、TypeScript、Lua/Python consumer 对相同 fixture 给出一致 acceptance/rejection；`MVP-H` pending fixtures 只要求 fixture schema 和 expected outcome 已登记。
 - 合同中没有 caller-supplied machine、host path、argv、env、CDP endpoint 或 Secret material。
-- 每个字段只有一个 authority 和 owning repo。
+- 每个已接受冻结字段只有一个 authority 和 owning repo；`MVP-H` pending fields 必须在决策提案中显式列出 proposed boundary/status，不能被标记为 R0 已冻结事实。
 
 ### 5.4 R0 非目标
 

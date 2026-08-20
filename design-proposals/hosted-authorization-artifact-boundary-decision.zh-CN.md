@@ -45,8 +45,11 @@ Talos 继续拥有 `QARun`、`TestingTask`、`TestingAttempt`、placement、leas
 
 Hosted MVP ArtifactStore 必须在 storage provider 之上增加 QA-specific contract：
 
-- `prepare` 校验 run/attempt/object identity、digest、media、size、role 和 policy，并签发单对象、短 TTL 的 upload grant。
-- Runtime 使用 grant 将已经 sanitized、validated 的 bytes 直接上传到被允许的 object key；grant 不允许 list、cross-run read 或覆盖不同 digest。
+- `prepare` 校验 run/task/attempt、generation/fence、Runtime installation/instance、grant subject/audience、object identity、digest、media、size、role 和 policy，并签发单对象、短 TTL 的 upload grant。
+- Grant 必须绑定 `attempt_id`、`generation`、`fence`、`claim_ref/digest`、`runtime_instance_id`、`subject`、`audience`、object key、digest、media、size、allowed method/path、nonce/not-before/expiry 和 idempotency key。
+- Runtime 使用 grant 将已经 sanitized、validated 的 bytes 上传到被允许的 object key；grant 不允许 list、cross-run read 或覆盖不同 digest，也不能被其他 machine/worker/Run 使用。
+- `prepare` 的调用必须经过 Talos/TestingExecutor service identity，或 local credential + 对应 signed authorization；provider-wide storage credential 不得进入 Runtime。
+- upload path 必须在 ArtifactStore gateway 或等价 provider policy 中校验 subject、audience、attempt/fence、revocation 和 expiry；裸的、未绑定 current claim 的 presigned URL 不满足 MVP 认证边界。
 - `commit` 验证 provider object identity、digest、media、size 和 EvidenceManifest binding，生成 immutable pointer 与 receipt。
 - `lookup` 按 stable object key、digest 和 idempotency identity 返回原 pointer/receipt，用于 bytes stored/ack lost 收敛。
 - ArtifactStore 拥有 retention/expiry/deletion policy 与 provider reconciliation；Runtime 只报告本次 upload outcome，不决定云端 retention。
@@ -71,7 +74,8 @@ Talos exact attempt reservation
 - Hosted business authorization 与 Talos current claim 必须同时有效，任一不可验证时在新的本地 effect 前 fail closed。
 - raw `lease_token`、worker token、Hosted signing key 和 provider-wide storage credential 不进入 Runtime request、Journal、Event、Artifact 或日志。
 - Runtime 不直连 Talos public Tool API；current-claim verification 通过 bounded resolver/claim contract 完成。
-- Artifact upload 使用单对象 grant，绑定 run/task/attempt、object key、digest、media、size、method/path 和 expiry；它不能替代 Runtime start/cancel/reconcile authorization。
+- Artifact upload 使用单对象 grant，绑定 run/task/attempt、generation/fence/current claim、Runtime instance、subject/audience、object key、digest、media、size、method/path 和 expiry；它不能替代 Runtime start/cancel/reconcile authorization。
+- stale/revoked generation、fence 或 Runtime identity 在 bytes 被 ArtifactStore 接受前必须 fail closed；ArtifactStore commit 仍需再次校验相同 binding。
 - Artifact outage 不重新打开 execution，也不触发新的 TestingAttempt；Runtime/Talos 以独立 `upload_outcome` 和 lost-ack repair 收敛。
 
 ## 4. 接受 Gate
