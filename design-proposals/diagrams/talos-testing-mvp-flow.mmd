@@ -1,0 +1,44 @@
+flowchart LR
+  A["用户 / Agent"]
+  PQL["product-quality-loop<br/>ProjectPackSnapshot<br/>TestSelection<br/>测试资产审批"]
+  TP["Testing Packages<br/>生成 StructuredPlan"]
+  NYX["NyxID<br/>身份认证 / 路由 / 审计"]
+  TOOL["Talos Testing Tool<br/>submit / get / events / cancel<br/>创建 QARun"]
+  SCHED["Talos Scheduler<br/>Machine Pool / 能力匹配<br/>Lease / Fence"]
+  WORKER["talos-worker<br/>TestingExecutor"]
+  RUNTIME["Local QA Runtime<br/>Workspace / 环境<br/>临时 Chromium<br/>Evidence / Cleanup"]
+  RESULT["测试结果<br/>CaseResultSet<br/>EvidenceManifest<br/>CleanupReceipt"]
+
+  A --> PQL
+  PQL --> TP
+  TP --> PQL
+  PQL --> NYX
+  NYX --> TOOL
+  TOOL --> SCHED
+  SCHED --> WORKER
+  WORKER --> RUNTIME
+  RUNTIME --> RESULT
+  RESULT -->|"TestingRunRecord<br/>只记录关联，不判断最终质量"| PQL
+
+  PQL_NOTE["决定为什么测、测什么<br/>不选择机器"]
+  EXEC_NOTE["Talos 决定在哪执行<br/>Runtime 负责本机执行和清理"]
+
+  PQL -.-> PQL_NOTE
+  SCHED -.-> EXEC_NOTE
+  RUNTIME -.-> EXEC_NOTE
+
+  classDef actor fill:#F5F7FA,stroke:#52606D,color:#1F2933;
+  classDef planning fill:#FFF4E5,stroke:#C77800,color:#4A2B00;
+  classDef transport fill:#E7F6F3,stroke:#167D74,color:#123C39;
+  classDef control fill:#EAF0FB,stroke:#3867B7,color:#17365D;
+  classDef local fill:#EAF6E8,stroke:#4B8F43,color:#173C16;
+  classDef result fill:#F4ECF8,stroke:#7950A3,color:#392150;
+  classDef note fill:#FFFFFF,stroke:#9AA5B1,color:#52606D,stroke-dasharray: 4 3;
+
+  class A actor;
+  class PQL,TP planning;
+  class NYX transport;
+  class TOOL,SCHED control;
+  class WORKER,RUNTIME local;
+  class RESULT result;
+  class PQL_NOTE,EXEC_NOTE note;

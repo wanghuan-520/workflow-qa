@@ -1,0 +1,69 @@
+flowchart TB
+  USER[用户 / Agent]
+
+  subgraph CONTROL[控制面：决定测什么、何时执行]
+    PQL[product-quality-loop\n产品知识与测试编排\nProjectPackSnapshot / TestSelection / TestingRunRecord]
+    TPC[Testing Packages\nPQL 侧：验证输入并编译 StructuredPlan\n这是库，不是网络服务]
+    NYX[NyxID\n身份认证 / approval / 路由 / 审计]
+    TOOL[Talos Testing Tool\nget_capabilities / submit / get / events / cancel]
+    RUN[QARun Store\n保存 run 状态、幂等键、输入和结果引用]
+    SCH[Talos Scheduler\npool / capability / placement\nTestingTask / lease / generation / fence]
+  end
+
+  subgraph MACHINE[执行面：在真实机器上产生本机副作用]
+    WORKER[talos-worker\nclaim / heartbeat / cancel / result\n固定 TestingExecutor]
+    LQR[Local QA Runtime\nadmission / workspace / environment\nprocess / port / browser / cleanup]
+    TPE[Testing Packages\nRuntime 侧：typed action / observation\nassertion / CaseResultSet / EvidenceManifest]
+    CHROME[临时 Chromium\n独立 profile / downloads / process group]
+  end
+
+  subgraph ARTIFACT[Hosted Artifact plane：长期存储与 ingestion authority]
+    STORE[Hosted ArtifactStore\nper-object grant / ingest receipt\nsanitized bytes / opaque ref + digest]
+  end
+
+  USER -->|1. 提出测试目标| PQL
+  PQL -->|2. 冻结项目知识、资产和选择| PQL
+  PQL -->|3. approved InputSet| TPC
+  TPC -->|4. StructuredPlan ref + digest| PQL
+  PQL -->|5. TestingToolClient\n只发送 refs/digests 和 policy| NYX
+  NYX -->|6. 验证 caller、执行 approval、转发| TOOL
+  TOOL -->|7. 创建/幂等更新 QARun| RUN
+  RUN -->|8. 生成 TestingTask| SCH
+  SCH -->|9. 按能力选择 machine\n发 lease + fence| WORKER
+  WORKER -->|10. 通过 worker 通道 claim/heartbeat/result| NYX
+  NYX -->|11. 转发 worker API 请求| SCH
+  WORKER -->|12. 传入 exact plan + signed LocalQARequestAuthorization| LQR
+  LQR -->|13. 使用测试语义库执行| TPE
+  LQR -->|14. 创建并控制| CHROME
+  TPE -->|15. 产生 assertion 和 case 事实| LQR
+  LQR -->|16. 申请 grant 并上传校验后的 bounded evidence| STORE
+  LQR -->|17. CleanupReceipt + CaseResultSet ref| WORKER
+  WORKER -->|18. bounded result + terminal state| NYX
+  NYX -->|19. 转发 result| SCH
+  SCH -->|20. 更新 QARun snapshot/events| RUN
+  PQL -->|21. get/events 轮询或消费事件| NYX
+  NYX -->|22. 转发查询| TOOL
+  TOOL -->|23. 读取 QARun snapshot/events| RUN
+  RUN -->|24. bounded snapshot/events| TOOL
+  TOOL -->|25. 状态、结果引用和 digest| NYX
+  NYX -->|26. 返回 bounded response| PQL
+  PQL -->|27. 保存 TestingRunRecord 关联\n不推断 Final Quality| PQL
+  PQL -->|28. 返回结果给 Agent| USER
+
+  PQL -.->|不负责 machine / lease / Chrome| SCH
+  TPC -.->|不持有 NyxID token\n不调用 Talos| NYX
+  TPE -.->|不拥有 process / port / workspace| LQR
+
+  classDef actor fill:#F5F7FA,stroke:#52606D,color:#1F2933;
+  classDef planning fill:#FFF4E5,stroke:#C77800,color:#4A2B00;
+  classDef transport fill:#E7F6F3,stroke:#167D74,color:#123C39;
+  classDef control fill:#EAF0FB,stroke:#3867B7,color:#17365D;
+  classDef local fill:#EAF6E8,stroke:#4B8F43,color:#173C16;
+  classDef store fill:#F4ECF8,stroke:#7950A3,color:#392150;
+
+  class USER actor;
+  class PQL,TPC,TPE planning;
+  class NYX transport;
+  class TOOL,RUN,SCH control;
+  class WORKER,LQR,CHROME local;
+  class STORE store;

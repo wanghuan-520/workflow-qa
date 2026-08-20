@@ -1,0 +1,35 @@
+{
+  "schema_version": "qa.local-host-mvp-failpoints/v1",
+  "status": "draft",
+  "normative": false,
+  "completion_gate": "MVP-A0",
+  "profile": "local_qa_agent_mvp",
+  "failpoints": [
+    {"id":"admission.before_digest","phase":"admission","expected":"reject_without_mutation"},
+    {"id":"admission.after_digest","phase":"admission","expected":"reject_without_mutation"},
+    {"id":"admission.before_nonce_consume","phase":"admission","expected":"retryable_without_effect"},
+    {"id":"admission.after_nonce_consume_before_commit","phase":"admission","expected":"transaction_rollback_without_nonce_consumption"},
+    {"id":"admission.after_acceptance_commit","phase":"admission","expected":"original_acceptance_replay"},
+    {"id":"resource.after_intent_before_create","phase":"resource","expected":"absent_or_reconcile"},
+    {"id":"resource.after_create_before_identity","phase":"resource","expected":"stable_key_reconcile"},
+    {"id":"environment.readiness_timeout","phase":"prepare","expected":"environment_failed_then_cleanup"},
+    {"id":"browser.after_launch_before_action","phase":"execute","expected":"not_started_then_cleanup","automatic_retry":false,"retry_policy":"explicit_same_machine_only"},
+    {"id":"browser.after_action_before_assertion","phase":"execute","expected":"lost_or_inconclusive_then_cleanup"},
+    {"id":"evidence.after_capture_before_redaction","phase":"evidence","expected":"quarantine_only"},
+    {"id":"evidence.redaction_failure","phase":"evidence","expected":"no_upload"},
+    {"id":"cleanup.after_each_resource","phase":"cleanup","expected":"idempotent_retry"},
+    {"id":"upload.after_grant_before_bytes","phase":"upload","expected":"retry_same_object"},
+    {"id":"upload.after_bytes_before_ack","phase":"upload","expected":"reconcile_same_object_digest"},
+    {"id":"host.crash_during_execution","phase":"restart","expected":"close_admission_no_rerun"},
+    {"id":"restart.after_discovery_before_cleanup","phase":"restart","expected":"resume_reconcile"},
+    {"id":"staging.ttl_expiry","phase":"retention","expected":"upload_expired"}
+  ],
+  "assertions": [
+    "no_duplicate_execution",
+    "no_cross_run_cleanup",
+    "stable_event_sequence",
+    "outcome_consistency",
+    "bounded_safe_error",
+    "no_raw_or_secret_output"
+  ]
+}

@@ -1,16 +1,16 @@
 # FKST Hardened Local QA Runtime 实现设计
 
 > 状态：未来 `hardened_untrusted_code` Profile 实现设计，尚未表示对应能力已经实现
-> 当前 MVP 实现设计：[LOCAL-QA-HOST-DESIGN.zh-CN.md](LOCAL-QA-HOST-DESIGN.zh-CN.md)
+> 当前 MVP 实现设计：`local-qa-host-mvp-design.zh-CN.md`
+> 规范性合同：[hardened-local-qa-runtime-spec.zh-CN.md](./hardened-local-qa-runtime-spec.zh-CN.md)；本文后文的 “SPEC” 均指该文件。
 > 未来部署范围：`fkst-hosted/apps/local-qa-runtime`，`hardened_untrusted_code`
-> 配套目标设计：[DESIGN.zh-CN.md](DESIGN.zh-CN.md)
-> 配套字段与协议规范：[SPEC.zh-CN.md](SPEC.zh-CN.md)
-> 系统架构语义基准：[fkst-host-nyxid-local-qa-flow.mmd](fkst-host-nyxid-local-qa-flow.mmd)
-> Runtime 内部图：[Mermaid](fkst-local-qa-runtime-internals.mmd) / [SVG](fkst-local-qa-runtime-internals.svg) / [PNG](fkst-local-qa-runtime-internals.png)
+> 文档范围：本文是未来 Hardened Runtime 的完整设计，包含 VZ、Grant、Fence、EffectGate、authority ledger、Warden、Secret Broker、Recovery 和 Update 语义。
+> 与 MVP 的关系：MVP 只使用受信任输入、Compose、Host Chrome 和小型 Journal；不以本文的 Hardened 机制为前置条件。
+> 流程图：Hardened Runtime 的完整拓扑和控制流直接以内文 Mermaid 代码块和流程表为准。
 
 ## 1. 文档定位与权威关系
 
-本文只定义未来 `hardened_untrusted_code` Profile 的进程拓扑、模块边界、authority ledger、安全隔离和恢复算法。当前 `local_qa_agent_mvp` 的轻量实现由 [LOCAL-QA-HOST-DESIGN.zh-CN.md](LOCAL-QA-HOST-DESIGN.zh-CN.md) 定义，不以本文的 VZ、Grant、Fence、EffectGate 或 signed recovery 为前置条件。本文重点回答以下 Hardened 问题：
+本文只定义未来 `hardened_untrusted_code` Profile 的进程拓扑、模块边界、authority ledger、安全隔离和恢复算法。当前 `local_qa_agent_mvp` 的轻量实现由 `local-qa-host-mvp-design.zh-CN.md` 定义，不以本文的 VZ、Grant、Fence、EffectGate 或 signed recovery 为前置条件。本文重点回答以下 Hardened 问题：
 
 - 恶意仓库、依赖脚本、开放式 Agent Action 和高价值 Secret 如何与宿主隔离。
 - Design/Execution Grant、LocalLeaseBinding、Fence 和 EffectGate 如何形成唯一副作用授权路径。
@@ -19,17 +19,11 @@
 - Runtime 重启后如何在 hosted 签名 RecoveryDecision 前保持 admission closed 且绝不自动 resume。
 - signed launcher、migration、anti-rollback 和 rollback 如何维护 Runtime 自身完整性。
 
-本文对字段名、完整 Schema、枚举值和 wire payload **不具有规范性**。这类细节以 [SPEC.zh-CN.md](SPEC.zh-CN.md) 为准。本文中的表名、列名、内部消息名和伪代码用于固定实现语义，可以在实现时调整，但不得改变所描述的事务边界、所有权和安全不变量。
+本文不重复定义未来 Hardened 实现的完整 wire contract。后文明确引用 SPEC 的字段、strict union、枚举、状态机和 canonical payload 时，以保留的规范性合同为准；实现时仍必须在对应代码仓库中建立由机器校验的版本化 contract。本文独有的表名、列名、内部消息名和伪代码用于固定事务边界、所有权和安全不变量，可以在实现时调整，但不得改变这些语义。
 
-若文档之间发生冲突，采用以下优先级：
+本文只与 `local-qa-host-mvp-design.zh-CN.md` 共享 Profile 名称、Source/Plan/Runner/Evidence 等概念；两者的隔离、Journal、Recovery 和授权机制不可互相替代。本文的 Hardened 语义只对未来 `hardened_untrusted_code` 适用，不能反向扩大 MVP 范围。POC 只证明其真实运行过的 Cloud → Node → loopback service → Chrome 链路，不替代任何生产设计。
 
-1. `SPEC.zh-CN.md` 决定跨边界字段、签名、摘要、状态机和错误契约。
-2. `DESIGN.zh-CN.md` 决定系统级职责、授权权威、Workspace/Sandbox/Environment 语义和完整 QA Run 生命周期。
-3. [LOCAL-QA-HOST-DESIGN.zh-CN.md](LOCAL-QA-HOST-DESIGN.zh-CN.md) 决定当前 MVP 的内部拓扑、算法和最小持久化；本文决定未来 Runtime 的 authority、安全和恢复实现。
-4. 当前架构 Mermaid 决定系统级组件与授权方向。
-5. POC 只证明其真实运行过的 Cloud → Node → loopback service → Chrome 链路，不替代生产设计。
-
-[Local Runtime 内部 Mermaid](fkst-local-qa-runtime-internals.mmd) 是 Hardened Runtime 内部拓扑的唯一语义源，[SVG](fkst-local-qa-runtime-internals.svg) 和 [PNG](fkst-local-qa-runtime-internals.png) 是生成展示资产。现有 Excalidraw 仅为历史编辑资产，不再声明与 Mermaid 同步。本文中的局部 Mermaid 只用于说明特定控制流，不能覆盖主图定义的 host/guest/worker/provider authority path。
+本文中的 Mermaid 代码块和流程表是 Hardened Runtime 的唯一语义来源。本仓库不单独维护 Excalidraw、SVG 或 PNG 副本；局部 Mermaid 只用于说明特定控制流，不能覆盖本文定义的 host/guest/worker/provider authority path。
 
 ## 2. Hardened v1 锁定决策
 
@@ -213,7 +207,7 @@ flowchart LR
     A -->|vsock protocol| G
 ```
 
-`fkst-local-qa-runtime-internals.mmd` / `.svg` 已补齐 DB writer、outbox、Adapter、VM channel、Recovery 和 Update 流，并作为 Runtime 内部主图维护。任何实现调整必须先更新 Mermaid 语义源，再同步展示资产。
+本文的 Runtime 内部流程已覆盖 DB writer、outbox、Adapter、VM channel、Recovery 和 Update 流。任何实现调整只更新本文中的 Mermaid 语义源。
 
 ### 6.4 Supervisor 内部 Module、Interface 与所有权
 
@@ -307,7 +301,7 @@ Runtime 对外保持 transport-neutral。v1 的逻辑 Interface 包含：
 - `ackEvents`：确认 transport 已持久接收某个 outbox cursor，允许本地压缩投影。
 - `getArtifact`：使用短期、scope-bound capability 读取允许的本地 Artifact。
 
-字段和 exact method signature 以 `SPEC.zh-CN.md` 为准。`ackEvents` 必须绑定 run、generation、cursor、event digest 与幂等键，只表示 hosted 已持久接收；`getArtifact` 必须验证短期 scope-bound access capability、actor、Artifact digest、range 和 expiry。健康只通过 `probeHealth` 查询，不再同时维护 `probe_health` command。Cancel 必须继续作为 fenced command 提交，不能增加绕过 sequence、cursor 和 fence 的快捷 API。
+字段和 exact method signature 应在未来 Hardened 实现仓库中建立版本化 contract；`ackEvents` 必须绑定 run、generation、cursor、event digest 与幂等键，只表示 hosted 已持久接收；`getArtifact` 必须验证短期 scope-bound access capability、actor、Artifact digest、range 和 expiry。健康只通过 `probeHealth` 查询，不再同时维护 `probe_health` command。Cancel 必须继续作为 fenced command 提交，不能增加绕过 sequence、cursor 和 fence 的快捷 API。
 
 `RuntimeService` 必须且只能保持上述八个业务方法。撤销投递使用独立的 `RuntimeTransportControlInbox.deliverRevocations`，它不计入 `RuntimeService`，也不能演化成第九个通用业务方法。Control inbox 只接受 exact、签名、hash-linked `RevocationBatch`；禁止承载 RuntimeCommand、Grant、Plan、配置或任意 JSON payload。
 
@@ -569,11 +563,19 @@ CREATE TABLE runtime_identities (
   keychain_persistent_ref_digest TEXT NOT NULL,
   launcher_code_requirement_digest TEXT NOT NULL,
   supervisor_code_requirement_digest TEXT NOT NULL,
+  previous_identity_epoch INTEGER,
   previous_statement_digest TEXT,
   state TEXT NOT NULL CHECK (state IN ('active','rotated','reset','compromised')),
   canonical_payload BLOB NOT NULL,
   PRIMARY KEY (runtime_instance_id, identity_epoch),
-  CHECK ((identity_epoch = 1 AND previous_statement_digest IS NULL) OR identity_epoch > 1)
+  UNIQUE (runtime_instance_id, identity_epoch, statement_digest),
+  FOREIGN KEY (runtime_instance_id, previous_identity_epoch, previous_statement_digest)
+    REFERENCES runtime_identities(runtime_instance_id, identity_epoch, statement_digest),
+  CHECK (
+    (identity_epoch = 1 AND previous_identity_epoch IS NULL AND previous_statement_digest IS NULL)
+    OR
+    (identity_epoch > 1 AND previous_identity_epoch = identity_epoch - 1 AND previous_statement_digest IS NOT NULL)
+  )
 ) STRICT;
 CREATE UNIQUE INDEX one_active_runtime_identity
   ON runtime_identities(runtime_instance_id) WHERE state = 'active';
@@ -707,6 +709,7 @@ CREATE TABLE local_lease_bindings (
   local_generation INTEGER NOT NULL CHECK (local_generation >= 1),
   reservation_epoch TEXT NOT NULL,
   request_digest TEXT NOT NULL,
+  idempotency_scope TEXT NOT NULL,
   idempotency_key TEXT NOT NULL,
   authorization_input_digest TEXT NOT NULL,
   admission_requirements_digest TEXT NOT NULL,
@@ -715,7 +718,7 @@ CREATE TABLE local_lease_bindings (
   state TEXT NOT NULL CHECK (state IN ('reserved','consumed','cancelled','expired')),
   expires_at TEXT NOT NULL,
   canonical_payload BLOB NOT NULL,
-  UNIQUE (idempotency_key, request_digest),
+  UNIQUE (idempotency_scope, idempotency_key),
   UNIQUE (run_id, phase, local_generation)
 ) STRICT;
 CREATE UNIQUE INDEX one_active_binding_per_phase
@@ -727,13 +730,15 @@ CREATE TABLE commands (
   run_id TEXT NOT NULL,
   generation INTEGER NOT NULL CHECK (generation >= 1),
   command_sequence INTEGER NOT NULL CHECK (command_sequence >= 1),
-  idempotency_key TEXT NOT NULL UNIQUE,
+  idempotency_scope TEXT NOT NULL,
+  idempotency_key TEXT NOT NULL,
   request_digest TEXT NOT NULL,
   command_type TEXT NOT NULL,
   target_fence_digest TEXT NOT NULL,
   admission_receipt_digest TEXT NOT NULL UNIQUE,
   canonical_payload BLOB NOT NULL,
   accepted_at TEXT NOT NULL,
+  UNIQUE (idempotency_scope, idempotency_key),
   UNIQUE (run_id, generation, command_sequence)
 ) STRICT;
 
@@ -805,6 +810,12 @@ CREATE TABLE resource_inventory (
   state_version INTEGER NOT NULL CHECK (state_version >= 1),
   canonical_payload BLOB NOT NULL,
   PRIMARY KEY (inventory_id, version),
+  UNIQUE (inventory_id, version, lineage_id, environment_id),
+  UNIQUE (inventory_id, previous_version),
+  FOREIGN KEY (inventory_id, previous_version)
+    REFERENCES resource_inventory(inventory_id, version),
+  FOREIGN KEY (inventory_id, previous_version, lineage_id, environment_id)
+    REFERENCES resource_inventory(inventory_id, version, lineage_id, environment_id),
   CHECK ((version = 1 AND previous_version IS NULL) OR previous_version = version - 1)
 ) STRICT;
 CREATE UNIQUE INDEX one_current_inventory_per_environment
@@ -1030,9 +1041,10 @@ CREATE TABLE update_state_mirror (
 
 附加硬约束：
 
-- `commands` trigger 必须阻止同一 idempotency key 对应不同 request digest；合法 replay 由 read path 返回原 Receipt。
+- `local_lease_bindings` 和 `commands` 的 idempotency scope 由 Runtime 根据 operation、run、phase/generation 规范生成，不能直接信任 caller 字符串。两条 write path 都必须先按 `(idempotency_scope, idempotency_key)` 查 durable record：同 digest 返回原 Binding/CommandAdmissionReceipt，不同 digest 在 quota hold、nonce 消费、binding activation、lease/fence/cursor 变化之前以 conflict 零状态变更失败；数据库 `UNIQUE`/trigger 是并发竞态的最终防线。
+- Runtime identity epoch 1 必须没有 predecessor；epoch > 1 必须同时引用相同 `runtime_instance_id` 的 `identity_epoch - 1` 和对应 statement digest，任何缺口、跨 runtime predecessor 或非相邻跳转都拒绝。
 - generation 第一项 Event 必须是 sequence=1 `command_accepted`；后续 insert 必须等于当前 high-water mark + 1。
-- inventory update 必须以 `(inventory_id, expected_version, state_version)` CAS；sealed version 不可修改，只能创建 reconcile descendant。
+- inventory successor 必须通过 `(inventory_id, previous_version)` 自引用命中真实 predecessor；复合 FK 强制 lineage/environment 不变，`UNIQUE (inventory_id, previous_version)` 禁止同一 predecessor 分叉。推进 current head 必须在一个 `BEGIN IMMEDIATE` transaction 中先插入 `is_current=0` 的 successor，再以 `(inventory_id, expected_version, expected_state_version, is_current=1)` CAS 清除旧 head，最后以 expected successor `state_version` CAS 设置新 head；任一步 affected rows != 1 整笔 rollback。sealed version 不可修改，只能创建满足相同 lineage 约束的 reconcile descendant。
 - effect state transition 必须符合 SPEC canonical transition graph；每次更新同时递增 `state_version` 并写 event/outbox。
 - activation transaction 必须同时写 command、lease/fence、strict AdmissionPredecessor、empty inventory、CleanupCapability、initial effects 和 first event；`kind=initial` 禁止创建 predecessor record，`kind=takeover` 必须追加 exact PredecessorFencingRecord。任何 FK/CHECK/UNIQUE 失败整笔 rollback。
 - Ledger 禁止保存 Secret 值、broker 可解封 handle、宿主绝对路径、raw observation 或 launcher activation journal 私有内容。
