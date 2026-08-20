@@ -37,7 +37,9 @@ PQL 应作为 Testing 的产品语义和质量决策层，通过 NyxID 调用 Ta
 
 **P0：** `pql.testing-design-input-set.v1`、approved Snapshot/Selection/Asset ref+digest 闭合、provider-neutral `TestingToolClient`（`get_capabilities/submit/get/events/cancel`）、`TestingRunRecord` 和 lost-ack/idempotency/error fixtures。
 
-**P1：** Talos terminal snapshot/event reconcile、opaque cursor resync、execution/evidence/upload/cleanup 正交展示、Hosted feedback ingestion/checkpoint，以及禁止 Tool 不可用时 silent fallback 到 direct executor。
+**P1：** Talos terminal snapshot/event reconcile、opaque cursor resync、execution/evidence/upload/cleanup 正交展示、MVP Artifact refs/receipt 状态消费，以及禁止 Tool 不可用时 silent fallback 到 direct executor。
+
+**Post-MVP：** Hosted Final Quality/Report 和 HostedQualityFeedback ingestion/checkpoint；这些不阻塞首个 Browser execution/Artifact 闭环，也不能从 task status 或不完整 result 推断。
 
 **不应做：** PQL 不选择 pool/machine，不读取或转发 NyxID bearer，不直连 Local Runtime，不解释 lease/fence，不把 Talos `completed` 转成 Case passed 或 Final Quality passed。
 
