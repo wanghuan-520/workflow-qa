@@ -50,7 +50,7 @@
 | App | 部署位置 | 责任 |
 | --- | --- | --- |
 | `apps/hosted-control-plane` | FKST 云端 | Durable Run、输入冻结、设备/profile 调度、业务授权、Artifact ingestion、Quality、Report、Publication、repair、settlement |
-| `apps/local-qa-runtime` | 用户电脑 | 当前 MVP Local QA Host 的 admission、Journal、Source/Compose/Chrome、runner adapter、Evidence、Cleanup、Upload；目录中同时保留未来 Hardened 的 inert shells |
+| `apps/local-qa-runtime` | 用户电脑 | **目标/直接 Host baseline 的 ownership 边界**：当前 MVP Local QA Host 的 admission、Journal、Source/Compose/Chrome、runner adapter、Evidence、Cleanup、Upload；已审计 production wiring 仍未接通，目录中同时保留未来 Hardened 的 inert shells |
 
 三个名称表达两个本地执行 Profile：
 

@@ -323,7 +323,7 @@ LocalQARequestAuthorization
 - bounded retry/backoff。
 - explicit offline/device_busy outcomes。
 
-不能把 NyxID 的通用 failover 当作 QA scheduler。设备选择由 Hosted 完成。
+不能把 NyxID 的通用 failover 当作 QA scheduler。按当前 Talos Target，设备选择和 execution slot reservation 由 Talos Scheduler 完成，Hosted 不再拥有这项 execution authority。
 
 ## 5.2 缺少 Snapshot/Event reconcile
 

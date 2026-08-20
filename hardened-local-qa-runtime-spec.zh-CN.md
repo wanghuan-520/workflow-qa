@@ -67,7 +67,7 @@ POC **没有**证明双阶段授权、隔离 Workspace、真实 App/Middleware �
 
 #### 1.2.1 `local_qa_agent_mvp`
 
-1. **目标代码组织。** MVP 计划落在 `fkst-hosted` monorepo；`apps/hosted-control-plane` 与 `apps/local-qa-host` 独立构建、部署和升级；testing modules 位于 `packages/` 且禁止依赖 apps 实现。当前仓库未包含这些 app/package 实现，不能把目标目录写成已实现事实。
+1. **目标代码组织。** MVP 计划落在 `fkst-hosted` monorepo；当前物理路径由 `apps/local-qa-runtime` 承载 Local QA Host，必须与 `apps/hosted-control-plane` 独立构建、部署和升级。若未来迁移为 `apps/local-qa-host`，必须通过独立迁移 PR 完成；testing modules 位于 `packages/` 且禁止依赖 apps 实现。当前仓库未包含这些 app/package 实现，不能把目标目录写成已实现事实。
 2. **NyxID 边界。** NyxID 只提供设备路由、传输认证、credential broker 和审计；禁止启动容器、Chrome 或项目进程，禁止执行测试、判断 Pass/Fail、生成报告或发布结果。
 3. **输入边界。** MVP 只允许受信任或已审查输入；外部 fork、未知 lifecycle script、开放式 Agent Action、生产 Secret 或私网访问必须使用 Hardened Profile，否则 fail closed。
 4. **本地执行。** App、数据库和 Middleware 必须位于 per-run container/Compose project；容器不得挂载用户 home、SSH、Keychain、个人浏览器目录、无关仓库或 Docker socket。
@@ -6885,7 +6885,7 @@ MVP 发布 Gate 必须证明：
 
 MVP Definition of Done：
 
-1. [ ] `apps/hosted-control-plane` 与 `apps/local-qa-host` 可以独立构建和发布；packages 不依赖 apps。
+1. [ ] `apps/hosted-control-plane` 与当前承载 MVP Local QA Host 的 `apps/local-qa-runtime` 可以独立构建和发布；若迁移为 `apps/local-qa-host`，必须先完成独立迁移；packages 不依赖 apps。
 2. [ ] Agent 精确提供五个 REST endpoint，生产接口无 `auth_method=none`、arbitrary shell/URL/cwd/env/Compose/CDP endpoint。
 3. [ ] 所有非 public-health request 同时验证 Node local credential 与 operation-specific Hosted signature，并绑定 method/path/digest、actor、device/agent、Run、TTL 和 nonce。
 4. [ ] MVP 只接受 trusted-input policy；Hardened 请求和未允许输入 fail closed。
