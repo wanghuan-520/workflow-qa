@@ -4,15 +4,15 @@
 >
 > 审计日期：2026-08-20
 >
-> Baseline：[`feat/local-qa-runtime@4b17389711fc420bfef56765d7d6af34e1702eb0`](https://github.com/ChronoAIProject/fkst-hosted/commit/4b17389711fc420bfef56765d7d6af34e1702eb0)
+> Baseline：[`feat/local-qa-runtime@c79d11d99ba854d14ce41b2849ba0bbf5c50e522`](https://github.com/ChronoAIProject/fkst-hosted/commit/c79d11d99ba854d14ce41b2849ba0bbf5c50e522)
 >
-> 分支边界：审计时该分支相对 `develop` 为 `ahead 130 / behind 220`；本文结论不得外推为 `develop` 或主线已交付能力。
+> 分支边界：该 feature branch 已从初始审计的 `4b173897` 推进到 `c79d11d`，但仍相对 `develop` 明显分叉；本文结论不得外推为 `develop` 或主线已交付能力。
 >
 > 实际代码位置：`apps/local-qa-runtime` 和 `packages/qa-contracts`。当前产品进程为 **Local QA Host**，Rust package/executable 为 `fkst-local-qa-host`；目录中同时保留未来 Hardened Runtime 的 inert shells。
 >
 > Target Profile：`local_qa_agent_mvp`。Target 架构见 [Talos Testing Tool 最小 MVP 设计](../design-proposals/talos-testing-tool-mvp-design.zh-CN.md)；本地执行规范仍参考 [Local QA Host MVP 设计](../local-qa-host-mvp-design.zh-CN.md)。
 >
-> Talos Tool/QARun/attempt/fence 缺口见 [talos 详细缺口](talos-gap-analysis.zh-CN.md)；PQL client/运行投影见 [product-quality-loop 详细缺口](product-quality-loop-gap-analysis.zh-CN.md)；Hosted Artifact/Final Quality/Report 属于后续外部领域。
+> Talos Tool/QARun/attempt/fence 缺口见 [talos 详细缺口](talos-gap-analysis.zh-CN.md)；PQL client/运行投影见 [product-quality-loop 详细缺口](product-quality-loop-gap-analysis.zh-CN.md)；Hosted Authorization 和最小 ArtifactStore 是 **Proposed / Decision pending** 的 MVP 候选外部依赖，详见 [边界决策提案](../design-proposals/hosted-authorization-artifact-boundary-decision.zh-CN.md)；Final Quality/Report/Settlement 属于 Post-MVP。
 
 ## 0. 2026-08-20 Talos adapter 边界校正
 
@@ -28,11 +28,11 @@ NyxID / Talos Testing Tool
   -> Browser adapter + Testing Packages + Evidence/Cleanup
 ```
 
-Talos 拥有 `QARun`、`TestingTask`、`TestingAttempt`、placement、lease、generation、fence、cancel control 和 bounded terminal projection；Local QA Runtime 拥有本机 admission、workspace/process/port/Chrome、Evidence staging、Journal、Cleanup 和本地 execution facts。Runtime 不应直连 Talos public API，也不应使用 Talos 的通用 Browser executor 代替固定 TestingExecutor。
+Talos 拥有 `QARun`、`TestingTask`、`TestingAttempt`、placement、lease、generation、fence、cancel control、current-claim authority 和 bounded terminal projection；被接受决策指定的 Authorization Authority 签发 operation-specific business authorization，当前 proposed owner 是 `fkst-hosted`；Local QA Runtime 拥有本机 admission、workspace/process/port/Chrome、Evidence staging、Journal、Cleanup 和本地 execution facts。Runtime 不应直连 Talos public API，也不应使用 Talos 的通用 Browser executor 代替固定 TestingExecutor。
 
 ### 0.2 本轮核实状态
 
-- `feat/local-qa-runtime@4b17389711fc420bfef56765d7d6af34e1702eb0` 未发生实现漂移；它仍是 Candidate，不能外推为 `fkst-hosted develop@5af95163` 已交付能力。
+- `feat/local-qa-runtime` 已推进到 `c79d11d99ba854d14ce41b2849ba0bbf5c50e522`。复核确认下列 P0 事实没有被新提交推翻；该分支仍是 Candidate，不能外推为 `fkst-hosted develop@5af95163` 已交付能力。
 - Host 仍只接受 `{"kind":"inert"}`，production 仍使用 `PassingExecutor`，并在没有真实 effect 时写入 evidence/upload/terminal 状态。
 - Journal v4 reopen、执行中 cancel、executor error、restart stranded attempt 仍是先于 Talos 接入必须修复的正确性问题。
 - Browser adapter、Worker protocol、Evidence stager、Environment ownership 都是可复用组件，但当前 Host 没有 production peer；`qa.local-worker-protocol/v1` 也缺 deadline、heartbeat、cancel、cleanup/fence 语义。
@@ -40,11 +40,11 @@ Talos 拥有 `QARun`、`TestingTask`、`TestingAttempt`、placement、lease、ge
 
 ### 0.3 Runtime 直接缺口
 
-**P0：** 修复 schema v4 reopen；替换 synthetic `PassingExecutor`；定义并验证版本化 local admission（run/task/attempt/machine/generation/fence/deadline）；接入固定 Testing Packages invocation；持久化真实 execution/evidence/cleanup outcomes。
+**P0：** 修复 schema v4 reopen；替换 synthetic `PassingExecutor`；定义并验证版本化 local admission（run/task/attempt/machine/generation/fence/deadline）；接入固定 Testing Packages invocation；持久化真实 execution/evidence/cleanup outcomes。business authorization、Talos current claim 与最小 Artifact `prepare/commit/lookup`/lost-ack receipt 的 Runtime 接线是条件性 P0：先通过 Hosted owner/认证/storage decision gate。
 
-**P1：** Host↔Worker↔Browser↔Evidence assembly、Source/workspace、Environment/readiness、cancel/timeout、restart-to-lost、same-machine reconcile、sanitized PNG/JSON、upload grant/lost-ack。
+**P1：** Host↔Worker↔Browser↔Evidence assembly 的生产加固、Source/workspace、Environment/readiness、cancel/timeout、restart-to-lost、same-machine reconcile、sanitized PNG/JSON、delivery/TTL repair 和安装运维。
 
-**明确不归 Runtime：** Talos QARun/placement/lease/fence 的公共控制面、PQL selection、Testing Packages assertion 语义、Hosted Artifact/Quality/Report/Settlement。
+**明确不归 Runtime：** Talos QARun/placement/lease/fence 的公共控制面、被接受 owner 的 authorization 签发和 ArtifactStore、PQL selection、Testing Packages assertion 语义、Hosted Quality/Report/Settlement。
 
 ## 1. 执行摘要
 
@@ -57,7 +57,7 @@ Talos 拥有 `QARun`、`TestingTask`、`TestingAttempt`、placement、lease、ge
 - Rust/TypeScript `qa-contracts` 已有 lifecycle、Evidence、Worker protocol 和 canonical digest 基础。
 - ownership 模块已有 durable intent、stable provider key、labels 和 handle binding。
 
-但这些能力没有被 production Host 串联，而且最新 Baseline 存在一个直接阻断 restart 的 P0 bug：migration 会把 SQLite `user_version` 写为 4，但 reopen 路径没有接受 version 4 的成功分支，正常重开可返回 `UnsupportedDatabaseVersion(4)`。
+但这些能力没有被 production Host 串联，而且 `c79d11d` Baseline 仍存在一个直接阻断 restart 的 P0 bug：migration 会把 SQLite `user_version` 写为 4，但 reopen 路径没有接受 version 4 的成功分支，正常重开可返回 `UnsupportedDatabaseVersion(4)`。
 
 当前真实生产路径是：
 
@@ -98,13 +98,13 @@ authorized Run
 
 固定 Baseline 关键证据：
 
-- [`apps/local-qa-runtime/README.md`](https://github.com/ChronoAIProject/fkst-hosted/blob/4b17389711fc420bfef56765d7d6af34e1702eb0/apps/local-qa-runtime/README.md)
-- [`host/src/coordinator.rs`](https://github.com/ChronoAIProject/fkst-hosted/blob/4b17389711fc420bfef56765d7d6af34e1702eb0/apps/local-qa-runtime/host/src/coordinator.rs)
-- [`host/src/journal.rs`](https://github.com/ChronoAIProject/fkst-hosted/blob/4b17389711fc420bfef56765d7d6af34e1702eb0/apps/local-qa-runtime/host/src/journal.rs)
-- [`host/src/executor.rs`](https://github.com/ChronoAIProject/fkst-hosted/blob/4b17389711fc420bfef56765d7d6af34e1702eb0/apps/local-qa-runtime/host/src/executor.rs)
-- [`browser-adapter/src/lib.rs`](https://github.com/ChronoAIProject/fkst-hosted/blob/4b17389711fc420bfef56765d7d6af34e1702eb0/apps/local-qa-runtime/browser-adapter/src/lib.rs)
-- [`evidence-stager/src/lib.rs`](https://github.com/ChronoAIProject/fkst-hosted/blob/4b17389711fc420bfef56765d7d6af34e1702eb0/apps/local-qa-runtime/evidence-stager/src/lib.rs)
-- [`workers/src/protocol-worker.ts`](https://github.com/ChronoAIProject/fkst-hosted/blob/4b17389711fc420bfef56765d7d6af34e1702eb0/apps/local-qa-runtime/workers/src/protocol-worker.ts)
+- [`apps/local-qa-runtime/README.md`](https://github.com/ChronoAIProject/fkst-hosted/blob/c79d11d99ba854d14ce41b2849ba0bbf5c50e522/apps/local-qa-runtime/README.md)
+- [`host/src/coordinator.rs`](https://github.com/ChronoAIProject/fkst-hosted/blob/c79d11d99ba854d14ce41b2849ba0bbf5c50e522/apps/local-qa-runtime/host/src/coordinator.rs)
+- [`host/src/journal.rs`](https://github.com/ChronoAIProject/fkst-hosted/blob/c79d11d99ba854d14ce41b2849ba0bbf5c50e522/apps/local-qa-runtime/host/src/journal.rs)
+- [`host/src/executor.rs`](https://github.com/ChronoAIProject/fkst-hosted/blob/c79d11d99ba854d14ce41b2849ba0bbf5c50e522/apps/local-qa-runtime/host/src/executor.rs)
+- [`browser-adapter/src/lib.rs`](https://github.com/ChronoAIProject/fkst-hosted/blob/c79d11d99ba854d14ce41b2849ba0bbf5c50e522/apps/local-qa-runtime/browser-adapter/src/lib.rs)
+- [`evidence-stager/src/lib.rs`](https://github.com/ChronoAIProject/fkst-hosted/blob/c79d11d99ba854d14ce41b2849ba0bbf5c50e522/apps/local-qa-runtime/evidence-stager/src/lib.rs)
+- [`workers/src/protocol-worker.ts`](https://github.com/ChronoAIProject/fkst-hosted/blob/c79d11d99ba854d14ce41b2849ba0bbf5c50e522/apps/local-qa-runtime/workers/src/protocol-worker.ts)
 
 ## 2. 当前可执行能力地图
 
@@ -254,7 +254,7 @@ executing
 
 ### 4.1 Journal schema v4 reopen blocker
 
-[`host/src/journal.rs`](https://github.com/ChronoAIProject/fkst-hosted/blob/4b17389711fc420bfef56765d7d6af34e1702eb0/apps/local-qa-runtime/host/src/journal.rs) 的 migration 会把 `user_version` 设置为 4，但 migrate/reopen 分支没有把 version 4 作为成功状态接受。结果是：
+[`host/src/journal.rs`](https://github.com/ChronoAIProject/fkst-hosted/blob/c79d11d99ba854d14ce41b2849ba0bbf5c50e522/apps/local-qa-runtime/host/src/journal.rs) 的 migration 会把 `user_version` 设置为 4，但 migrate/reopen 分支没有把 version 4 作为成功状态接受。结果是：
 
 - 首次初始化可能成功。
 - 正常重启后打开同一个 Journal 可能失败。
@@ -300,7 +300,7 @@ Runtime admission 需要绑定：
 ```text
 run_id / task_id / attempt_id
 machine identity
-generation / fence token
+generation / fence token / signed lease claim ref
 deadline
 exact source ref/digest
 structured plan ref/digest
@@ -308,13 +308,16 @@ testing package manifest ref/digest
 environment profile ref/digest
 policy/budgets
 request digest / idempotency key
+local credential identity
+LocalQARequestAuthorization ref/digest/full signed object
+authorization issuer/key ID/operation/method/path/body digest/nonce/expiry
 ```
 
-所有验证必须发生在 workspace、process、port、Chrome 或 Evidence staging effect 之前。Runtime 不保存 NyxID bearer 或 Talos worker token，只消费已经投影并可本地验证的 attempt/fence context。
+所有验证必须发生在 workspace、process、port、Chrome 或 Evidence staging effect 之前。Runtime 必须独立验证 local credential、Hosted authorization signature/revocation/replay 和 Talos current-claim resolver 返回的 claim/fence currentness；任一验证不可用或不一致时 fail closed。Runtime 不保存 NyxID bearer、Talos worker token 或 raw `lease_token`，只持久化 signed lease claim ref、授权 ref/digest 和已接受的 attempt/fence identity。
 
 ### 4.4 Worker protocol 缺少 deadline、heartbeat 和 cancel
 
-当前 [`protocol-worker.ts`](https://github.com/ChronoAIProject/fkst-hosted/blob/4b17389711fc420bfef56765d7d6af34e1702eb0/apps/local-qa-runtime/workers/src/protocol-worker.ts) 只有一次 invocation、顺序 capability exchange 和 terminal result。需要补齐：
+当前 [`protocol-worker.ts`](https://github.com/ChronoAIProject/fkst-hosted/blob/c79d11d99ba854d14ce41b2849ba0bbf5c50e522/apps/local-qa-runtime/workers/src/protocol-worker.ts) 只有一次 invocation、顺序 capability exchange 和 terminal result。需要补齐：
 
 - invocation deadline 和 per-effect timeout。
 - heartbeat/liveness。
@@ -404,7 +407,7 @@ HTTP submit
 | 阶段 | 当前状态 | 目标能力 | 优先复用 | 退出标准 |
 | --- | --- | --- | --- | --- |
 | Contract convergence | scalar/ref/protocol 基础 | 完整 Run request、bounds、projection、state/outcomes/errors/receipts | `qa-contracts` canonical/digest validators、MVP fixtures | Rust/TS 对合法、冲突、错误绑定和 failpoints 给出同一结果 |
-| Admission | inert body + fixed digest | local credential + Talos attempt/generation/fence + idempotency + deadline + active slot 原子提交 | 当前 WAL Journal/admit transaction | 错误绑定零 effect；same key/digest replay；第二 Run `device_busy` |
+| Admission | inert body + fixed digest | local credential + Hosted signed authorization + Talos current claim/attempt/generation/fence + idempotency + deadline + active slot 原子提交 | 当前 WAL Journal/admit transaction | wrong signature/operation/request/claim 零 effect；same key/digest replay；第二 Run `device_busy` |
 | Source/workspace | 无 | exact Source verify、cache/materialize、per-run workspace、OwnedHandle | Testing Packages generic-host exact checkout 模式 | wrong digest 执行前失败；不修改用户 checkout；restart 可识别 owned workspace |
 | Environment/readiness | 无 | versioned profile、Compose、loopback ports、budgets、typed readiness | `environment-factory` 和 generic-host lifecycle | readiness failure 不启动 Case；所有已创建资源进入 Cleanup |
 | Host-worker peer | protocol only | spawn/supervise、capability dispatch、deadline/cancel、terminal validation | `qa.local-worker-protocol/v1` process harness | malformed/truncated/timeout/crash fail closed；结果持久化后才 terminal |
@@ -415,9 +418,9 @@ HTTP submit
 | Restart recovery | claimed attempt stranded | admission gate、discovery、restart-to-lost、cleanup/upload reconcile、no-rerun | generic-host restart/replay acceptance | Host kill 后不重复 Case；known resource 精确清理；unknown ownership blocking residual |
 | Evidence safety | local object staging primitive | bounded quarantine、safe projection、PNG/JSON validation、manifest、TTL | EvidenceStager atomic write/digest | raw data 不进入 Journal/Event/cloud；只有 screenshot + bounded JSON 可上传 |
 | Cleanup-before-upload | 无 Run-wide cleanup | exact reverse cleanup、receipt、release active slot，再等待 cloud | Browser cleanup + environment cleanup patterns | Hosted 离线不阻塞本地 Cleanup 或 local terminal |
-| Upload | 无 | per-object grant、stable object key/digest、attempt、lost-ack、expiry | Hosted object storage primitives | response lost 不重复 Artifact；TTL 到期 `upload_expired` |
-| Installation/pairing | `local-demo` 手工启动 | signed user artifact、LaunchAgent、pairing、credential rotation/revoke/reset | 现有 NyxID node-pinned transport + PoC 经验 | 已安装 Host 经 NyxID 接收绑定 Run；wrong/offline fail closed |
-| Artifact/Report handoff | 无 | pointer-only CaseResultSet/EvidenceManifest/CleanupReceipt projection | Testing Packages terminal projection、Hosted ingestion | Hosted 冻结 ReportInputSet；Quality/Report repair 不重跑 Case |
+| Upload | 无 | per-object grant、stable object key/digest、attempt、lost-ack、expiry | Decision-pending MVP ArtifactStore primitives | response lost 不重复 Artifact；TTL 到期 `upload_expired` |
+| Installation/pairing | `local-demo` 手工启动 | signed user artifact、LaunchAgent、pairing、local credential rotation/revoke/reset | 现有安装/credential PoC 经验 | 已安装 Host 只接受 loopback/socket adapter + local credential + signed authorization；不直接暴露 NyxID route |
+| Artifact/Report handoff | 无 | MVP pointer-only result/evidence/cleanup projection；Post-MVP ReportInputSet | Testing Packages terminal projection、decision-pending Artifact ingestion | Artifact receipt 可交付；后续 Quality/Report repair 不重跑 Case |
 
 ## 7. 可实施工作包
 
@@ -437,7 +440,8 @@ WP0
 交付：
 
 - `qa.local-run-admission/v2`、RunAcceptance、Snapshot/Event/SafeError。
-- Talos run/task/attempt、generation、fence 和 deadline bindings。
+- Talos run/task/attempt、signed lease claim ref、generation、fence、deadline 和 current-claim resolver bindings。
+- Hosted `LocalQARequestAuthorization` ref/digest/full signed object、issuer/key/operation/request tuple、nonce/expiry/revocation contract；raw lease token 禁止进入 Runtime。
 - Source、StructuredPlan、Testing Package manifest、Environment/Profile 和 Browser capability digest bindings。
 - execution/evidence/upload/cleanup 四类正交 Outcomes。
 - resource intent、OwnedHandle、attempt、CleanupReceipt 和 residual types。
@@ -583,8 +587,8 @@ Evidence validation complete
 - local terminal while Hosted unavailable。
 - sanitized staging TTL 和 `upload_expired`。
 - signed Host artifact、LaunchAgent、pairing 和 credential lifecycle。
-- NyxID transport mapping。
-- Hosted Artifact ingestion 和 pointer-only report handoff。
+- LocalQARuntimeAdapter 的 loopback/Unix-socket transport mapping；Runtime 不暴露 NyxID public route。
+- Hosted decision gate 接受后的 MVP Artifact ingestion receipt 和 pointer-only terminal handoff；Quality/Report handoff保持 Post-MVP。
 
 Local Host 不决定 `report_impossible`。Hosted 根据 immutable `ReportInputSet` 的完整性和 policy 决定该结果。
 
@@ -601,7 +605,9 @@ Local Host 不决定 `report_impossible`。Hosted 根据 immutable `ReportInputS
 | `fkst-packages-testing/examples/generic-host/**` | 生命周期、durability、crash/recovery 的参考实现 | 直接作为 FKST production Local QA Host 发布 |
 | Talos | QARun、TestingTask/Attempt、placement、lease、generation、fence、cancel control | 本地资源、Assertion/CaseResult 和 raw Evidence |
 | NyxID | caller identity、approval、服务路由和 transport audit | QARun state、placement、Pass/Fail 和 Artifact bytes |
-| Hosted 后续领域 | Artifact ingestion、Final Quality、Report、Publication、Settlement | operational QARun、机器调度、本地资源和 raw quarantine |
+| Proposed Hosted Authorization Authority（Decision pending） | operation-specific business authorization、signing key lifecycle、verifier key distribution | operational QARun、placement、current claim、raw lease token 和本地资源 |
+| Proposed Hosted MVP ArtifactStore（Decision pending） | per-object grant、prepare/commit/lookup、ingest receipt、lost-ack | CaseResult、QARun、raw quarantine 和本地 Cleanup |
+| Hosted Post-MVP | Final Quality、Report、Publication、Settlement、feedback | operational QARun、机器调度、本地资源和 raw quarantine |
 
 当前 issue drafts 使用目标目录 `apps/local-qa-host`，审计代码仍位于 `apps/local-qa-runtime`。目录最终命名和迁移需要单独冻结，不能与功能接线混在同一个改动中；在迁移前应以实际路径为准。
 
@@ -685,6 +691,8 @@ bash apps/local-qa-runtime/tests/local-qa-host-mvp-e2e.sh --all
 ### 10.2 完整 MVP 增补场景
 
 - expired/revoked/unknown signing key。
+- wrong authorization operation/method/path/body digest，或 start authorization 被重放为 cancel/reconcile。
+- Talos current-claim resolver unavailable、claim superseded 或 signed lease claim ref 不匹配。
 - wrong device/node/installation/Profile/Source/Plan/Environment digest。
 - nonce replay 和 second active Run。
 - resource create 后、identity write 前 crash。
@@ -723,7 +731,8 @@ PYTHON=python3.12 scripts/run.sh example generic-host
 
 ### 11.1 可提交
 
-- 真实 admission request 经过 local credential、Talos run/task/attempt、generation/fence、deadline、digest、idempotency 和 single-active gate。
+- 真实 admission request 经过 local credential、Hosted signed authorization/revocation/replay、Talos current claim、run/task/attempt、generation/fence、deadline、digest、idempotency 和 single-active gate。
+- Runtime request、Journal、Event 和 log 不包含 NyxID bearer、worker token 或 raw `lease_token`。
 - 所有校验在 workspace、Compose、Worker、Chrome 或 staging effect 前完成。
 
 ### 11.2 可执行
@@ -758,7 +767,7 @@ PYTHON=python3.12 scripts/run.sh example generic-host
 - 只有 validated PNG 和 bounded sanitized JSON 进入 uploadable Artifact set。
 - lost acknowledgement 使用同一 object key/digest 对账，不重复创建 logical Artifact。
 - Hosted 离线时本地仍可 Cleanup 和 terminal；TTL 到期有明确 `upload_expired`。
-- Hosted 从 immutable ReportInputSet 生成 Quality/Report；repair 不修改本地执行事实或重跑 Case。
+- Hosted decision gate 被接受后，MVP ArtifactStore 返回稳定 ingest receipt；Hosted Post-MVP 从 immutable ReportInputSet 生成 Quality/Report，repair 不修改本地执行事实或重跑 Case。
 
 ## 12. MVP 非目标
 

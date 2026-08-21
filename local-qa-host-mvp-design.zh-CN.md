@@ -4,6 +4,8 @@
 >
 > **当前状态：** 本文描述 Target MVP，不代表这些能力已经实现。当前仓库只有 Browser Loop PoC。
 >
+> **跨 Repo 边界状态：** Talos Testing Tool / Scheduler 负责 QARun、placement、machine selection、lease、generation 和 fence。Hosted Authorization Authority 与最小 ArtifactStore 为 **Proposed / Decision pending**，详见 [Hosted Authorization 与 MVP ArtifactStore 边界决策](design-proposals/hosted-authorization-artifact-boundary-decision.zh-CN.md)。在该决策被接受前，本文中的 Hosted 授权和 Artifact 接口只能作为候选 consumer contract，不能作为已冻结 implementation target。
+>
 > **首发边界：** Browser-only；每台设备最多一个执行中的 Run；`secret_refs=[]`；只上传 screenshot 和 bounded sanitized JSON。
 >
 > **执行 Profile：** `local_qa_agent_mvp`
@@ -21,12 +23,13 @@ FKST 的云端服务无法直接访问用户电脑上的项目、Docker 和系�
 因此需要一个长期运行在用户电脑上的 Host：
 
 ```text
-FKST Hosted
-→ 经 NyxID 把一个已授权的 QA Run 发到指定电脑
+PQL / Agent
+→ 经 NyxID 请求 Talos Testing Tool 创建 QARun 并完成 reservation/placement
+→ Proposed Hosted Authorization（Decision pending）签发 operation-specific authorization
 → Local QA Host 在本地完成环境准备和 Browser 测试
 → Local QA Host 清理本地资源
-→ Local QA Host 上传允许离开设备的测试证据
-→ FKST Hosted 展示结果并完成后续报告
+→ Local QA Host 使用 Proposed Hosted ArtifactStore（Decision pending）上传允许离开设备的测试证据
+→ Hosted 后续领域展示结果并完成报告
 ```
 
 ### 0.2 首发只做一条完整链路
@@ -55,7 +58,7 @@ FKST Hosted
 
 | 对象 | 它回答的问题 | 由谁决定 |
 | --- | --- | --- |
-| Run | 这次 QA 工作的身份是什么？ | Hosted 创建 `run_id`，Host 持久化本地执行事实 |
+| Run | 这次 QA 工作的身份是什么？ | Talos Testing Tool 创建 `QARun`；Host 持久化本地执行事实 |
 | Source | 测试哪一份代码？ | Hosted 冻结 exact object / digest，Host 只验证和 materialize |
 | Plan | 要执行哪些 Browser Case 和 Assertion？ | Hosted 冻结，Host 只执行已批准的 typed actions |
 | Environment Profile | 如何启动项目及判断 ready？ | 版本化配置，执行前以 digest 锁定 |
@@ -381,12 +384,13 @@ raw observation
 
 | 组件 | 负责 | 不负责 |
 | --- | --- | --- |
-| Hosted QA Orchestrator | 创建 Durable Run；冻结 Source、Plan 和执行 Profile；选择设备；签发业务授权；接收 Artifact | 本地 Chrome、容器和 Cleanup |
+| Talos Testing Tool / Scheduler | 创建和管理 `QARun`；执行 reservation、placement、lease、generation、fence 和 machine selection | 解释 Plan、计算 CaseResult、拥有本机 Chrome、容器和 Cleanup |
+| Proposed Hosted Authorization/Artifact（Decision pending） | operation-specific business authorization；Artifact grant、ingest 和 receipt | QARun、设备选择、placement、lease/generation/fence、本地 Chrome、容器和 Cleanup |
 | NyxID | 调用方身份、service/node 路由、传输保护和审计 | QA 业务授权、测试判定和 Run state |
 | NyxID Node | 维护到 Cloud 的连接；注入本地 Host credential；调用 loopback Host | 解释 Plan、启动 Chrome、判断 Pass/Fail |
 | Local QA Host | admission、Journal、本地资源、Browser 执行、Evidence、Upload 和 Cleanup | 最终 Quality、长期 Report、Publication |
 | Testing Packages | Browser runner、Observation、Assertion 和 CaseResult 领域逻辑 | 设备 admission、NyxID transport、本地资源所有权 |
-| Hosted Artifact/Report | Artifact ingestion 和后续报告输入 | raw local quarantine 和本地执行资源 |
+| Hosted Quality/Report（Post-MVP） | 后续报告输入、Quality、Report 和 Publication | raw local quarantine、本地执行资源和 MVP owner 决策 |
 
 ### 3.2 Host 内部结构
 

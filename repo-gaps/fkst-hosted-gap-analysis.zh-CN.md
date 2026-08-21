@@ -1,20 +1,24 @@
-# fkst-hosted 云端补充领域缺口
+# fkst-hosted Proposed MVP Authorization / Artifact 与后续云端领域缺口
 
-> 状态：**Supplementary / Partially Superseded**
+> 状态：**Proposed / Decision pending for MVP Authorization + Artifact / Historical for Hosted-owned QARun**
 >
 > Repo：[ChronoAIProject/fkst-hosted](https://github.com/ChronoAIProject/fkst-hosted)
 >
+> Baseline：`develop@5af95163cbcdad5dcffac1cc17418bc5417ba98c`；`feat/local-qa-runtime@c79d11d99ba854d14ce41b2849ba0bbf5c50e522`
+>
 > 最后边界校正：2026-08-20
 >
-> 本文保留 Hosted Artifact ingestion、Final Quality、Report、Publication 和 Settlement 的后续领域分析。它不是本轮四模块活动审计，也不再定义 Testing operational QARun、机器 placement、lease/fence 或 worker execution。
+> 架构决策：[Hosted Authorization 与 MVP ArtifactStore 边界决策](../design-proposals/hosted-authorization-artifact-boundary-decision.zh-CN.md)。在该提案被 maintainer 接受前，`fkst-hosted` 是 proposed owner，本文只记录候选缺口，不是 Active implementation backlog。
+>
+> 本文的候选范围是 Browser MVP 所需的 Hosted Authorization Authority 和最小 ArtifactStore，以及 Post-MVP 的 Final Quality、Report、Publication 和 Settlement。它不再定义 Testing operational QARun、机器 placement、lease/fence 或 worker execution。
 >
 > 最新 Target 中：Talos 是 Testing Tool/QARun operational authority，详见 [talos 详细缺口](talos-gap-analysis.zh-CN.md)；PQL 产品侧运行投影见 [product-quality-loop 详细缺口](product-quality-loop-gap-analysis.zh-CN.md)；本机执行见 [local-qa-runtime 详细缺口](local-qa-runtime-gap-analysis.zh-CN.md)。
 >
-> 本文旧版依据了 Hosted-owned scheduler/direct NyxID dispatch 方案。涉及 Durable QARun、设备选择、QA scheduler、dispatch attempt 和 local event polling 的章节只保留为历史设计素材，不得作为最新 implementation target 或已交付事实。
+> 本文旧版依据了 Hosted-owned scheduler/direct NyxID dispatch 方案。涉及 Durable QARun、设备选择、QA scheduler、dispatch attempt 和 local event polling 的章节只保留为历史设计素材，不得作为最新 implementation target 或已交付事实；候选实施顺序只包含待决策的 Authorization/Artifact 和 Post-MVP 下游领域。
 
 ## 0. 2026-08-20 fkst-hosted 全局边界校正
 
-本轮同时核查了 `fkst-hosted develop@5af95163cbcdad5dcffac1cc17418bc5417ba98c` 和 `feat/local-qa-runtime@4b173897...`。结论是：`fkst-hosted` 已有可复用的 Hosted session/runtime 基础，但没有面向 Talos Testing 的 Hosted QA 控制面；Local QA feature branch 的 walking skeleton 不能外推为默认分支能力。
+本轮同时核查了 `fkst-hosted develop@5af95163cbcdad5dcffac1cc17418bc5417ba98c` 和 `feat/local-qa-runtime@c79d11d99ba854d14ce41b2849ba0bbf5c50e522`。结论是：`fkst-hosted` 已有可复用的 Hosted session/runtime 基础，但没有决策提案所描述的业务授权签发和 digest-bound ArtifactStore；Local QA feature branch 的 walking skeleton 不能外推为默认分支能力，也不能证明 `fkst-hosted` 已接受这些 Hosted domain。
 
 已具备且可复用：
 
@@ -23,19 +27,28 @@
 
 仍缺且不应归因给 Local QA app 单独解决：
 
-- Hosted `Session/Job/Attempt/Artifact/Agent/Lease/RunSettlement/Publication` 公共 contracts、schema/version/content digest。
-- durable Hosted run ledger、idempotent admission、attempt transition、settlement history 和可靠 job queue。当前 reconciler 的 bounded `mpsc::try_send` 在队列满时丢弃 hint，依赖 sweep/full resync，不能代替 durable Talos dispatch。
-- Hosted Artifact grant/ingest/publication/quality/report contract；现有 `qa.local-evidence/v1` 明确是 `local-only:not-uploadable`，现有 chrono-storage session logs 也不等于 QA Artifact service。
+- proposed Hosted Authorization/Artifact/RunSettlement/Publication 公共 contracts、schema/version/content digest；Talos QARun/Task/Attempt/Lease contract 不在 Hosted 重建。
+- durable authorization replay/revocation、Artifact ingest/receipt、settlement history 和可靠 repair queue。当前 reconciler 的 bounded `mpsc::try_send` 在队列满时丢弃 hint，依赖 sweep/full resync，不能代替 durable domain ledger，也不能代替 Talos dispatch。
+- proposed Hosted operation-specific `LocalQARequestAuthorization` 签发、key lifecycle、replay/revocation 和 verifier key distribution。
+- proposed Hosted Artifact grant/ingest contract；现有 `qa.local-evidence/v1` 明确是 `local-only:not-uploadable`，现有 chrono-storage session logs 也不等于 QA Artifact service。最小 ArtifactStore 是 Browser MVP 候选依赖，owner 和 object-storage 复用仍等待决策；Quality/Report/Publication 明确属于 Post-MVP。
 - NyxID principal/agent/worker identity 的统一绑定；当前 Github user、webhook HMAC、storage service token 是三条边界，不能直接作为 QA Run authority。
 - Talos adapter、Talos QARun/TestingTask/Attempt、worker placement/lease/fence 仍属于 Talos owning repo。
 
-因此 Hosted 的正确方向是：使用 adapter 消费 Talos terminal refs、Testing Packages CaseResult/Evidence refs 和 Runtime Cleanup/Upload receipts，负责后续 Artifact ingestion、Quality、Report、Publication、Settlement；不要重新实现 Talos operational QARun 或把 GitHub session reconciler 当作 QA scheduler。
+因此本文提出的 Hosted 边界是：在 Talos reservation 后签发绑定 exact attempt 的业务授权；接收 Runtime sanitized Evidence 并提供幂等 Artifact receipts；随后消费 Talos terminal refs、Testing Packages CaseResult/Evidence refs 和 Runtime Cleanup/Upload receipts，负责 Post-MVP Quality、Report、Publication、Settlement。该边界在决策接受前不能转成 owner-specific implementation Issue；无论最终 owner 是谁，都不要重新实现 Talos operational QARun 或把 GitHub session reconciler 当作 QA scheduler。
 
-## 1. 最新 Target 下的 Hosted 职责
+## 1. Proposed Hosted 职责（Decision pending）
+
+以下职责只有在边界决策被接受、且 `fkst-hosted` 被确认为 owner 后才成为该 Repo 的 Active target；否则应迁移到被接受的 owning repo。
 
 ```text
-Talos terminal refs + Runtime upload attempts
--> Artifact ingestion and receipts
+Talos reserved attempt
+-> Hosted LocalQARequestAuthorization issue/replay
+-> Runtime local admission
+
+Runtime sanitized Evidence + upload attempts
+-> MVP Artifact prepare/commit/lookup + receipts
+
+Talos terminal refs + Artifact/Cleanup receipts
 -> immutable ReportInputSet
 -> QualityEvaluation
 -> ReportRecord
@@ -44,20 +57,23 @@ Talos terminal refs + Runtime upload attempts
 -> optional Quality feedback to PQL
 ```
 
-Hosted 应负责：
+Proposed Hosted owner 应负责：
 
+- 在 Talos capability reservation 后签发 operation-specific `LocalQARequestAuthorization`，绑定 caller/run/task/attempt/lease claim/machine/worker/generation/fence/method/path/body digest/deadline。
+- 管理 authorization signing key、rotation/revocation、nonce/replay 和 Runtime verifier key distribution。
 - sanitized Artifact bytes 的 per-object grant、digest/media/size validation、opaque refs 和 ingest receipts。
 - 从 immutable inputs 计算 Final Quality。
 - deterministic ReportRecord、publication effects 和 settlement/repair ledger。
 - 在 delivery/report repair 时保持 execution facts 不变。
 
-Hosted 不应负责：
+Proposed Hosted owner 不应负责：
 
 - 创建或管理 Talos operational `QARun`。
 - 选择 pool/machine、管理 lease/generation/fence 或调度 worker。
 - 经 NyxID 直接调用 Local Runtime。
 - 在云端执行 Browser Action。
 - 让 NyxID 解释 QA Run 或决定 Pass/Fail。
+- 签发或保存 Talos raw `lease_token`；业务授权只绑定 signed lease claim ref 和不可变 attempt identity。
 - 复制 `testing-runner` 的 Assertion/CaseResult 逻辑。
 - 在 Artifact/report/publication repair 时重跑本地测试。
 - 直接修改 PQL TestCaseAsset；应通过 feedback/proposal/promotion contract。
@@ -113,7 +129,7 @@ Hosted 不应负责：
 
 - `backend/fkst-shared/src/nyxid/mod.rs`
 
-可以复用它建立 Local QA dispatch adapter。NyxID 不需要修改代码。
+它只能作为 authenticated service-to-service transport 和错误处理模式的参考。最新 Target 不允许 Hosted 使用它直接 dispatch Local Runtime；PQL 经 NyxID 调用 Talos，Talos 在 reservation 后调用 Hosted Authorization service。
 
 ### 2.3 Generic storage 和 publication 基础
 
@@ -128,21 +144,42 @@ Hosted 不应负责：
 
 ### 2.4 Local QA feature 提供组件，但未形成云端链路
 
-固定的 Local Runtime Baseline [`4b173897`](https://github.com/ChronoAIProject/fkst-hosted/commit/4b17389711fc420bfef56765d7d6af34e1702eb0) 已包含：
+固定的 Local Runtime Baseline [`c79d11d`](https://github.com/ChronoAIProject/fkst-hosted/commit/c79d11d99ba854d14ce41b2849ba0bbf5c50e522) 已包含：
 
 - `apps/local-qa-runtime`。
 - `packages/qa-contracts` foundation/local lifecycle/local evidence/worker protocol。
 - Local QA MVP 设计文档。
 
-Hosted 云端仍没有调用这些组件形成 Durable QA Run。
+Local QA feature 仍未与 Talos TestingExecutor/Runtime adapter 形成产品链路；Hosted 云端也尚未提供该链路依赖的业务授权和最小 ArtifactStore。Operational Durable QARun 由 Talos 实现，不以 Hosted 是否调用这些 Local 组件为完成条件。
+
+### 2.5 MVP 候选缺口：Authorization Authority（Decision pending）
+
+NyxID transport authentication 和 Talos claim 都不能替代 Runtime business authorization。边界提案建议由 Hosted 提供独立、幂等的签发边界；owner 决策未接受前，以下内容是 contract requirement，不是 `fkst-hosted` 的已冻结任务：
+
+```text
+issue_or_replay_authorization
+  input: caller + run/task/attempt + signed lease claim ref
+         machine/worker/generation/fence + operation/method/path
+         body/request digest + deadline + policy
+  output: authorization ref/digest + signed object + expiry
+```
+
+决策接受后的 P0 要求：
+
+- reservation 和 exact attempt binding 先于签发；Hosted 不选择 machine，也不创建 attempt。
+- `start`、`cancel`、`reconcile` 使用 operation-specific authorization，不能互相重放。
+- JCS canonical bytes、domain tag、issuer/key ID、nonce、not-before/expiry、rotation/revocation 明确版本化。
+- Runtime verifier key distribution 和 Talos current-claim resolver 分离：Hosted 证明业务许可，Talos 证明 claim/fence currentness。
+- same operation/key/digest replay 原授权；同 key 不同 digest 在任何本地 effect 前冲突。
+- authorization body、signature、raw lease/worker token 不进入 event、result、Artifact 或日志。
 
 ## 3. 历史设计：Hosted-owned Durable QA Run（已被 Talos Target 取代）
 
-> 本节的 aggregate/CAS/outbox 模式仍可供 Hosted settlement 参考，但 operational `QARun`、Snapshot、Events、Cancel 已迁到 Talos。不要在 Hosted 和 Talos 重复创建同名运行权威。
+> **历史迁移警告：以下内容仅用于历史迁移对照，禁止作为当前 implementation target。当前 `QARun`、`TestingTask`、`TestingAttempt`、placement、lease/generation/fence 和 scheduler 均由 Talos owning repo 负责。** 本节的 aggregate/CAS/outbox 模式只可供 Hosted settlement 参考；不要在 Hosted 和 Talos 重复创建同名运行权威。
 
-## 3.1 缺少 QA Run aggregate
+## 3.1 历史草案：QA Run aggregate
 
-需要新增云端权威对象，例如：
+旧方案曾要求新增云端权威对象，例如：
 
 ```text
 QARun
@@ -176,9 +213,9 @@ QARun
 - execution facts 一旦冻结，report/publication repair 不能修改。
 - upload/report/publication outcomes 可在 local execution terminal 后继续推进。
 
-## 3.2 缺少 durable persistence 和 CAS
+## 3.2 历史草案：durable persistence 和 CAS
 
-当前 in-memory claims 不能满足：
+旧方案认为当前 in-memory claims 不能满足：
 
 - process/pod restart 后 Run 不丢失。
 - 多副本并发调度。
@@ -187,7 +224,7 @@ QARun
 - cancel/timeout 与 completion 的并发优先级。
 - event cursor 和 settlement replay。
 
-需要：
+旧方案列出：
 
 - Durable Run store。
 - device slot/lease store。
@@ -197,18 +234,18 @@ QARun
 - idempotency table。
 - repair queue。
 
-### 验收标准
+### 历史验收标准
 
 - Hosted restart 后 Run、slot、dispatch attempt 和 receipt projection 不丢失。
 - 同一 device 同时只允许一个 execution-bearing Run。
 - stale scheduler/worker 写入被 fence 拒绝。
 - 相同 idempotency key/digest replay；冲突 digest 409/fail closed。
 
-## 3.3 缺少输入冻结
+## 3.3 历史草案：输入冻结
 
 当前 session dispatch 中存在 `git_ref = "HEAD"` 的动态源引用，不能用于 QA。
 
-需要冻结：
+旧方案要求冻结：
 
 - exact commit 或 synthetic merge object。
 - ProjectPackSnapshot ref/digest。
@@ -223,11 +260,11 @@ Run 接受后不能把 floating branch、latest image 或 mutable TestCaseAsset 
 
 ## 4. 历史设计：Hosted-owned device/dispatch（已被 Talos Target 取代）
 
-> machine/pool/worker identity、placement policy、lease/generation/fence 和 execution authorization 属于 Talos。Hosted 后续领域只需要验证来自 Talos/Runtime/Artifact plane 的稳定 refs、digests 和 receipts。
+> **历史迁移警告：以下内容仅用于历史迁移对照，禁止作为当前 implementation target。当前 `QARun`、`TestingTask`、`TestingAttempt`、placement、lease/generation/fence 和 scheduler 均由 Talos owning repo 负责。** operation-specific business authorization signing 的 owner 仍为 Decision pending；任何 signer 都不因签发授权而获得调度 authority。
 
-## 4.1 缺少 Device/Node/Host installation 模型
+## 4.1 历史草案：Device/Node/Host installation 模型
 
-需要区分：
+旧方案需要区分：
 
 - FKST logical device。
 - NyxID Node ID。
@@ -237,16 +274,16 @@ Run 接受后不能把 floating branch、latest image 或 mutable TestCaseAsset 
 
 Node identity 只证明 NyxID transport endpoint；不能等同 Host installation identity。
 
-需要存储：
+旧方案需要存储：
 
 - device ↔ node ↔ host installation binding。
 - status、last seen、capabilities、supported profiles。
 - single-active execution slot owner。
 - binding revision/digest。
 
-## 4.2 缺少 NyxID dispatch adapter
+## 4.2 历史草案：NyxID dispatch adapter
 
-复用现有 `NyxIdClient::proxy_request`，新增 QA-specific adapter：
+旧方案提出复用现有 `NyxIdClient::proxy_request`，新增 QA-specific adapter：
 
 ```text
 submit_run
@@ -256,7 +293,7 @@ cancel_run
 get_capabilities
 ```
 
-adapter 必须：
+旧方案要求 adapter：
 
 - 使用专用 service slug。
 - 将 Run 绑定到明确 Node/Device。
@@ -266,54 +303,17 @@ adapter 必须：
 - 支持 bounded retry，但不能在未知 acceptance 下重新执行有副作用 command。
 - Artifact bytes 不通过 NyxID 长响应传输。
 
-## 4.3 缺少 Hosted business authorization
+## 4.3 历史授权草案（当前候选边界见 2.5；owner 仍为 Decision pending）
 
-NyxID transport auth 不能替代业务授权。Hosted 需要签发：
-
-```text
-LocalQARequestAuthorization
-  issuer/key_id
-  actor/caller
-  operation
-  method/path/body_digest
-  run_id
-  device_id
-  nyxid_node_id
-  host_installation_id
-  execution_profile
-  source_digest
-  structured_plan_digest
-  environment_profile_digest
-  browser_capability_digest
-  issued_at/not_before/expires_at
-  nonce
-  purpose
-  idempotency_key
-  signature
-```
-
-需要：
-
-- key rotation/revocation。
-- JCS canonical bytes 和 domain tag。
-- nonce generation 和 expiry。
-- audit correlation。
-- Host verifier key distribution。
-
-### 验收标准
-
-- wrong device/node/installation/profile/digest 在本地任何副作用前拒绝。
-- expired/revoked/unknown key 拒绝。
-- NyxID request replay 不能绕过 Host authorization replay guard。
-- Hosted 能区分 transport accepted 和 Host RunAcceptance。
+旧草案把 authorization 与 Hosted-owned device/dispatch 混合。当前候选边界保留独立 business signer，但其 owning repo 仍等待决策；binding 改为 Talos reservation、signed lease claim ref、machine/worker/generation/fence 和 operation-specific request tuple，详见 2.5。不得恢复 Hosted direct dispatch 或让 Hosted 保存 raw lease token。
 
 ## 5. 历史设计：Hosted-owned scheduler/reconcile（已被 Talos Target 取代）
 
-> 本节中的 scheduler、slot reservation、submit/get/events/cancel 和 local Snapshot reconcile 应由 Talos gap 文档执行。Hosted 只保留 Artifact/Report/Publication delivery repair，不得通过 repair 创建新的 execution attempt。
+> **历史迁移警告：以下内容仅用于历史迁移对照，禁止作为当前 implementation target。当前 `QARun`、`TestingTask`、`TestingAttempt`、placement、lease/generation/fence 和 scheduler 均由 Talos owning repo 负责。** 本节中的 scheduler、slot reservation、submit/get/events/cancel 和 operational Snapshot/Event reconcile 只能由 Talos gap 文档执行。Hosted 侧仅可在 owner 决策接受后承担 Authorization/Artifact repair，以及 Post-MVP Report/Publication repair；repair 不得创建 execution attempt。
 
-## 5.1 缺少 QA scheduler
+## 5.1 历史草案：QA scheduler
 
-需要实现：
+旧方案要求实现：
 
 - capability/profile matching。
 - device online/capacity check。
@@ -325,9 +325,9 @@ LocalQARequestAuthorization
 
 不能把 NyxID 的通用 failover 当作 QA scheduler。按当前 Talos Target，设备选择和 execution slot reservation 由 Talos Scheduler 完成，Hosted 不再拥有这项 execution authority。
 
-## 5.2 缺少 Snapshot/Event reconcile
+## 5.2 历史草案：Snapshot/Event reconcile
 
-Hosted 需要：
+旧方案要求 Hosted：
 
 - 保存 last event cursor/digest。
 - at-least-once Event ingestion。
@@ -337,9 +337,9 @@ Hosted 需要：
 - lost dispatch acknowledgement → 查询同一 Run。
 - cancel ack 与 cleanup completion 分离。
 
-## 5.3 缺少 recovery/repair workflow
+## 5.3 历史草案：recovery/repair workflow
 
-需要独立 repair：
+旧方案列出独立 repair：
 
 - dispatch repair。
 - event sync repair。
@@ -349,7 +349,9 @@ Hosted 需要：
 
 任何 delivery/repair 都不能自动重跑 Browser Case。
 
-## 6. P1：Artifact ingestion 缺口
+## 6. Proposed P0（Decision pending）：MVP Artifact ingestion 缺口
+
+以下是完整 Browser MVP 的候选 contract/gate。只有边界决策接受并确认 owner、object-storage provider 和 Runtime 认证边界后，才转为对应 repo 的 Active P0 backlog。
 
 ## 6.1 缺少 per-object upload grant
 
@@ -358,6 +360,13 @@ Host 计算 post-redaction digest、media、size 后，向 Hosted 请求：
 ```text
 ArtifactUploadGrant
   run_id
+  task_id
+  attempt_id
+  generation
+  fence
+  runtime_instance_id
+  subject/audience
+  claim_ref/digest
   object_key
   artifact_role
   digest
@@ -373,6 +382,10 @@ ArtifactUploadGrant
 - grant 不能列举其他 Run。
 - 不能覆盖不同 digest。
 - 不能读取 raw quarantine。
+- `subject` 必须是被接受 attempt 的 Runtime installation/instance，`audience` 必须是 Artifact upload endpoint/provider；grant 不能被其他 machine、worker 或 Run 使用。
+- `generation`、`fence` 和 `claim_ref/digest` 必须绑定当前 attempt；stale/revoked claim 在 bytes 被接受前必须 fail closed。
+- `prepare` 只能由已认证的 Talos/TestingExecutor control-plane caller 请求，或由带有 local credential 和对应 signed authorization 的 Runtime adapter 请求；不能由匿名或 provider-wide storage credential 调用。
+- upload path 必须在 ArtifactStore gateway 或等价的 provider policy 中校验 subject、audience、attempt/fence 和 expiry；仅凭未绑定的 presigned URL 不能满足 MVP 边界。
 - 短 TTL、single object。
 
 ## 6.2 缺少 Artifact ingestion validator
@@ -514,12 +527,12 @@ PQL promotion 是当前报告之后的异步反馈闭环，不阻塞 ReportRecor
 
 ## 10. P2：安全、运维和发布缺口
 
-- Hosted authorization signing key lifecycle。
-- per-tenant/device quotas。
-- device revocation。
+- production HSM/KMS、multi-key rotation drill 和 verifier rollout；基础 signing/revocation contract 已属于 H1/P0。
+- per-tenant authorization issuance 和 Artifact storage/ingest quotas。
+- Artifact upload credential revocation 和 abuse controls。
 - audit correlation：Hosted/NyxID/Host/Worker/Artifact/Publication。
 - redacted logs。
-- metrics：queue、dispatch、device busy、event lag、artifact lag、report lag、repair backlog。
+- metrics：authorization issue/replay/reject、Artifact ingest/lookup/lag、report lag、repair backlog。
 - failure injection。
 - multi-pod durability。
 - disaster recovery。
@@ -527,31 +540,35 @@ PQL promotion 是当前报告之后的异步反馈闭环，不阻塞 ReportRecor
 
 ## 11. 建议实施顺序
 
-### H1：Durable Run 和 contract
+### H0：架构决策 Gate
 
-1. QARun aggregate/store/events/outbox。
-2. frozen input contract。
-3. Device/Node/Host binding。
-4. business authorization。
-5. Testing Packages projection ingestion。
+1. maintainer 接受或拒绝 [Hosted Authorization 与 MVP ArtifactStore 边界决策](../design-proposals/hosted-authorization-artifact-boundary-decision.zh-CN.md)。
+2. 冻结 owning repo、object-storage 复用范围、deployment owner 和 Runtime 认证边界。
+3. 冻结 `prepare/commit/lookup`、receipt、retention/expiry/deletion 和 lost-ack reconcile owner。
+4. 在决策文件、Decision Issue/ADR 和 Roadmap `MVP-H` 中同步记录结果；未接受前不得创建 H1/H2 owner-specific implementation backlog。
 
-### H2：Dispatch 和 local reconcile
+### H1：MVP Authorization Authority
 
-1. QA NyxID adapter。
-2. scheduler/slot reservation。
-3. submit/get/events/cancel。
-4. cursor/Snapshot reconcile。
-5. repair queues。
+1. 冻结 `LocalQARequestAuthorization`、operation scopes、JCS/digest 和 golden fixtures。
+2. 实现 issue/replay/conflict、nonce、expiry、rotation/revocation 和 verifier key distribution。
+3. 与 Talos reservation/signed lease claim ref、current-claim resolver 形成 conformance fixture。
+4. 验证 `start/cancel/reconcile` 不能跨 operation、run、attempt 或 request digest 重放。
 
-### H3：Artifact 和 Report
+### H2：MVP ArtifactStore
 
-1. upload grant。
-2. Artifact ingestion/receipt。
-3. ReportInputSet。
-4. QualityEvaluation。
-5. ReportRecord。
+1. per-object upload grant 和 stable object key。
+2. `prepare/commit/lookup`、digest/media/size/run/case/assertion validation。
+3. ArtifactUploadReceipt/ArtifactIngestReceipt。
+4. bytes stored/ack lost、TTL 和 delivery repair。
+5. Artifact outage 不阻止 execution freeze、Cleanup 或 Talos terminal projection。
 
-### H4：Publication 和 feedback
+### H3：Post-MVP Quality 和 Report
+
+1. immutable ReportInputSet。
+2. QualityEvaluation。
+3. deterministic ReportRecord。
+
+### H4：Post-MVP Publication 和 feedback
 
 1. GitHub/FKST publication adapters。
 2. PQL feedback delivery。
@@ -560,7 +577,7 @@ PQL promotion 是当前报告之后的异步反馈闭环，不阻塞 ReportRecor
 
 ### H5：production hardening
 
-1. key/device lifecycle。
+1. authorization key 和 Artifact credential lifecycle。
 2. failure injection。
 3. observability。
 4. multi-pod/restart tests。
@@ -568,8 +585,10 @@ PQL promotion 是当前报告之后的异步反馈闭环，不阻塞 ReportRecor
 
 ## 12. 完成标准
 
-Hosted 后续领域完成时应满足：
+若 H0 接受 `fkst-hosted` 为 owner，则 Hosted MVP 候选依赖和后续领域完成时应满足；若 owner 变更，本节必须先迁移到被接受的 repo：
 
+- operation-specific authorization 在 reservation 后签发，绑定 exact attempt/claim/request tuple；Hosted 不选择 machine、不保存 raw lease token，也不拥有 QARun。
+- Runtime 可独立验证 Hosted signature/revocation 和 Talos claim/fence currentness；任一 authority 不可用时在本地 effect 前 fail closed。
 - 只消费 Talos QARun、Testing Packages result/evidence 和 Runtime cleanup/upload 的稳定 refs/digests/receipts，不重复拥有 operational QARun。
 - per-object Artifact grant 和 ingestion 在 restart/multi-pod 下可重放并验证 digest/media/size。
 - bytes stored/ack lost 不重复创建 logical object。

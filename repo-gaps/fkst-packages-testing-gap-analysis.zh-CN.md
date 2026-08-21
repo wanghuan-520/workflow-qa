@@ -33,9 +33,9 @@ PQL approved input
 
 ### 0.3 对 Talos 接入的直接缺口
 
-**P0：** `testing-package-manifest.v1`、`testing-runner-invocation.v1`、provider-neutral capability ports、canonical-first CLI/HTTP output、Talos fixed `TestingExecutor` adapter。
+**P0：** `testing-package-manifest.v1`、`testing-runner-invocation.v1`、provider-neutral capability ports、共享 canonical contract/validator、Browser production writer，以及供 Talos fixed `TestingExecutor`/Runtime adapter 消费的 runner-side conformance fixture。
 
-**P1：** point-of-use cancel/deadline/fence、effect 后 assertion 前的 `lost/inconclusive`、scoped Artifact grant/digest/receipt、publication 与 delivery repair 分离、跨 route conformance。
+**P1：** 现有 CLI/HTTP writer 迁移到同一 canonical family、跨 route conformance、point-of-use cancel/deadline/fence、effect 后 assertion 前的 `lost/inconclusive`、Artifact pointer/ref/digest/receipt conformance、publication 与 delivery repair 分离。Artifact grant 和 bytes 仍由 Hosted/Runtime 拥有。
 
 **P2：** live-CDP gate、多 Browser Case、API/CLI Talos profile、普通 UI exploration 和 mutation executor。它们不能阻塞 Browser-only MVP，也不得通过 `browse` fallback 实现。
 
@@ -195,7 +195,7 @@ intake
 
 Issue #656 的本地工作区增量没有远端 feature ref，未接 production run path，也未通过完整 Gate，必须保持 `Candidate` 标记。
 
-## 5. P0：统一 production canonical path
+## 5. P0：共享 canonical contract 和 Browser production path
 
 ### 5.1 目标 canonical family
 
@@ -220,7 +220,7 @@ testing-evidence-manifest.v1
 - unsupported major fail closed。
 - canonicalization profile 和 digest encoding 显式登记。
 
-### 5.2 生产写入顺序
+### 5.2 Browser MVP 生产写入顺序
 
 ```text
 execute cases
@@ -240,7 +240,21 @@ execute cases
 - malformed canonical output 不得 fallback 到 legacy passed。
 - publication 不重新解释 raw executor result。
 
-### 5.3 CLI/HTTP/Browser 等价
+### 5.3 P1（本跨仓 Browser MVP）：CLI/HTTP writer 和跨 route 等价
+
+首个 Talos MVP 是 Browser-only。只要共享 schema、validator、digest profile 和 Browser writer 已冻结，现有 CLI/HTTP legacy writer 的全量迁移不得阻塞 Browser canary；但它们最终必须迁入同一 canonical family，不能永久形成 route-specific 语义。
+
+这里的 `P1` 只表示 **workflow-qa 当前 Browser-only 跨仓垂直链路的阶段优先级**，不是要求修改 `fkst-packages-testing` owning repo 的产品 backlog。两者必须分别解释：
+
+- Browser canary 的 P0 Gate 是共享 canonical contract/validator/digest profile、Browser production writer 和 Runtime-facing invocation；不要求先完成所有 CLI/HTTP producer 迁移。
+- `fkst-packages-testing` 可以继续把完整 route convergence、schema、provider-neutral executor 和 runtime contract 作为自身 P0，因为这些工作还服务于该 Repo 的发布完整性和后续 backend。
+- upstream P0 Issue 完成或关闭，不会自动证明 Browser canary Gate 已通过；反过来，Browser canary 不被全量迁移阻塞，也不表示 upstream P0 被降级或取消。
+
+截至 2026-08-20 的 backlog 对照：
+
+- [`#660`](https://github.com/ChronoAIProject/fkst-packages-testing/issues/660) 已关闭，并由 `#666` 完成 canonical CLI/HTTP ResultSet/EvidenceManifest 与 separate digest domains。
+- [`#631`](https://github.com/ChronoAIProject/fkst-packages-testing/issues/631)、[`#662`](https://github.com/ChronoAIProject/fkst-packages-testing/issues/662)、[`#663`](https://github.com/ChronoAIProject/fkst-packages-testing/issues/663) 和 [`#664`](https://github.com/ChronoAIProject/fkst-packages-testing/issues/664) 仍按 owning repo 的 P0 语义跟踪 route migration、runtime invocation、machine-readable schema 和 provider-neutral executor。
+- [`#665`](https://github.com/ChronoAIProject/fkst-packages-testing/issues/665) 继续作为 Talos Testing Tool 准备工作的 tracking Issue；本 Gap 不改写其优先级或依赖。
 
 三个 route 必须使用相同语义：
 
@@ -418,10 +432,11 @@ GitHub/filesystem publication 应：
 
 ### T2：Production route convergence
 
-1. CLI/HTTP 原生写 canonical pair。
-2. Browser route hardening。
-3. publication 消费公共 validator。
-4. legacy output 只由单一 compatibility adapter 派生。
+1. Browser route 原生写 canonical pair 并完成 hardening。
+2. Runtime adapter 和 Browser writer 共用公共 validator/digest fixtures。
+3. CLI/HTTP writer 迁移为 canonical-first；该项在本跨仓 Browser MVP 中是 P1，不阻塞 Browser-only canary，也不修改 upstream `fkst-packages-testing` Issue 的 P0/backlog 优先级。
+4. publication 消费公共 validator。
+5. legacy output 只由单一 compatibility adapter 派生。
 
 ### T3：Runtime integration
 
@@ -441,8 +456,9 @@ GitHub/filesystem publication 应：
 
 本 Repo 对 Talos Testing MVP 的职责完成时应满足：
 
-- 默认 production route 原生写唯一 CaseResultSet/EvidenceManifest pair。
-- CLI、HTTP、Browser 相同测试语义输出等价 canonical facts。
+- Browser MVP production route 原生写唯一 CaseResultSet/EvidenceManifest pair。
+- 共享 schema/validator/digest profile 不依赖 route；CLI/HTTP writer 的后续迁移不得改变已冻结的 Browser Case/Assertion 语义。
+- 完整 route convergence 完成后，CLI、HTTP、Browser 相同测试语义输出等价 canonical facts。
 - package 有 exact version、commit、content digest、entrypoints 和 capabilities。
 - Runtime 只通过版本化 invocation 与 capability ports 调用 runner。
 - Testing Packages 不拥有 machine、lease、workspace、process、port、Chrome 或 cleanup。

@@ -11,6 +11,8 @@
 > **证据边界：** 本地可以精确核对 Talos worker bundle 的 claim/action/result/auth 行为，但没有 Talos Control Plane 源码、OpenAPI、source map 或 plugin SDK。因此本文对 worker v0.4.1 的描述属于实现事实；对 Control Plane 的 `testing` API、Scheduler 和持久化模型属于目标设计。
 >
 > **冲突处理：** 本文不修改既有规范和 fixture。若本文发现既有文档或 fixture 语义冲突，则同时记录当前事实和目标语义，并把契约修正列为后续独立工作。
+>
+> **Hosted 边界状态：** Hosted Authorization Authority 和最小 ArtifactStore 仍为 **Proposed / Decision pending**，详见 [Hosted Authorization 与 MVP ArtifactStore 边界决策](hosted-authorization-artifact-boundary-decision.zh-CN.md)。本文对它们只定义候选 contract，不表示 owner、storage provider 或 production authority 已被接受。
 
 ---
 
@@ -25,7 +27,7 @@
 3. Talos worker 对 `kind=testing` 使用专用 `TestingExecutor` / `LocalQARuntimeAdapter`，不经过当前 Browser autonomous planner，也不执行任意 shell。
 4. Local QA Runtime 继续负责本机 admission、执行 Journal、Source/workspace、Compose/process/port、临时 Chrome、Evidence、取消恢复和精确 Cleanup。
 5. Testing Packages 继续负责 Structured Plan 解释、typed actions、Observation、AssertionResult、CaseResult 和 EvidenceManifest 领域语义。
-6. Hosted Artifact/Quality/Report 负责 Artifact ingestion、最终 Quality、Report、Publication 和 Settlement。
+6. Proposed Hosted Authorization/Artifact domain（owner 为 Decision pending）负责候选 Artifact ingestion；Hosted Quality、Report、Publication 和 Settlement 保留为 Post-MVP。
 7. product-quality-loop 继续负责 Project Pack、测试资产、coverage、review、promotion 和执行反馈闭环，不进入机器执行热路径。
 8. NyxID 只负责受认证 transport、route identity 和 transport audit，不拥有 QA state、业务授权、Pass/Fail 或 Artifact bytes。
 
@@ -237,12 +239,12 @@ Talos Service 可以把 Testing Tool、QA Domain 和 machine task scheduler 部�
 | --- | --- | --- |
 | QARun operational state、输入冻结、snapshot/events/cancel | Talos Testing Tool / QA Domain | task/run projection、receipt |
 | pool、machine capability、task placement、lease、fence | Talos Task Scheduler | worker-local lease cache |
-| 业务执行授权 | Hosted QA Authorization Authority | signed authorization ref/digest |
+| 业务执行授权 | Proposed Hosted Authorization Authority（Decision pending） | signed authorization ref/digest |
 | transport caller/node/machine identity | NyxID + Talos enrollment binding | verified transport context |
 | 本地 acceptance、resource ownership、attempt、cleanup | Local QA Runtime Journal | Snapshot/Event/CleanupReceipt |
 | Case Pass/Fail/Blocked/Error | Testing Packages | canonical CaseResultSet |
 | Evidence 安全投影和本地 staging | Local QA Runtime | EvidenceManifest ref/digest |
-| 长期 Artifact | Hosted Artifact Ingestion | ArtifactIngestReceipt |
+| 长期 Artifact | Proposed Hosted ArtifactStore（Decision pending） | ArtifactIngestReceipt |
 | Final Quality | Hosted `quality-evaluation` | QualityEvaluation ref/digest |
 | Report / Publication | Hosted Report/Publication | ReportRecord/PublicationReceipt |
 | Final Settlement | Hosted Settlement module | settlement ref/status projection |
@@ -262,7 +264,7 @@ Talos Service 可以把 Testing Tool、QA Domain 和 machine task scheduler 部�
 | Local QA Host / Runtime MVP | loopback API、SQLite WAL、Browser adapter、worker protocol、Evidence stager | 真实 executor spine、Source/workspace、Compose/readiness、admission/auth、OwnedHandle、cancel/restart/cleanup/upload | synthetic PassingExecutor、固定 digest、无 effect 的伪状态 | 最终 Quality、长期 Report、个人 Chrome、模糊资源删除 |
 | Hardened Runtime | 目标 Profile、Ledger/EffectGate/VM/Recovery 设计 | 后续独立实现并通过 capability gate | 不作为 v1 首发依赖 | 降级到 MVP、声称已有强隔离 |
 | Testing Packages | design、StructuredPlan、CLI/HTTP、Browser controller、Local PEP、replay | canonical results/evidence、PQL input adapter、Hosted projection、route 一致性 | 私有 result shape、publication 私有 validator、第三套 translation | 设备选择、本地资源 ownership、最终 Quality |
-| Hosted Artifact/Quality/Report | generic storage、publication/aggregate 基础 | grant/ingest receipt、ReportInputSet、QualityEvaluation、ReportRecord、repair/settlement | GitHub aggregate report 作为最终系统记录 | 接收 raw observation、触发本地测试重跑 |
+| Proposed Hosted Artifact/Quality/Report（MVP Artifact owner pending） | generic storage、publication/aggregate 基础 | grant/ingest receipt、ReportInputSet、QualityEvaluation、ReportRecord、repair/settlement | GitHub aggregate report 作为最终系统记录 | 接收 raw observation、触发本地测试重跑；不得把 pending owner 写成已接受 authority |
 | product-quality-loop | Project Pack、classification、coverage、asset design/review | Snapshot/Asset/Proposal/Decision/PromotionReceipt、Hosted feedback ingestion | 直接执行或直接调用 Host | 设备选择、签发运行授权、拥有 Runtime state |
 | NyxID | identity、node-pinned route、transport audit、local credential adapter | 新 operation/scope 的 transport exposure，不新增 QA domain | transport 200 作为 RunAcceptance | QA scheduler、QA state、Pass/Fail、Artifact bytes |
 
@@ -636,7 +638,9 @@ hosted.talos-terminal-handoff-receipt/v1
 
 Testing Packages 只判断执行事实和 Case outcome。最终 Quality 由 Hosted `quality-evaluation` 计算。
 
-### 5.8 Hosted Artifact / Quality / Report
+### 5.8 Proposed Hosted Artifact / Quality / Report（Artifact owner Decision pending）
+
+本节只定义候选 contract。Hosted Authorization 和最小 ArtifactStore 的 owner、storage provider 及 Runtime 认证边界被 maintainer 接受前，不能把本节内容视为已冻结的 authority 或 production implementation。
 
 必须新增：
 
