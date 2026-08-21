@@ -4,7 +4,9 @@
 >
 > 审计日期：2026-08-20
 >
-> Baseline：[`dev@ac953ff0bb3f1c909728e66c3968cbb3ed5e3cf1`](https://github.com/ChronoAIProject/fkst-packages-testing/commit/ac953ff0bb3f1c909728e66c3968cbb3ed5e3cf1)
+> Pinned Baseline：[`dev@ac953ff0bb3f1c909728e66c3968cbb3ed5e3cf1`](https://github.com/ChronoAIProject/fkst-packages-testing/commit/ac953ff0bb3f1c909728e66c3968cbb3ed5e3cf1)
+>
+> Live status overlay（2026-08-21）：`dev@3d228f79db8786e3755aed3d53ff70e14ca90993`；`#656` closed/not planned。以下 `ac953ff0` 和 #656 内容只作为 pinned historical/Candidate evidence，不描述为当前默认分支已交付能力。
 >
 > Target：[PQL Testing 简化时序图](../design-proposals/diagrams/pql-testing-simple-flow.mmd) 与 [Testing Packages 调整方案](../design-proposals/repo-adjustments/fkst-packages-testing-adjustments.zh-CN.md)
 
@@ -12,19 +14,25 @@
 
 ### 0.1 结论
 
-`fkst-packages-testing` 适合作为 Talos Testing Tool 的 **测试语义和 runner package**，不应成为 NyxID/Talos HTTP 服务，也不应接管机器、worker、Sandbox、Chrome 或 Artifact 长期存储。它已经具备足够的语义内核，但尚未具备可由 Talos 安装、校验和调用的发布合同。
+`fkst-packages-testing` 的 Target 是 **AI 驱动的测试用例执行引擎**，不是脚本生成器、NyxID/Talos HTTP 服务、机器调度器或本地资源管理器。它直接读取 immutable structured TestCase，维护 TestingAgentLoop，调用严格的 typed tools，接收 bounded ModelObservation，并由 deterministic AssertionReducer 形成 CaseResult。
+
+仓库发布的 data-only bundle/manifest 只是用例、schema、tool catalog 和语义引擎身份的版本化制品，不携带用户脚本、生成代码、动态 plugin 或运行时 entrypoint。
 
 ```text
-PQL approved input
-  -> Testing Packages StructuredPlan / typed action / assertion
-  -> Local QA Runtime capability ports
-  -> CaseResultSet + EvidenceManifest
+PQL approved structured TestCase
+  -> TestCaseExecutionEngine / TestingAgentLoop
+  -> ModelInferencePort
+  -> closed typed tool catalog
+  -> Local QA Runtime capability broker
+  -> sanitized ModelObservation
+  -> next AI turn / evaluator
+  -> CaseResultSet + EvidenceManifest + ResultAuthorityReceipt
   -> Talos bounded terminal projection
 ```
 
 ### 0.2 本轮核实的新增事实
 
-- 当前 `dev@ac953ff0` 仍为有效 Baseline；仓库有 14 个 `packages/*`、13 份 Markdown contract、371 个 Lua 和 42 个 JavaScript 文件，不能按脚手架描述。
+- Pinned Baseline 为 `dev@ac953ff0`；live `dev@3d228f79...` 已前进，必须单独重新审计。Pinned Baseline 仓库有 14 个 `packages/*`、13 份 Markdown contract、371 个 Lua 和 42 个 JavaScript 文件，不能按脚手架描述。
 - `testing-runner` 被声明为 `stateless_adapter`，可复用 `StructuredPlan`、single-use grant、argv/HTTP capability containment、replay guard、agentic-browser typed-action loop、CaseResultSet/EvidenceManifest validator。
 - 当前 tree 没有 JSON Schema 文件，外部 Talos/Runtime 不能依赖 Lua validator 细节完成 admission；需要发布 machine-readable schema 或等价生成物。
 - 仓库没有 tag/release/根级安装制品定义；`fkst.workspace.toml` 还固定依赖 `fkst-packages@d4146d7...`，`.fkst/substrate-ref` 固定 `fkst-substrate@e3355b4...`。这些构建期依赖必须进入 package manifest/SBOM，不能由 worker 运行时 hydrate floating branch。
@@ -33,11 +41,19 @@ PQL approved input
 
 ### 0.3 对 Talos 接入的直接缺口
 
-**P0：** `testing-package-manifest.v1`、`testing-runner-invocation.v1`、provider-neutral capability ports、canonical-first CLI/HTTP output、Talos fixed `TestingExecutor` adapter。
+**P0：** structured TestCase/Step/Assertion schema、data-only bundle manifest、`ai-testing-session-input.v1`、TestingAgentLoop、ModelInferencePort、closed typed tool catalog、AgentTurnLedger、AssertionReducer 和 ResultAuthorityReceipt。
 
-**P1：** point-of-use cancel/deadline/fence、effect 后 assertion 前的 `lost/inconclusive`、scoped Artifact grant/digest/receipt、publication 与 delivery repair 分离、跨 route conformance。
+**P1：** effective capability intersection、point-of-use cancel/deadline/fence、pre-model ModelObservation sanitization、monotonic AI/tool budgets、effect 后 assertion 前的 `lost/inconclusive`、CaseResultSet/EvidenceManifest binding、Artifact pointer/receipt conformance 和 delivery repair。
 
-**P2：** live-CDP gate、多 Browser Case、API/CLI Talos profile、普通 UI exploration 和 mutation executor。它们不能阻塞 Browser-only MVP，也不得通过 `browse` fallback 实现。
+**P2：** live provider canary、多 Browser Case、API/CLI/Mobile tool adapters、普通 UI exploration 和 mutation executor。它们不能阻塞 Browser infrastructure gate，也不得通过 `browse` fallback 实现。
+
+### 0.4 执行模型约束
+
+- AI 直接解释结构化 TestCase，不解释自由文本 `goal`。
+- AI 只能从固定 tool catalog 选择工具；tool schema 是 strict closed union，禁止运行时动态注册。
+- 工具执行只返回 bounded sanitized ModelObservation 和 effect receipt。
+- 不生成、保存或执行中间测试脚本、generated code、interpreter eval、runtime package install、dynamic plugin 或 arbitrary shell/argv。
+- 模型文本、hidden reasoning、HTTP 200、process exit 0 或 Browser action success 都不能直接建立 passed；最终结果由 AssertionReducer 和 canonical binding 确定。
 
 ## 1. 执行摘要
 
@@ -51,27 +67,30 @@ Testing Packages Baseline 已有较完整的测试设计、StructuredPlan、CLI/
 - 本地 Issue #656 增量只能作为 `Candidate`，尚未成为默认分支 production run path。
 - package release identity、provider-neutral runner invocation、PQL/Talos/Runtime 接线和资源 ownership 收缩仍然缺失。
 
-因此本 Repo 的核心任务不是重写测试系统，也不是成为 NyxID/Talos 网络服务，而是把已有能力收敛为可发布、可版本化、可由 Local QA Runtime 调用的唯一测试语义实现。
+因此本 Repo 的核心任务不是重写测试系统，也不是成为 NyxID/Talos 网络服务，更不是增加用户可见的脚本生成流程；而是把已有能力收敛为可发布、可版本化、可由 Local QA Runtime 调用的 AI 测试用例执行引擎和唯一测试语义实现。
 
 ## 2. Target 职责与非职责
 
 本 Repo 应负责：
 
-- testing-design 输入验证、repository/requirement/traceability 分析。
-- reviewed module plan 和 immutable `StructuredPlan` 编译。
-- CLI/HTTP/Browser 测试语义。
-- typed action 和 bounded Observation。
-- `AssertionResult`、`CaseResult`、`CaseResultSet`。
-- `EvidenceManifest` schema 和 result/evidence 引用关系。
-- execution replay、point-of-use policy enforcement 和 conformance fixtures。
-- PQL input adapter、Runtime runner interface 和 pointer-only Hosted projection adapter。
+- 结构化 TestCase/Step/Assertion 输入验证、repository/requirement/traceability 分析。
+- `TestCaseExecutionEngine` 和 `TestingAgentLoop` 的测试语义、turn 状态、tool selection 和终态协调。
+- prompt/system policy/tool catalog 语义及 immutable identity/digest。
+- provider-neutral `ModelInferencePort` 请求/响应 contract，不保存 provider secret。
+- typed action、bounded ModelObservation、effect receipt 和 Assertion evaluation。
+- deterministic evaluator、model-judged evaluator 和 deterministic `AssertionReducer`。
+- `AssertionResult`、`CaseResult`、`CaseResultSet`、`EvidenceManifest`、`ResultAuthorityReceipt`。
+- AgentTurnLedger、execution replay、point-of-use policy enforcement 和 conformance fixtures。
+- PQL input adapter、Runtime tool-broker interface 和 pointer-only Hosted projection adapter。
 
 本 Repo 不应负责：
 
 - 创建 Talos `QARun` 或管理 Tool API。
 - 选择 pool/machine 或保存 task lease、generation、fence。
+- 实现 Talos worker-side `TestingExecutor` 或 `LocalQARuntimeAdapter`。
 - 启动/删除 workspace、process、listener、port、Chrome/profile/downloads。
 - 直接拥有 raw Evidence quarantine、Artifact upload grant 或长期存储。
+- 接收或生成任意 shell/argv、脚本、generated code、interpreter eval、dynamic plugin 或 runtime entrypoint。
 - 决定 Final Quality、Report 或 Settlement。
 - 暴露 NyxID/OpenAPI service。
 - 在副作用结果不确定时自动重跑 Case。
@@ -97,7 +116,7 @@ Testing Packages Baseline 已有较完整的测试设计、StructuredPlan、CLI/
 
 ### 3.2 StructuredPlan
 
-已实现 `testing-structured-plan.v2`：
+已实现 `testing-structured-plan.v2`。Baseline 的 StructuredPlan 是声明式执行计划，不是用户需要编写或维护的测试脚本；Target 将由 TestCaseExecutionEngine 直接消费结构化 TestCase，并把 StructuredPlan 作为内部可重建的 plan identity：
 
 - 绑定 module plan、case catalog、Environment receipt 和 Browser readiness。
 - 只选择经过 review 且经 Host catalog 授权的 Case。
@@ -112,7 +131,7 @@ Testing Packages Baseline 已有较完整的测试设计、StructuredPlan、CLI/
 
 ### 3.3 CLI/HTTP execution
 
-Baseline 已实现：
+Baseline 已实现；这些是现有受控 capability 和执行语义，不代表 Target 要求用户生成或维护脚本：
 
 - direct argv、禁止 shell fallback。
 - bounded timeout 和 approved working directory。
@@ -129,7 +148,7 @@ Baseline 已实现：
 
 ### 3.4 Agentic Browser
 
-Baseline 已实现：
+Baseline 已实现部分 agentic Browser/tool loop；这只能证明当前组件和参考流程存在，不等于 Target 的 TestCaseExecutionEngine、ModelInferencePort、AgentTurnLedger 和 AI conformance 已完成：
 
 - exact repository/environment/plan/grant binding。
 - bounded step/time budget。
@@ -187,13 +206,19 @@ intake
 | CLI/HTTP execution | 主链成熟、仍有 legacy output | canonical helper 候选 | production path 原生写 canonical pair |
 | Browser execution | typed action、bounded observation、canonical output 基础 | hardening 候选 | fence/cancel/lost 语义与 Runtime invocation 对齐 |
 | publication | CAS/replay/GitHub/filesystem adapter | compatibility 思路 | 降为 adapter，不拥有私有 result schema 或 Final Quality |
-| package identity | `fkst.toml` 等仓库级 metadata | 无已发布 manifest | `testing-package-manifest.v1` |
-| Runtime invocation | event/runner 与 generic-host composition 基础 | 无稳定 production envelope | `testing-runner-invocation.v1` + capability ports |
+| TestCaseExecutionEngine / TestingAgentLoop | Baseline partial，已有 agentic Browser 片段 | 未闭环 | 直接读取 TestCase，多轮 ModelInference/tool loop、终止和结果归并 |
+| ModelInferencePort | 无 Target contract | 无 | provider-neutral inference request/response、refusal/timeout/truncation/usage |
+| tool catalog/schema | typed action 和 capability 基础 | 无 immutable catalog | closed union、strict schema、allowlist、quota、point-of-use policy |
+| AgentTurnLedger | replay/step receipt 片段 | 无 | append-only model/tool/observation/evaluator ledger |
+| evaluator/reducer | 部分 assertion/result writer | 无统一 AI-aware reducer | deterministic/model-judged evaluator + deterministic AssertionReducer |
+| package/data-bundle identity | `fkst.toml` 等仓库级 metadata | 无已发布 manifest | data-only manifest：TestCase/schema/tool identity，不含脚本/entrypoint |
+| Runtime/AI session invocation | event/runner 与 generic-host composition 基础 | 无稳定 production envelope | `ai-testing-session-input.v1` + model/tool/harness identity + budgets |
 | PQL input | generic approved pointers | adjustment draft | `pql.testing-design-input-set.v1` adapter |
-| Talos integration | 无 | 无 | 由 Talos/Runtime adapter 实现；本 Repo 只提供 runner ABI |
+| Talos integration | 无 | 无 | 由 Talos/Runtime adapter 实现；本 Repo 不提供 Talos transport |
 | local resources | Environment Factory/Generic Host 当前直接拥有 | 迁移设计 | ownership 移交 Local QA Runtime |
+| no-script execution | 仅有部分禁止项 | 无 Target gate | TestCase 直接解释；禁止生成/运行脚本和动态代码 |
 
-Issue #656 的本地工作区增量没有远端 feature ref，未接 production run path，也未通过完整 Gate，必须保持 `Candidate` 标记。
+Issue #656 已于 2026-08-18 closed/not planned。其历史 helper/compat/hardening 只能作为 Candidate 设计证据；不得描述为 active delivery track，也不得据此升级当前 `dev@3d228f79...` 的 Baseline 能力。
 
 ## 5. P0：统一 production canonical path
 
@@ -220,17 +245,24 @@ testing-evidence-manifest.v1
 - unsupported major fail closed。
 - canonicalization profile 和 digest encoding 显式登记。
 
-### 5.2 生产写入顺序
+### 5.2 AI-aware 生产写入顺序
 
 ```text
-execute cases
--> create CaseResultSet
--> create EvidenceManifest
--> validate canonical pair
+immutable structured TestCase
+-> TestCaseExecutionEngine
+-> pre-model sanitized ModelObservation
+-> TestingAgentLoop / ModelInferencePort
+-> closed typed tool call
+-> Runtime effect receipt
+-> next sanitized observation / evaluator
+-> deterministic AssertionReducer
+-> CaseResultSet proposal + EvidenceManifest proposal
+-> ResultAuthorityReceipt validation
 -> atomically write canonical artifacts
--> derive legacy compatibility projection
 -> publication consumes canonical output
 ```
+
+模型可以提出工具调用和结构化 verdict，但不能直接写入最终 CaseResult。
 
 规则：
 
@@ -255,20 +287,24 @@ execute cases
 
 ## 6. P0：Package release identity
 
-新增 `testing-package-manifest.v1`，至少包含：
+新增 `testing-package-manifest.v1`，它是 **data-only 测试执行引擎/测试用例 bundle manifest**，不是脚本或可执行 entrypoint 清单，至少包含：
 
 ```text
-package_id
+bundle_id
 exact_version
 source_commit
 content_digest
-contract_majors
-entrypoints
+case_schema_majors
+step/assertion/tool contract majors
+tool_catalog_ref/digest
+engine_id/version
 semantic_capabilities
 runtime_requirements
 producer/toolchain
 created_at
 ```
+
+Manifest 不得包含用户脚本、generated code、hooks、dynamic plugin、runtime import 或未 allowlist 的 executable entrypoint。
 
 要求：
 
@@ -278,27 +314,34 @@ created_at
 - package mismatch、unsupported contract major/capability/entrypoint fail closed。
 - production admission 不接受 `workspace`、floating branch 或未固定 package identity。
 
-## 7. P0：Runtime-facing invocation contract
+## 7. P0：AI testing session input contract
 
-新增 `testing-runner-invocation.v1`，作为 Local QA Runtime 调用 Testing Packages 的唯一 production envelope：
+新增 `ai-testing-session-input.v1`（旧 `testing-runner-invocation.v1` 可作为兼容名称），作为 Local QA Runtime 把结构化 TestCase 交给 AI 测试执行引擎的唯一 production envelope：
 
 ```text
-invocation_id
+session_input_id
 qa_run_ref
 opaque_attempt_ref
+structured_case_set_ref/digest
 source_ref/digest
-pql_input_set_ref/digest
-structured_plan_ref/digest
-package_manifest_ref/digest
-execution_profile
-requested semantic capabilities
-capability_port_set_ref/digest
-policy_ref/digest
+environment_profile_ref/digest
+bundle_manifest_ref/digest
+engine_id/version
+executor_id/version/capability_digest
+model_provider/model_id/model_revision
+prompt_bundle_ref/digest
+tool_catalog_ref/digest
+harness_ref/version/digest
+evaluator/reducer_ref/version/digest
+approval_policy_ref/digest
+inference_egress_policy_ref/digest
 budgets
 deadline
 producer/version
 request_digest
 ```
+
+这些字段用于 provenance、admission、replay 和结果审计，不允许携带 provider secret、token、cookie、raw prompt payload、host path 或脚本内容。
 
 不得包含：
 
@@ -307,32 +350,110 @@ request_digest
 - 未验证宿主绝对路径。
 - 任意 port/process handle/CDP endpoint。
 - raw Secret、cookie、browser storage 或 env dump。
-- arbitrary shell、任意 argv 或 package manifest 外 entrypoint。
+- 任意 shell、argv、script、generated code、interpreter eval、dynamic plugin/import、runtime package install 或未声明 entrypoint。
 
-本 Repo 定义 `TestingPackageExecutor` 逻辑接口；Runtime 实现 `TestingPackageInvocationAdapter` 和 capability ports。Testing Packages 在每个 typed effect 前调用 port 完成 authorization/cancel/deadline/fence 检查，但不保存或解释 Talos lease/generation。
+本 Repo 定义 provider-neutral `ModelInferencePort` 和 `TestCaseExecutionEngine / TestingAgentLoop` 语义；Runtime 实现独立的 local tool broker、ModelInference adapter 和 capability ports。TestingAgentLoop 在每个 typed tool call 前验证 tool catalog、approval scope、cancel/deadline/fence、budget 和 case binding，但不保存或解释 Talos lease/generation。
 
 ## 8. P0：Provider-neutral capability ports
 
-Runtime 应提供受限 port，例如：
+Runtime 应提供受限 capability ports，例如：
 
 ```text
-load immutable artifact
-perform typed process/http/browser effect
-return bounded Observation/effect receipt
-check cancel/deadline/fence
-write canonical artifact
+get_model_capabilities
+infer(request, bounded_context)
+return bounded ModelResponse / model receipt
+perform typed Browser/API/CLI tool effect
+return sanitized ModelObservation / effect receipt
+check cancel/deadline/fence/budget
+write canonical result/evidence refs
 record terminal refs
+```
+
+有效能力必须按交集计算：
+
+```text
+TestCase requested
+∩ data-bundle/tool catalog
+∩ Runtime advertised ports
+∩ Executor capability digest
+∩ execution policy
+∩ human approval scope
 ```
 
 边界：
 
-- Testing Packages 决定测试语义。
-- Runtime 决定本机 effect 是否可执行，并拥有 workspace/process/port/Chrome/cleanup。
+- Testing Packages 定义 TestCase、AI loop、tool semantics、evaluator 和 CaseResult 语义。
+- Runtime 提供具体 ModelInference adapter、provider egress/privacy policy、本机 effect broker、资源 ownership 和 Cleanup。
+- Talos 只负责 dispatch、attempt、lease/fence 和 bounded projection。
 - effect receipt 证明动作发生，不自动表示 assertion passed。
-- stale fence、cancel 或 deadline 必须在 point of use 被拒绝。
-- adapter 变化不能改变 Case/Assertion 语义。
+- stale fence、cancel、deadline、budget 或 tool catalog mismatch 必须在 point of use 被拒绝。
+- adapter/provider 变化不能改变 Case/Assertion 语义。
 
-## 9. P0：资源 Ownership 收缩
+## 9. P0：AI Engine、Evaluator、Ledger 和 Result Authority
+
+### 9.1 `TestCaseExecutionEngine / TestingAgentLoop`
+
+Target 语义入口直接接收 immutable structured TestCase：
+
+```text
+load TestCase
+-> build bounded model context
+-> request ModelInferencePort
+-> validate closed typed tool call
+-> request human approval when policy requires
+-> Runtime tool broker executes effect
+-> receive sanitized ModelObservation + effect receipt
+-> append AgentTurnLedger
+-> continue or terminate
+```
+
+不生成中间脚本、代码、动态 import、plugin 或任意 command。tool catalog 不允许运行中动态注册。
+
+### 9.2 Model identity and inference policy
+
+每次 session/Case 必须绑定：
+
+```text
+model_provider/model_id/model_revision
+prompt_bundle_ref/digest
+system_policy_ref/digest
+tool_catalog_ref/digest
+harness/engine_id/version
+evaluator/reducer_ref/version
+inference_egress_policy_ref/digest
+```
+
+provider SDK、provider secret、raw prompt 和 raw observation 不进入跨仓业务合同、Evidence 或日志。Runtime 负责具体 provider egress、credential isolation、privacy/region policy 和 adapter identity；Testing Packages 只依赖 provider-neutral `ModelInferencePort`。
+
+### 9.3 Evaluator and result authority
+
+Assertion 必须声明 `evaluator_kind`：
+
+- `deterministic`：由版本化 predicate 对 Observation/effect receipt 计算。
+- `model_judged`：AI 只能返回 strict structured verdict、reason code、confidence 和 Evidence refs。
+
+`AssertionReducer` 负责固定优先级归并，确定性失败、inconclusive、infrastructure error 和 approval denial 不能被模型静默覆盖。Testing Packages 生成 `ResultAuthorityReceipt`，至少绑定 Run/Attempt/TestCase/Plan/bundle/engine/model/prompt/tool/harness identity、AgentTurnLedger terminal digest、CaseResultSet 和 EvidenceManifest。
+
+### 9.4 AgentTurnLedger, replay and budgets
+
+`AgentTurnLedger` 至少记录：
+
+```text
+turn sequence
+request/context digest
+model response digest
+model/tool identity
+tool intent + canonical args digest
+tool/effect receipt
+sanitized ModelObservation digest
+evaluator/reducer transition
+budget before/after
+terminal authority receipt
+```
+
+ledger append-only、sequence 单调。已提交 turn replay 读取原 receipt，不重复 inference 或 effect；effect 后 assertion 前的未知状态为 `lost/inconclusive`，禁止自动 rerun。model turns、token/input-output、tool calls、effects、Observation/Evidence bytes 和 wall time budgets 必须持久化且单调消耗，restart/replay/repair 不能重置预算。
+
+## 10. P0：资源 Ownership 收缩
 
 当前 Environment Factory/Generic Host 的 exact checkout、process supervision、readiness、cleanup 和 restart patterns 可以作为参考，但生产 ownership 应迁到 Local QA Runtime。
 
@@ -343,14 +464,16 @@ record terminal refs
 | listener/port/readiness | Local QA Runtime |
 | Chromium/profile/downloads | Local QA Runtime |
 | raw quarantine/sanitized staging | Local QA Runtime |
-| typed plan/action/assertion/case semantics | Testing Packages |
-| Artifact long-term storage | Hosted Artifact domain |
+| structured TestCase/Step/Assertion/tool semantics | Testing Packages |
+| AI bounded interpretation / TestingAgentLoop | Testing Packages semantic engine；Runtime 仅提供 inference/effect ports |
+| model/provider credential、egress、local resource | Local QA Runtime adapter/policy |
+| Artifact long-term storage | decision-accepted Artifact domain |
 
 迁移期间不得让 Testing Packages 和 Runtime 同时拥有同一个 process、port 或 cleanup attempt。
 
-## 10. P1：PQL 和 Talos/Hosted 投影
+## 11. P1：PQL 和 Talos/Hosted 投影
 
-### 10.1 PQL input adapter
+### 11.1 PQL input adapter
 
 通过 adapter 消费：
 
@@ -362,7 +485,7 @@ record terminal refs
 
 adapter 只投影到现有 approved-input seam，不把 PQL promotion 业务逻辑写入 analyzer 核心。
 
-### 10.2 Runtime/Talos output projection
+### 11.2 Runtime/Talos output projection
 
 Testing Packages 输出 pointer-only canonical refs：
 
@@ -373,7 +496,7 @@ Testing Packages 输出 pointer-only canonical refs：
 
 它不实现 Talos submit/claim/heartbeat/result API，也不保存 task attempt/lease/fence。
 
-### 10.3 Publication 降为 adapter
+### 11.3 Publication 降为 adapter
 
 GitHub/filesystem publication 应：
 
@@ -383,7 +506,7 @@ GitHub/filesystem publication 应：
 - 不拥有 Final Quality。
 - publication 失败不触发 test rerun。
 
-## 11. P1：恢复和不确定性
+## 12. P1：恢复和不确定性
 
 必须冻结：
 
@@ -395,40 +518,42 @@ GitHub/filesystem publication 应：
 
 `browser.after_action_before_assertion` 不得映射为普通 assertion failure。
 
-## 12. P2：后续增强
+## 13. P2：后续增强
 
-在 contract、packaging 和 Runtime integration 完成后再考虑：
+在 TestCase/AI engine contract、tool catalog、ModelInferencePort 和 Runtime integration 完成后再考虑：
 
-- richer HTTP assertions。
-- 多 Browser Case。
+- live provider canary 和多模型策略。
+- 多 Browser TestCase。
 - richer Evidence media。
-- API/CLI backend 的 Talos profile。
-- 更多 package capability。
+- API/CLI/Mobile tool adapter。
+- 普通 UI exploration 和 mutation executor。
 
-所有增强必须复用同一 canonical result/evidence family。
+所有增强必须直接消费结构化 TestCase，复用同一 canonical result/evidence family，不引入脚本生成路径。
 
-## 13. 建议实施顺序
+## 14. 建议实施顺序
 
-### T1：Contract 和 release identity
+### T1：TestCase、AI engine 和 identity contracts
 
-1. 加固 canonical results/evidence contracts。
-2. 冻结 canonicalization/digest profile。
-3. 发布 `testing-package-manifest.v1`。
-4. 发布 `testing-runner-invocation.v1`。
+1. 冻结 structured TestCase/Step/Assertion/Evidence/Cleanup schemas。
+2. 发布 data-only bundle manifest 和 engine/tool catalog identity。
+3. 发布 `ai-testing-session-input.v1`。
+4. 发布 `ModelInferencePort`、strict tool schemas、effective capability intersection 和 durable budget contract。
+5. 定义 AgentTurnLedger、ResultAuthorityReceipt、AssertionReducer 和 CaseResult/Evidence binding。
 
-### T2：Production route convergence
+### T2：AI execution and Browser infrastructure gates
 
-1. CLI/HTTP 原生写 canonical pair。
-2. Browser route hardening。
-3. publication 消费公共 validator。
-4. legacy output 只由单一 compatibility adapter 派生。
+1. TestingAgentLoop 直接读取 TestCase，使用 deterministic/fake inference 运行多轮 tool loop。
+2. pre-model ModelObservation sanitization 和 inference egress policy。
+3. Browser fixed smoke 作为 infrastructure gate；未知工具、malformed args、prompt injection、refusal/truncation、budget exhaustion 和 no-script negative tests。
+4. canonical CaseResult/Evidence/ResultAuthorityReceipt 原子写入；publication 只消费 canonical output。
 
 ### T3：Runtime integration
 
-1. capability port interface 和 fake。
-2. Local QA Runtime invocation adapter fixture。
+1. Runtime generic tool broker、ModelInference adapter port 和 fake Executor。
+2. Local QA Runtime invocation/session adapter fixture。
 3. cancel/deadline/fence point-of-use tests。
-4. 资源 ownership 从 Generic Host/Environment Factory production path 迁出。
+4. AgentTurnLedger replay、no-rerun、monotonic budget 和 cleanup/recovery fixtures。
+5. 资源 ownership 从 Generic Host/Environment Factory production path 迁出。
 
 ### T4：Cross-repo conformance
 
@@ -437,17 +562,21 @@ GitHub/filesystem publication 应：
 3. Runtime happy/failure/cancel/crash fixture。
 4. package/version mismatch 和 unsupported major negative tests。
 
-## 14. 完成标准
+## 15. 完成标准
 
 本 Repo 对 Talos Testing MVP 的职责完成时应满足：
 
-- 默认 production route 原生写唯一 CaseResultSet/EvidenceManifest pair。
-- CLI、HTTP、Browser 相同测试语义输出等价 canonical facts。
-- package 有 exact version、commit、content digest、entrypoints 和 capabilities。
-- Runtime 只通过版本化 invocation 与 capability ports 调用 runner。
-- Testing Packages 不拥有 machine、lease、workspace、process、port、Chrome 或 cleanup。
+- production path 直接读取 immutable structured TestCase，不生成、保存或执行测试脚本/代码/plugin。
+- TestCaseExecutionEngine/TestingAgentLoop 只调用 closed strict typed tools，并消费 bounded sanitized ModelObservation。
+- ModelInferencePort 是 provider-neutral contract；provider secret、SDK object 和 raw observation 不进入业务 wire/Evidence/log。
+- model/provider/prompt/tool catalog/harness/evaluator identity 以 immutable refs/digests 绑定 session、AgentTurnLedger 和 ResultAuthorityReceipt。
+- deterministic/model-judged assertions 由 deterministic AssertionReducer 生成最终 AssertionResult/CaseResult；模型文本不能直接建立 passed。
+- CaseResultSet、EvidenceManifest 和 ResultAuthorityReceipt 形成同 Run/Attempt/Plan/bundle 的闭合 digest binding。
+- AgentTurnLedger replay 不重复 inference 或 effect；budget 在 restart/replay/repair 中单调消耗。
+- Runtime 只通过版本化 session input 与 capability ports 支持执行，不解释测试语义。
+- Testing Packages 不拥有 machine、lease、workspace、process、port、Chrome、provider credential 或 cleanup。
 - PQL asset lineage 能保留到 CaseResult。
-- stale/cancel/deadline 在 point of use fail closed。
-- interrupted side effect 不被猜测为 pass/fail，也不自动重跑。
+- stale/cancel/deadline/tool mismatch/approval denial 在 point of use fail closed。
+- interrupted side effect 为 `lost/inconclusive`，不自动重跑或开启替代 model turn。
 - publication/Artifact delivery repair 不重复执行测试。
-- Candidate 与 Target 不再被误写成默认分支已交付能力。
+- Baseline、Candidate、Live status 和 Target 不再互相冒充。
