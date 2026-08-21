@@ -2,11 +2,13 @@
 
 > Repo：[ChronoAIProject/fkst-hosted](https://github.com/ChronoAIProject/fkst-hosted)
 >
-> 审计日期：2026-08-20
+> 审计日期：2026-08-21
 >
 > Pinned Baseline：[`feat/local-qa-runtime@c79d11d99ba854d14ce41b2849ba0bbf5c50e522`](https://github.com/ChronoAIProject/fkst-hosted/commit/c79d11d99ba854d14ce41b2849ba0bbf5c50e522)
 >
-> Live status overlay（2026-08-21）：`feat/local-qa-runtime@e91154e89eda84fef2ff7d86623b586be60fd792`；`develop@5af95163cbcdad5dcffac1cc17418bc5417ba98c`。Live branch 仍相对 `develop` 明显分叉；本文结论不得外推为主线能力。`#6009` Journal v4 reopen issue 已 closed/completed；在 live head 代码和 reopen tests 复核前，issue 状态不单独构成实现证据。
+> Live status overlay（2026-08-21）：当前远端 `feat/local-qa-runtime@bd2a52b53dd486fea3f307bc937e3fa803eaf3bf`；`develop@5af95163cbcdad5dcffac1cc17418bc5417ba98c`。Live branch 仍相对 `develop` 明显分叉；本文结论不得外推为主线能力。`#6009` Journal v4 reopen issue 已 closed/completed；pinned `c79d11d` 的 reopen defect 只作为历史证据，live `bd2a52b` 是否完成修复仍须以代码和 reopen tests 复核，issue 状态本身不构成实现证据。
+>
+> 规范性边界：`fixtures/local-qa-host-mvp-contract-v1.json` 和 `fixtures/local-qa-host-mvp-failpoint-matrix-v1.json` 当前标记为 `draft`、`normative=false`、`completion_gate=MVP-A0`。它们是 seed corpus，不是已通过的 production conformance gate。
 >
 > 实际代码位置：`apps/local-qa-runtime` 和 `packages/qa-contracts`。当前产品进程为 **Local QA Host**，Rust package/executable 为 `fkst-local-qa-host`；目录中同时保留未来 Hardened Runtime 的 inert shells。
 >
@@ -57,7 +59,7 @@ Talos 拥有 QARun、placement、lease/generation/fence 和 current-claim author
 
 ### 0.2 本轮核实状态
 
-- Live branch `feat/local-qa-runtime@e91154e89eda84fef2ff7d86623b586be60fd792` 已超出 pinned `c79d11d` Baseline；`PassingExecutor`、inert admission、cancel/recovery 和 AI/tool loop 必须逐项按 live head 复核。
+- Live branch `feat/local-qa-runtime@bd2a52b53dd486fea3f307bc937e3fa803eaf3bf` 已超出 pinned `c79d11d` Baseline；`PassingExecutor`、inert admission、cancel/recovery 和 AI/tool loop 必须逐项按 live head 复核。
 - Pinned Baseline 的 Host 只接受 `{"kind":"inert"}`，production 使用 `PassingExecutor`，并在没有真实 effect 时写入 evidence/upload/terminal 状态。
 - `#6009` Journal v4 reopen 已 closed/completed；当前文档保留该问题作为历史 Baseline 证据，不把 issue 关闭本身当作代码验证。
 - 执行中 cancel、executor error、restart stranded attempt、通用 AI/tool loop、Talos adapter 和 decision-pending Authorization/Artifact 接线仍是 Target/Candidate。
@@ -83,7 +85,7 @@ Talos 拥有 QARun、placement、lease/generation/fence 和 current-claim author
 - Rust/TypeScript `qa-contracts` 已有 lifecycle、Evidence、Worker protocol 和 canonical digest 基础。
 - ownership 模块已有 durable intent、stable provider key、labels 和 handle binding。
 
-Pinned `c79d11d` Baseline 的这些能力没有被 production Host 串联，并存在 Journal v4 reopen bug。该缺陷已由 #6009 标记 closed/completed，但 live `e91154e8...` 必须通过代码和 reopen tests 重新验证；本文不再把它作为未经验证的当前第一 blocker。
+Pinned `c79d11d` Baseline 的这些能力没有被 production Host 串联，并存在 Journal v4 reopen bug。该缺陷已由 #6009 标记 closed/completed，但 live `bd2a52b...` 必须通过代码和 reopen tests 重新验证；本文不再把它作为未经验证的当前第一 blocker。
 
 当前真实生产路径是：
 
@@ -120,7 +122,22 @@ authorized Run
 
 > **组件级基础较强，但 production vertical slice 缺失。没有任何现有命令能从 Host submit 开始，真实执行 Worker、Chrome、测试判定、Evidence、Cleanup，并得到持久化 terminal result。**
 
+当前最早的真实阻塞不是缺少更多组件 fixture，而是：Host 仍接受 inert request，生产路径仍使用 `PassingExecutor`，并把 synthetic `passed` 推进成 evidence/upload/terminal 状态。必须先建立 Host-owned execution spine，才能把后续 contract 和 recovery 变成真实 effect 的约束。
+
 最短路线不是重写 Browser、Worker 或 Evidence，而是先建立 Host-owned execution spine，把现有组件接成第一条诚实可执行链路；随后再接 exact Source、受控 Environment/readiness、Testing Packages、Talos adapter、恢复和 Artifact 交付。
+
+### 1.3 MVP 分层与证据门槛
+
+Local QA Runtime 的“可用 MVP”需要拆成四个不能互相替代的 gate：
+
+| Gate | 目标 | 当前状态 | 不能推出的结论 |
+| --- | --- | --- | --- |
+| `MVP-0A` Browser assembly | Host acceptance → real Worker → Chrome → Evidence → exact Cleanup → durable terminal | 未完成；production 仍为 `PassingExecutor` | 不证明 AI TestCase、AssertionReducer 或 Talos canary |
+| `MVP-0B` Runtime Core | strict admission、Source/Environment、cancel/deadline、restart/reconcile、OwnedHandle 和正交 Outcomes | 未完成；多项仍为 absent/disconnected | 不证明 Testing Packages semantic engine 已接通 |
+| `MVP-0C` AI Test Execution | Testing Packages adapter、ModelInferencePort、sanitized Observation、typed tools、AssertionReducer、CaseResult authority | 未完成；当前没有 Runtime production peer | 不证明完整 PQL/Talos/Artifact vertical slice |
+| `MVP-1` Cross-repo Browser canary | PQL → NyxID → Talos → Worker → Runtime → Testing Packages → Artifact/terminal refs | 外部 conditional target | 不属于 Local QA Runtime 单 repo 可独立完成 |
+
+`MVP-0A` 的 fixed Browser smoke 是 infrastructure assembly gate；`MVP-0C` 才是 AI TestCase semantic gate。不能用 fixed smoke、fake Executor、draft fixture 或组件测试代替另一层的通过证据。
 
 固定 Baseline 关键证据：
 
@@ -374,6 +391,21 @@ authorization issuer/key ID/operation/method/path/body digest/nonce/expiry
 
 Runtime 不复制 assertion/domain logic、不调用模型、不生成脚本；Worker 不直接打开 Chrome；Testing Packages 不拥有 Talos lease 或本机资源。任何 AI tool call 都必须通过 closed tool catalog 和 Runtime point-of-use authorization。
 
+### 4.6 当前 P0 退出条件与 owner backlog
+
+在进入完整 MVP 前，以下条件必须逐项完成：
+
+- **真实 admission：** 替换 inert body，接收 strict、bounded、digest-bound 的 Run request；在 local credential、operation-specific authorization、Talos current-claim、Source/Plan/Environment/package/executor identity、nonce/idempotency 和 single-active transaction 全部通过后，才允许创建本地资源。
+- **真实 executor：** 生产路径移除 `PassingExecutor`；由 Host-owned executor spawn/supervise Worker，连接 Browser adapter、Evidence stager 和 Cleanup manager。`PassingExecutor` 只能作为 test fake。
+- **错误收敛：** Worker/protocol/executor/Chrome/Evidence/cleanup error 都必须落到 bounded Outcome、Event、CleanupReceipt 或 blocking residual，不能直接退出 coordinator。
+- **取消与 deadline：** cancel intent 先入 Journal，再拒绝新 effect、signal Worker、停止 Browser/Compose/process tree、完成 cleanup；`CancelAck` 不等于停止完成。
+- **重启恢复：** startup 关闭 admission，迁移 Journal，发现 attempt/resource，按 stable key 和 ownership reconcile；effect 可能已发生时固定为 `lost_or_inconclusive`，禁止自动重跑。
+- **Worker protocol：** 补齐 absolute deadline、per-effect timeout、heartbeat/liveness、cancel/abort frame、bounded stdout/stderr、cleanup acknowledgement 和 stale generation/fence rejection。
+- **Source/Environment：** exact Source、per-run workspace、versioned Environment Profile、controlled Compose、typed readiness、loopback port ownership 和 resource budgets 必须成为真实 Host path。
+- **AI semantic gate：** Runtime 只能通过 resolved package/executor identity、`TestingPackageExecutor`、ModelInferencePort、sanitized ModelObservation 和 typed capability ports 接入 Testing Packages；CaseResult、EvidenceManifest、ResultAuthorityReceipt 和 AgentTurnLedger 必须真实持久化。
+
+已有 hosted owner-side backlog：[#5977](https://github.com/ChronoAIProject/fkst-hosted/issues/5977) Browser Executor assembly、[#6010](https://github.com/ChronoAIProject/fkst-hosted/issues/6010) durable cancellation、[#6011](https://github.com/ChronoAIProject/fkst-hosted/issues/6011) failure/timeout/restart reconciliation、[#6012](https://github.com/ChronoAIProject/fkst-hosted/issues/6012) strict admission v2、[#6020](https://github.com/ChronoAIProject/fkst-hosted/issues/6020) generic Runtime Core。它们是实现 backlog，不是当前代码已完成的证据。
+
 ## 5. MVP-0：先建立第一条诚实的本地 E2E
 
 MVP-0 的目标是让一个 hermetic Browser Run 从 Host submit 真正走到 terminal。它是完整 MVP 的本地执行基线，不代表 NyxID、生产授权、安装分发、云端 upload/report 已完成。
@@ -393,7 +425,7 @@ canonical structured TestCase request
 → durable AgentTurnLedger / Snapshot / Events / Outcomes
 ```
 
-### 5.1 第一增量：先把已有组件真实串起来
+### 5.1 `MVP-0A`：Browser infrastructure assembly gate
 
 在完整 AI TestCaseExecutionEngine 接入前，保留固定 browser-smoke 作为 **Browser infrastructure assembly gate**。它只证明 Host/Worker/Chrome/Evidence/Cleanup 基础，不证明 AI 能解释 TestCase，也不证明 tool-use Target 已完成：
 
@@ -422,18 +454,49 @@ HTTP submit
 
 这条 assembly gate 仍是固定 infrastructure fixture，不是 AI/tool-use conformance，也不能声称测试语义已闭合；它只消除当前最严重的问题：Host 声称 passed，却从未执行任何真实 effect。
 
-### 5.2 MVP-0 完成还需加入 Source、Compose 和 Testing Packages
+`MVP-0A` 的退出条件是：生产不再使用 `PassingExecutor`；真实 Worker、Chrome、Evidence 和 Cleanup 每个 effect 都有可验证计数；success/failure/crash/timeout 都产生独立 Outcome；Host kill/restart 不重复 Browser effect；每条路径都有 CleanupReceipt 或 blocking residual。
 
-完成 assembly gate 后，再把内建 fixture 替换为：
+### 5.2 `MVP-0B`：Runtime Core correctness
 
-- exact immutable Source Object。
-- per-run workspace，不修改用户原 checkout。
-- digest-bound Environment Profile。
-- 一个受控 Compose project 和 typed readiness。
-- `fkst-packages-testing` 的版本化 Browser/Assertion/CaseResult contract。
-- Run-wide OwnedHandle 和 CleanupReceipt。
+在 assembly gate 后，必须把 fixed fixture 替换为真实 Runtime Core 入口，并完成：
 
-只有这一层完成，才可以称为“本地 MVP 流程跑通”。
+- strict Run admission、local credential、business authorization、current-claim、nonce/idempotency 和 active slot；
+- exact Source、per-run workspace、Environment Profile、Compose/readiness 和 loopback port ownership；
+- cancel/deadline、executor error、Host restart、stranded attempt、OwnedHandle 和 cleanup reconcile；
+- 四类正交 Outcomes、bounded SafeError、Snapshot/Event/cursor integrity；
+- profile 名称统一为 `local_qa_agent_mvp`；旧 `local_qa_host_mvp` 只能由 compatibility reader 接受，不能作为新 admission output。
+
+`MVP-0B` 的退出条件是：真实项目能够完成 pass、assertion failure、readiness timeout、cancel、Chrome crash、executor error、Host kill/restart；不重复执行、不跨 Run 清理，且每条路径都有持久化 Outcome 与 CleanupReceipt/residual。
+
+### 5.3 `MVP-0C`：AI Test Execution gate
+
+只有 Runtime Core correctness 通过后，才接入 Testing Packages semantic engine：
+
+```text
+resolved package/executor identity
+→ TestingPackageExecutor
+→ immutable TestCase + StructuredPlan
+→ ModelInferencePort
+→ closed typed tool
+→ Runtime capability broker
+→ sanitized ModelObservation + effect receipt
+→ AssertionReducer
+→ CaseResultSet + EvidenceManifest + ResultAuthorityReceipt
+```
+
+必须覆盖 unknown/malformed tool、prompt injection、refusal/timeout/truncation、budget exhaustion、forged receipt、AgentTurnLedger replay 和 action 后 assertion 前的 `lost_or_inconclusive`。这一 gate 不应由 fixed Browser smoke 或 fake Executor 代替。
+
+### 5.4 `MVP-0B/0C` 的组合退出条件
+
+Source、Compose、Testing Packages 和 Run-wide ownership 已分别列入 `MVP-0B`、`MVP-0C`；这里不再把它们重复计为 assembly gate。组合退出条件是：
+
+- exact immutable Source Object 和 per-run workspace 不修改用户原 checkout；
+- digest-bound Environment Profile 启动受控 Compose，并生成 typed readiness；
+- `fkst-packages-testing` 的版本化 Browser/Assertion/CaseResult contract 通过 adapter 接入；
+- Run-wide OwnedHandle 和 CleanupReceipt 覆盖 workspace、Compose、Worker、Chrome、Evidence staging；
+- 任一 Source、readiness、Testing Packages 或 cleanup failure 都产生 bounded Outcome，且不重跑已发生的 effect。
+
+只有 `MVP-0A`、`MVP-0B` 和 `MVP-0C` 全部完成，才可以称为“本地 MVP 流程跑通”。
 
 ## 6. 完整 MVP Gap Matrix
 
@@ -708,6 +771,20 @@ AssertionReducer → canonical AssertionResult + CaseResult + ResultAuthorityRec
 
 Executor 只对协议、进程/网络/Browser effect 和观察失败负责；Runtime 不解释断言；AI 文本不能决定 passed；Testing Packages 的 reducer 是最终 CaseResult 语义权威。
 
+### 9.6 安装、pairing 和本地 IPC 生命周期
+
+完整 MVP 还需要一条可安装、可升级、可撤销的 Host 生命周期，而不是只能手工启动 `local-demo`：
+
+- signed Host artifact、install/update/rollback/uninstall；
+- 显式 Node pairing 和 installation identity；
+- local credential rotation、revoke、reset；
+- pairing epoch、旧 binding retirement 和本地 IPC sequence ledger；
+- Host restart 后先恢复 binding/revocation state，再开放 authenticated traffic；
+- 旧 pairing、sequence gap、revocation batch gap 和 stale IPC binding 必须 fail closed；
+- 安装/升级失败不得清空 Journal、nonce、resource ownership 或 admission history。
+
+这些能力属于 Local QA Host product entry/operations，不应被未来 Hardened `launcher`、`supervisor` 或 `secret-broker` inert shell 伪装替代。当前没有完成安装、pairing、credential lifecycle 和 production IPC evidence，因此不能把 `local-demo` 入口称为可交付 MVP。
+
 ## 10. 统一 E2E Gate
 
 当前仓库没有一条 whole-flow command。目标应增加单一入口，例如：
@@ -720,7 +797,9 @@ bash apps/local-qa-runtime/tests/local-qa-host-mvp-e2e.sh --all
 
 该 gate 应构建 Rust/Worker，启动 hermetic Source/Compose fixture 和 Host，提交 Run，等待 terminal，并检查 Journal、Events、Outcomes、Evidence 和 Cleanup。现有 fixed Browser smoke 只作为 Browser infrastructure gate；另需独立 AI Test Execution E2E gate，验证 TestCase → model turn → typed tool → sanitized ModelObservation → AssertionReducer。
 
-### 10.1 MVP-0 必测场景
+### 10.1 `MVP-0A` Browser assembly 必测场景
+
+以下场景属于 Browser assembly gate；它们必须先由真实 Host/Worker/Chrome/Evidence/Cleanup 链路通过，不能由 `PassingExecutor` 或 fake executor 代替。
 
 | 场景 | 必须证明 |
 | --- | --- |
@@ -744,6 +823,8 @@ bash apps/local-qa-runtime/tests/local-qa-host-mvp-e2e.sh --all
 | AgentTurnLedger replay | 已提交 turn 不重复 inference/effect；effect uncertainty 为 `lost/inconclusive` |
 | forged effect receipt | Runtime/Testing Packages binding 校验失败；不提交 CaseResult |
 | assertion reducer | deterministic/model-judged verdict 经过 reducer；模型文本不能直接建立 passed |
+
+其中前十一个场景是 `MVP-0A/0B` 的 Host/Runtime gate；AI TestCase loop、unknown tool、prompt injection、model refusal/truncation、budget、AgentTurnLedger、forged receipt 和 reducer 属于独立的 `MVP-0C` semantic gate。两类 gate 都必须通过，才能称为 Local QA Host Browser MVP。
 
 ### 10.2 完整 MVP 增补场景
 
@@ -794,6 +875,8 @@ PYTHON=python3.12 scripts/run.sh example generic-host
 - approved tool catalog、capability intersection、inference policy 和 durable budget 已绑定。
 - Runtime request、Journal、Event 和 log 不包含 NyxID bearer、worker token、raw `lease_token`、provider secret 或 raw prompt/observation。
 - 所有校验在 workspace、Compose、Worker、model call、tool effect、Chrome 或 staging effect 前完成。
+- `local_qa_agent_mvp` 是唯一新 admission profile；`local_qa_host_mvp` 只能由显式 compatibility reader 接受，不能作为新输出。
+- Host 已安装 artifact、pairing epoch、local credential、revocation state 和 IPC sequence ledger 在 restart/update/re-pair 后仍可恢复，并且旧 binding 在新 effect 前 fail closed。
 
 ### 11.2 可执行
 
@@ -858,4 +941,9 @@ launcher、supervisor、guest-agent 和 secret-broker shells 必须保持 inert�
 6. 接入 Talos-owned TestingExecutor/LocalQARuntimeAdapter、delivery/Artifact consumer contract 和安装运维。
 7. 增加 AI Test Execution E2E 与 live-provider canary，作为 feature branch 合并和发布 gate。
 
-只有当 AI E2E 能证明结构化 TestCase 直接执行、strict typed tools、pre-model sanitization、model/tool identity、ledger replay、budget exhaustion、deterministic result reduction、取消/崩溃恢复和 no-script/no-rerun 全部成立，才可以称为 Local QA Runtime Browser MVP 完成。
+只有当以下四层证据全部成立，才可以称为 Local QA Runtime Browser MVP 完成：
+
+1. `MVP-0A`：真实 Host/Worker/Chrome/Evidence/Cleanup assembly，生产不再使用 `PassingExecutor`，并能形成 durable terminal。
+2. `MVP-0B`：strict admission、exact Source/Environment、cancel/deadline、executor error、restart/reconcile、OwnedHandle 和正交 Outcomes 全部闭合。
+3. `MVP-0C`：AI E2E 能证明结构化 TestCase 直接执行、strict typed tools、pre-model sanitization、model/tool identity、ledger replay、budget exhaustion、deterministic result reduction、`lost/inconclusive`、取消/崩溃恢复和 no-script/no-rerun。
+4. `MVP-1`：若声称完整跨仓 Browser canary，还必须加上 Talos TestingTask/Worker、Hosted Authorization、ArtifactStore、安装 pairing 和真实 macOS canary；这些是外部 owner 的独立 gate，不由本 repo 单独证明。
