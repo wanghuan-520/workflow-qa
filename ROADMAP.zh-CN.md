@@ -4,9 +4,9 @@
 >
 > 日期：2026-08-20
 >
-> Target：[PQL Testing 简化时序图](design-proposals/diagrams/pql-testing-simple-flow.mmd) 与 [Talos Testing Tool 最小 MVP 设计](design-proposals/talos-testing-tool-mvp-design.zh-CN.md)
+> Target：[PQL Testing 简化时序图](design-proposals/diagrams/V2/pql-testing-simple-flow.mmd) 与 [Talos Testing Tool 最小 MVP 设计](design-proposals/talos-testing-tool-mvp-design.zh-CN.md)
 >
-> Gap 索引：[repo-gaps/README.zh-CN.md](repo-gaps/README.zh-CN.md)
+> Gap 索引：[repo-gaps/V2/README.zh-CN.md](repo-gaps/V2/README.zh-CN.md)
 >
 > Hosted 决策状态：Authorization Authority 和最小 ArtifactStore 为 **Proposed / Decision pending**，详见 [边界决策提案](design-proposals/hosted-authorization-artifact-boundary-decision.zh-CN.md)。`MVP-H` workstream 只在提案被 maintainer 接受后成为 Active implementation target；R6 只保留 Post-MVP Quality/Report/Publication/Settlement。
 
@@ -73,12 +73,12 @@
 
 | Repo | 起始基线 | Roadmap 主要职责 |
 | --- | --- | --- |
-| `ChronoAIProject/fkst-packages-testing` | [`dev@ac953ff0`](https://github.com/ChronoAIProject/fkst-packages-testing/commit/ac953ff0bb3f1c909728e66c3968cbb3ed5e3cf1) | StructuredPlan、runner、Assertion/CaseResult、Evidence contract |
+| `ChronoAIProject/fkst-packages-testing` | Pinned [`dev@4ccb3c3a`](https://github.com/ChronoAIProject/fkst-packages-testing/commit/4ccb3c3a71dbd1005ff1a88d71dda6aa8133cbd5)；live candidate [`dev@39e9bd5`](https://github.com/ChronoAIProject/fkst-packages-testing/commit/39e9bd529ce96effe52555761084d0062ae52ee7) | Compiler、StructuredPlan、Runner、Assertion/CaseResult、Evidence contract |
 | `YueZh127/product-quality-loop` | [`main@5096cde5`](https://github.com/YueZh127/product-quality-loop/commit/5096cde5349c66fa9725b39e4008951887b17cd0) | Snapshot/Selection、Testing Tool client、TestingRunRecord |
 | `ChronoAIProject/talos` | [`main@a32e537f`](https://github.com/ChronoAIProject/talos/commit/a32e537f8ded5d52886cd6ebec0a1ea59aeb3ecb) | Testing Tool/QARun、调度、attempt/lease/fence、worker |
 | `ChronoAIProject/fkst-hosted` | [`feat/local-qa-runtime@c79d11d`](https://github.com/ChronoAIProject/fkst-hosted/commit/c79d11d99ba854d14ce41b2849ba0bbf5c50e522) | Runtime admission、Journal、本机环境、Browser、Evidence、Cleanup；Hosted Authorization/Artifact owner 仍待决策 |
 
-`feat/local-qa-runtime` 相对 `develop` 已明显分叉。本 Roadmap 中的 Runtime 实施和验证必须固定到明确 commit/branch，不能直接推断主线已包含对应能力。
+`feat/local-qa-runtime` 相对 `develop` 已明显分叉。本 Roadmap 中的 Runtime 实施和验证必须固定到明确 commit/branch，不能直接推断主线已包含对应能力。Testing Packages 的 live `dev` 也已领先 pinned audit baseline；更新起始基线前必须完成增量复审和跨仓 fixture 验证。
 
 ## 4. 阶段和 Gate 总览
 
@@ -272,7 +272,7 @@ bash apps/local-qa-runtime/tests/local-qa-host-mvp-e2e.sh --all
 - Browser action success 与 Case passed 分离。
 - effect 后 assertion 前 crash 映射为 lost/inconclusive。
 
-优先级对照和 upstream Issue 状态见 [Testing Packages Gap §5.3](repo-gaps/fkst-packages-testing-gap-analysis.zh-CN.md)。
+优先级对照和 upstream Issue 状态见 [Testing Packages Gap §5.3](repo-gaps/V2/fkst-packages-testing-gap-analysis.zh-CN.md)。
 
 ### 7.4 资源 ownership 迁移
 
@@ -628,7 +628,7 @@ MVP-H decision accepted -> Authorization/Artifact implementation --------┤
 - owning repo 的实现已合入明确分支/commit。
 - 阶段退出标准已由自动化 Gate 证明。
 - 跨 repo contract fixture 已更新并通过。
-- 对应 [Gap 文档索引](repo-gaps/README.zh-CN.md) 已刷新固定 Baseline。
+- 对应 [Gap 文档索引](repo-gaps/V2/README.zh-CN.md) 已刷新固定 Baseline。
 - Candidate 和 Target 没有被误写成已交付能力。
 
 Roadmap 不使用模糊百分比。部分完成时列出已通过和仍阻塞的 Gate，不把 component test 通过等同于阶段完成。

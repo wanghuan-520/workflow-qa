@@ -4,7 +4,7 @@
 >
 > 当前已冻结范围：`local_qa_agent_mvp` Browser-only；未来另有 `hardened_untrusted_code` 执行 Profile。Talos Testing Tool/Scheduler/worker 是目标调度提案，在 owning repo contract 冻结前不替代本文的 direct Host baseline。
 >
-> Talos 目标提案流程图：[Talos testing dispatch sequence](design-proposals/diagrams/pql-testing-simple-flow.mmd)。该图只覆盖调度与执行返回，不表示 Artifact、Quality、Report、Publication 或 Settlement 已闭合。
+> Talos 目标提案流程图：[Talos testing dispatch sequence](design-proposals/diagrams/V2/pql-testing-simple-flow.mmd)。该图只覆盖调度与执行返回，不表示 Artifact、Quality、Report、Publication 或 Settlement 已闭合。
 
 ## 1. 结论
 

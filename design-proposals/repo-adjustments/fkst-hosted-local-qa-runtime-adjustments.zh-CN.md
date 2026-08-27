@@ -15,8 +15,8 @@
 - [Talos 有界 Testing Tool 总体设计](../talos-bounded-testing-tool-architecture.zh-CN.md)
 - [fkst-packages-testing 调整方案](fkst-packages-testing-adjustments.zh-CN.md)
 - [product-quality-loop 调整方案](product-quality-loop-adjustments.zh-CN.md)
-- [本仓库 Hosted 缺口分析](../../repo-gaps/fkst-hosted-gap-analysis.zh-CN.md)
-- [本仓库 Local QA Runtime 缺口分析](../../repo-gaps/local-qa-runtime-gap-analysis.zh-CN.md)
+- [本仓库 Hosted 缺口分析](../../repo-gaps/V2/fkst-hosted-gap-analysis.zh-CN.md)
+- [本仓库 Local QA Runtime 缺口分析](../../repo-gaps/V2/local-qa-runtime-gap-analysis.zh-CN.md)
 
 ---
 
@@ -1100,7 +1100,7 @@ NyxID caller
 ### 13.5 本仓库参考
 
 - [总体 Talos Testing Tool 设计](../talos-bounded-testing-tool-architecture.zh-CN.md)
-- [Hosted 缺口分析](../../repo-gaps/fkst-hosted-gap-analysis.zh-CN.md)
-- [Local QA Runtime 缺口分析](../../repo-gaps/local-qa-runtime-gap-analysis.zh-CN.md)
+- [Hosted 缺口分析](../../repo-gaps/V2/fkst-hosted-gap-analysis.zh-CN.md)
+- [Local QA Runtime 缺口分析](../../repo-gaps/V2/local-qa-runtime-gap-analysis.zh-CN.md)
 
 本次审计为严格只读，未运行会生成 `target/` 或其他产物的 build/test。本文中的 Gate 是后续实施验收要求，不表示当前已经通过。

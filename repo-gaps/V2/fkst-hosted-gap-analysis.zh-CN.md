@@ -1,4 +1,4 @@
-# fkst-hosted Proposed MVP Authorization / Artifact 与后续云端领域缺口
+# fkst-hosted Proposed MVP Authorization / Artifact 与后续云端领域缺口 V2
 
 > 状态：**Proposed / Decision pending for MVP Authorization + Artifact / Historical for Hosted-owned QARun**
 >
@@ -8,13 +8,26 @@
 >
 > 最后边界校正：2026-08-20
 >
-> 架构决策：[Hosted Authorization 与 MVP ArtifactStore 边界决策](../design-proposals/hosted-authorization-artifact-boundary-decision.zh-CN.md)。在该提案被 maintainer 接受前，`fkst-hosted` 是 proposed owner，本文只记录候选缺口，不是 Active implementation backlog。
+> 架构决策：[Hosted Authorization 与 MVP ArtifactStore 边界决策](../../design-proposals/hosted-authorization-artifact-boundary-decision.zh-CN.md)。在该提案被 maintainer 接受前，`fkst-hosted` 是 proposed owner，本文只记录候选缺口，不是 Active implementation backlog。
 >
 > 本文的候选范围是 Browser MVP 所需的 Hosted Authorization Authority 和最小 ArtifactStore，以及 Post-MVP 的 Final Quality、Report、Publication 和 Settlement。它不再定义 Testing operational QARun、机器 placement、lease/fence 或 worker execution。
 >
-> 最新 Target 中：Talos 是 Testing Tool/QARun operational authority，详见 [talos 详细缺口](talos-gap-analysis.zh-CN.md)；PQL 产品侧运行投影见 [product-quality-loop 详细缺口](product-quality-loop-gap-analysis.zh-CN.md)；本机执行见 [local-qa-runtime 详细缺口](local-qa-runtime-gap-analysis.zh-CN.md)。
+> 最新 Target 中：Talos 是 Testing Tool/QARun operational authority，详见 [talos 详细缺口](../V2/talos-gap-analysis.zh-CN.md)；PQL 产品侧运行投影见 [product-quality-loop 详细缺口](../V2/product-quality-loop-gap-analysis.zh-CN.md)；本机执行见 [local-qa-runtime 详细缺口](../V2/local-qa-runtime-gap-analysis.zh-CN.md)。
 >
 > 本文旧版依据了 Hosted-owned scheduler/direct NyxID dispatch 方案。涉及 Durable QARun、设备选择、QA scheduler、dispatch attempt 和 local event polling 的章节只保留为历史设计素材，不得作为最新 implementation target 或已交付事实；候选实施顺序只包含待决策的 Authorization/Artifact 和 Post-MVP 下游领域。
+
+## V2 接入边界校正
+
+`fkst-hosted` 的 Hosted Control Plane 可以承载 PQL/Talos 之间的控制与后续 Artifact/Quality 领域，但不应在 Hosted 内重新实现 Testing Packages 语义或 Local QA Runtime 执行器。PQL 使用 Testing Packages Compiler 生成 StructuredPlan；Talos 通过 worker 将 package/runner/plan refs 和 digests 传到 Local QA Runtime；Runtime 使用 Testing Packages Runner 产生 CaseResult。
+
+```text
+PQL + Testing Packages Compiler
+  -> Talos Testing Tool / QARun / worker
+  -> Local QA Runtime + Testing Packages Runner
+  -> CaseResult / Evidence / Cleanup refs
+```
+
+Hosted 侧只消费这些 bounded refs 和 receipts；不直连 Runtime，不复制 `testing-runner` 的 Assertion/CaseResult 逻辑，也不把 Artifact/delivery repair 误接成测试重跑。Hosted `quality-evaluation` 必须从完整 ReportInputSet/TestingRunRecord refs 计算最终 Quality；PQL 只消费 QualityEvaluation/Feedback 并形成资产提案，不直接读取 Talos task status 推断质量。
 
 ## 0. 2026-08-20 fkst-hosted 全局边界校正
 
@@ -542,7 +555,7 @@ PQL promotion 是当前报告之后的异步反馈闭环，不阻塞 ReportRecor
 
 ### H0：架构决策 Gate
 
-1. maintainer 接受或拒绝 [Hosted Authorization 与 MVP ArtifactStore 边界决策](../design-proposals/hosted-authorization-artifact-boundary-decision.zh-CN.md)。
+1. maintainer 接受或拒绝 [Hosted Authorization 与 MVP ArtifactStore 边界决策](../../design-proposals/hosted-authorization-artifact-boundary-decision.zh-CN.md)。
 2. 冻结 owning repo、object-storage 复用范围、deployment owner 和 Runtime 认证边界。
 3. 冻结 `prepare/commit/lookup`、receipt、retention/expiry/deletion 和 lost-ack reconcile owner。
 4. 在决策文件、Decision Issue/ADR 和 Roadmap `MVP-H` 中同步记录结果；未接受前不得创建 H1/H2 owner-specific implementation backlog。

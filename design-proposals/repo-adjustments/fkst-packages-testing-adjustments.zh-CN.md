@@ -13,7 +13,7 @@
 - [Talos 有界 Testing Tool 总体设计](../talos-bounded-testing-tool-architecture.zh-CN.md)
 - [fkst-hosted / Local QA Runtime 调整方案](fkst-hosted-local-qa-runtime-adjustments.zh-CN.md)
 - [product-quality-loop 调整方案](product-quality-loop-adjustments.zh-CN.md)
-- [本仓库 Testing Packages 缺口分析](../../repo-gaps/fkst-packages-testing-gap-analysis.zh-CN.md)
+- [本仓库 Testing Packages 缺口分析](../../repo-gaps/V2/fkst-packages-testing-gap-analysis.zh-CN.md)
 
 ---
 
@@ -1009,6 +1009,6 @@ PQL input
 ### 13.5 本仓库参考
 
 - [总体 Talos Testing Tool 设计](../talos-bounded-testing-tool-architecture.zh-CN.md)
-- [Testing Packages 缺口分析](../../repo-gaps/fkst-packages-testing-gap-analysis.zh-CN.md)
+- [Testing Packages 缺口分析](../../repo-gaps/V2/fkst-packages-testing-gap-analysis.zh-CN.md)
 
 本次审计为只读，未执行仓库 test suite。本文件中的 Gate 是后续实施要求，不表示当前通过。

@@ -91,7 +91,7 @@
 详见：
 
 - [Local QA Host MVP 设计](../local-qa-host-mvp-design.zh-CN.md)
-- [Local QA Runtime 实现缺口](../repo-gaps/local-qa-runtime-gap-analysis.zh-CN.md)
+- [Local QA Runtime 实现缺口](../repo-gaps/V2/local-qa-runtime-gap-analysis.zh-CN.md)
 - [跨 Repo 缺口总结](../cross-repo-gap-analysis.zh-CN.md)
 
 ### 2.4 Testing Packages 当前事实
@@ -107,7 +107,7 @@ Testing Packages 已有可复用的真实能力：
 
 当前主要缺口不是测试算法，而是跨 route 的公共合同没有唯一化：CLI/HTTP、旧 executor、Browser route 和 publication 仍存在不同 result shape、私有 validator 和重复 translation。
 
-详见 [Testing Packages 缺口分析](../repo-gaps/fkst-packages-testing-gap-analysis.zh-CN.md)。
+详见 [Testing Packages 缺口分析](../repo-gaps/V2/fkst-packages-testing-gap-analysis.zh-CN.md)。
 
 ### 2.5 product-quality-loop 当前事实
 
@@ -1434,9 +1434,9 @@ T3 + T4 + T5 + T6 + T7
 - [Future Hardened Local QA Runtime 设计](../hardened-local-qa-runtime-design.zh-CN.md)
 - [跨 Repo 调度与模块关系](../cross-repo-orchestration.zh-CN.md)
 - [跨 Repo 缺口总结](../cross-repo-gap-analysis.zh-CN.md)
-- [Testing Packages 缺口分析](../repo-gaps/fkst-packages-testing-gap-analysis.zh-CN.md)
-- [Hosted 缺口分析](../repo-gaps/fkst-hosted-gap-analysis.zh-CN.md)
-- [Local QA Runtime 缺口分析](../repo-gaps/local-qa-runtime-gap-analysis.zh-CN.md)
+- [Testing Packages 缺口分析](../repo-gaps/V2/fkst-packages-testing-gap-analysis.zh-CN.md)
+- [Hosted 缺口分析](../repo-gaps/V2/fkst-hosted-gap-analysis.zh-CN.md)
+- [Local QA Runtime 缺口分析](../repo-gaps/V2/local-qa-runtime-gap-analysis.zh-CN.md)
 - [Local QA Host MVP contract fixtures](../fixtures/local-qa-host-mvp-contract-v1.json)
 - [Local QA Host MVP failpoints](../fixtures/local-qa-host-mvp-failpoint-matrix-v1.json)
 - [NyxID Browser Loop PoC README](../poc/nyxid-browser-loop/README.md)

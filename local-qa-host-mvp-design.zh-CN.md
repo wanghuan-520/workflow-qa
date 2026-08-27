@@ -12,7 +12,7 @@
 >
 > **日期：** 2026-08-12
 >
-> **Talos 目标调度提案：** [Talos testing dispatch sequence](design-proposals/diagrams/pql-testing-simple-flow.mmd)。本文的 direct Host MVP 规范仍以内文状态、权威和数据流约束为准。
+> **Talos 目标调度提案：** [Talos testing dispatch sequence](design-proposals/diagrams/V2/pql-testing-simple-flow.mmd)。本文的 direct Host MVP 规范仍以内文状态、权威和数据流约束为准。
 
 ## 0. 先建立整体认识
 

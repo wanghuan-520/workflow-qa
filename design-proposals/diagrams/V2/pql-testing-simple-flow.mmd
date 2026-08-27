@@ -1,0 +1,121 @@
+%%{init: {
+  "theme": "base",
+  "themeVariables": {
+    "fontFamily": "PingFang SC, Microsoft YaHei, Arial, sans-serif",
+    "fontSize": "15px",
+    "actorBkg": "#F8FAFC",
+    "actorBorder": "#334155",
+    "actorTextColor": "#0F172A",
+    "actorLineColor": "#94A3B8",
+    "signalColor": "#334155",
+    "signalTextColor": "#0F172A",
+    "labelBoxBkgColor": "#E0F2FE",
+    "labelBoxBorderColor": "#0369A1",
+    "labelTextColor": "#0C4A6E",
+    "loopTextColor": "#0F172A",
+    "noteBkgColor": "#FEF3C7",
+    "noteBorderColor": "#B45309",
+    "noteTextColor": "#451A03"
+  },
+  "sequence": {
+    "useMaxWidth": false,
+    "wrap": true,
+    "diagramMarginX": 24,
+    "diagramMarginY": 16,
+    "actorMargin": 34,
+    "width": 160,
+    "height": 62,
+    "messageMargin": 28,
+    "noteMargin": 12,
+    "boxMargin": 10,
+    "boxTextMargin": 8
+  }
+}}%%
+sequenceDiagram
+  autonumber
+
+  box rgba(255, 244, 229, 0.55) 测试计划
+    actor U as 用户 / Agent
+    participant P as PQL
+    participant TC as Testing Packages Compiler
+  end
+
+  box rgba(231, 246, 243, 0.62) Talos 控制面
+    participant N as NyxID
+    participant T as Talos Testing Tool
+    participant S as Talos Scheduler
+    participant A as Hosted Authorization Authority<br/>Decision pending
+    participant W as talos-worker
+  end
+
+  box rgba(234, 246, 232, 0.62) 本地执行面
+    participant R as Local QA Runtime
+    participant TR as Testing Packages Runner
+    participant B as Browser Executor
+  end
+
+  U->>P: 提出测试目标
+  P->>P: 生成 ProjectPackSnapshot / TestSelection
+  P->>TC: approved TestSelection / InputSet
+  TC-->>P: StructuredPlan ref / digest
+  P->>P: 冻结 Source / Plan / Runner Package / Environment provenance
+
+  P->>N: TestingToolClient.get_capabilities
+  N->>T: 转发 capability 查询
+  T-->>N: execution profile / runtime / backend / limits
+  N-->>P: bounded capabilities
+
+  P->>N: TestingToolClient.submit<br/>refs / digests / policy
+  N->>T: identity / route / transport approval
+  T->>S: 验证 placement policy / exact input tuple<br/>pool visibility / eligible machine capacity
+  S-->>T: placement eligibility accepted
+  T->>T: 幂等创建 QARun
+
+  W->>T: outbound claim<br/>worker / machine capability
+  T->>S: 为 claiming machine 创建 TestingAttempt
+  S->>S: 原子占用 testing slot<br/>创建 reservation / lease / generation / fence
+  S-->>T: reservation + exact attempt binding
+  T->>A: 请求 operation-specific authorization
+  A-->>T: LocalQARequestAuthorization ref / digest
+  T-->>W: TestingTask + lease/fence + authorization
+  W->>T: heartbeat
+
+  W->>R: getCapabilities
+  R-->>W: runtime profile / backend / runner packages / limits
+  W->>W: 校验 Runtime capability<br/>和 package id/version/digest
+  W->>R: LocalQARuntimeAdapter.submitRun<br/>exact source/plan/package + authorization
+  R->>R: local admission / digest / current claim / fence
+  R-->>W: RunAcceptance + initial Snapshot
+  W->>T: local_accept
+
+  R->>TR: 加载匹配版本 Runner
+  loop 确定性执行冻结 StructuredPlan
+    TR-->>R: typed BrowserAction
+    R->>B: 执行 BrowserAction
+    B-->>R: bounded Observation
+    R->>TR: Observation
+    TR-->>R: AssertionResult / CaseResult
+  end
+
+  R->>R: Evidence + CleanupReceipt
+  R-->>W: CaseResultSet / Evidence refs / Cleanup refs
+  W->>T: bounded terminal execution facts
+  T->>T: 更新 QARun snapshot / events
+
+  loop 直到 QARun terminal
+    P->>N: get / events
+    N->>T: 转发查询
+    T-->>N: snapshot/events + result refs/digests
+    N-->>P: bounded response
+  end
+
+  P->>P: 保存 TestingRunRecord
+  P->>P: 校验 CaseResult / Evidence / Cleanup 完整性
+  P-->>U: 展示执行结果和 Evidence refs
+
+  Note over P,TC: PQL 使用 Compiler；Compiler 只生成冻结 StructuredPlan
+  Note over R,TR: Runtime 加载 Runner；Runner 负责 Action / Observation / Assertion / CaseResult
+  Note over P,R: PQL 不直连 Runtime；Testing Packages 不是网络转发服务
+  Note over N,T: NyxID 只负责身份、路由和传输审计；Talos Testing Tool 负责 QARun
+  Note over S,W: submit 先验证 placement；claim 时为该 worker/machine 原子 reservation 并绑定 attempt
+  Note over R,B: Runtime 拥有本地 Browser effect、Evidence 和 Cleanup

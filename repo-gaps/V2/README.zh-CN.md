@@ -1,12 +1,24 @@
-# Repo Gap 文档索引
+# Repo Gap 文档索引 V2
 
 > 最后审计：2026-08-20
 >
-> Target：[PQL Testing 简化时序图](../design-proposals/diagrams/pql-testing-simple-flow.mmd) 与 [Talos Testing Tool 最小 MVP 设计](../design-proposals/talos-testing-tool-mvp-design.zh-CN.md)
+> Target：[PQL Testing 简化时序图](../../design-proposals/diagrams/V2/pql-testing-simple-flow.mmd) 与 [Talos Testing Tool 最小 MVP 设计](../../design-proposals/talos-testing-tool-mvp-design.zh-CN.md)
 >
-> 实施路线：[PQL Testing 跨仓实施 Roadmap](../ROADMAP.zh-CN.md)
+> 实施路线：[PQL Testing 跨仓实施 Roadmap](../../ROADMAP.zh-CN.md)
 >
-> 架构决策状态：Hosted Authorization Authority 和最小 ArtifactStore 的 owner/MVP 必需性为 **Proposed / Decision pending**，详见 [边界决策提案](../design-proposals/hosted-authorization-artifact-boundary-decision.zh-CN.md)。Roadmap 已将该候选依赖拆为 `MVP-H` workstream，并把 Post-MVP Quality/Report 保留在 R6；在提案被 maintainer 接受前，本文不得把 `fkst-hosted` 描述为已冻结 owner。
+> 架构决策状态：Hosted Authorization Authority 和最小 ArtifactStore 的 owner/MVP 必需性为 **Proposed / Decision pending**，详见 [边界决策提案](../../design-proposals/hosted-authorization-artifact-boundary-decision.zh-CN.md)。Roadmap 已将该候选依赖拆为 `MVP-H` workstream，并把 Post-MVP Quality/Report 保留在 R6；在提案被 maintainer 接受前，本文不得把 `fkst-hosted` 描述为已冻结 owner。
+
+## V2 接入边界校正
+
+最新时序图将 Testing Packages 明确拆为两个使用面：PQL 使用 `testing-design / Compiler`，把 approved TestSelection 编译成 immutable StructuredPlan；Local QA Runtime 使用 `testing-runner`，执行冻结 StructuredPlan 并计算 Assertion/CaseResult。两者不是 PQL 直连 Runtime，也不是 Testing Packages 作为网络服务转发。
+
+```text
+PQL -> Testing Packages Compiler -> StructuredPlan + package/version/digest
+PQL -> Talos Testing Tool -> QARun -> Scheduler -> talos-worker
+talos-worker -> Local QA Runtime -> Testing Packages Runner -> CaseResultSet
+```
+
+Talos 只负责 QARun、TestingTask、placement、lease/generation/fence、cancel 和 bounded result projection；不得解释 Testing Packages 的断言语义。
 
 ## 0. 本轮结论：Testing 可以成为 Talos Tool
 
@@ -20,7 +32,7 @@ PQL / Agent
   -> talos-worker TestingExecutor
   -> LocalQARuntimeAdapter
   -> Local QA Runtime
-  -> Testing Packages + isolated system Chrome
+  -> Testing Packages Runner + isolated system Chrome
   -> CaseResultSet + EvidenceManifest + CleanupReceipt
 ```
 
@@ -46,7 +58,7 @@ talos.testing.cancel
 
 本目录按 owning repo 记录最新 Testing 目标架构与当前实现之间的缺口。
 
-`pql-testing-simple-flow` 是 **Target overview**，用于说明模块关系和主消息流，不表示 `PQL -> NyxID -> Talos -> Local QA Runtime` 已经形成生产闭环。审计结论统一区分：
+`diagrams/V2/pql-testing-simple-flow` 是 **Target overview**，用于说明模块关系和主消息流，不表示 `PQL -> NyxID -> Talos -> Local QA Runtime` 已经形成生产闭环。审计结论统一区分：
 
 | 证据层 | 含义 |
 | --- | --- |
@@ -66,21 +78,21 @@ talos.testing.cancel
 
 | 模块 | Branch / Commit | 审计边界 | 总体状态 |
 | --- | --- | --- | --- |
-| `ChronoAIProject/fkst-packages-testing` | [`dev@ac953ff0`](https://github.com/ChronoAIProject/fkst-packages-testing/commit/ac953ff0bb3f1c909728e66c3968cbb3ed5e3cf1) | Testing Packages 默认开发分支 | 语义和参考生命周期较完整，生产 runner packaging 与 Runtime/Talos 接线缺失 |
+| `ChronoAIProject/fkst-packages-testing` | Pinned Baseline [`dev@4ccb3c3a`](https://github.com/ChronoAIProject/fkst-packages-testing/commit/4ccb3c3a71dbd1005ff1a88d71dda6aa8133cbd5)；live candidate [`dev@39e9bd5`](https://github.com/ChronoAIProject/fkst-packages-testing/commit/39e9bd529ce96effe52555761084d0062ae52ee7) | `4ccb3c3a` 为已审计证据，`39e9bd5` 需增量复审 | canonical result/evidence 基础已推进；Compiler/Runner packaging、resolver、Runtime invocation 和跨仓 conformance 需按 live head 重评 |
 | `YueZh127/product-quality-loop` | [`main@5096cde5`](https://github.com/YueZh127/product-quality-loop/commit/5096cde5349c66fa9725b39e4008951887b17cd0) | PQL 默认分支 | 产品测试闭环已存在，生产 Testing Tool client 与运行投影缺失 |
-| `ChronoAIProject/talos` | [`main@a32e537f`](https://github.com/ChronoAIProject/talos/commit/a32e537f8ded5d52886cd6ebec0a1ea59aeb3ecb) | Talos 默认分支 | 通用任务、机器调度和 Browser 基础已存在，Testing Tool/QARun ABI 缺失 |
+| `ChronoAIProject/talos` | Baseline [`main@a32e537f`](https://github.com/ChronoAIProject/talos/commit/a32e537f8ded5d52886cd6ebec0a1ea59aeb3ecb)；Candidate [PR #10](https://github.com/ChronoAIProject/talos/pull/10) | main 仍无 Testing Tool；PR #10 为 open draft candidate | Candidate 已实现大部分 QARun/attempt/fence/worker-runtime contracts，但未合入、未部署、未完成四仓 canary |
 | `ChronoAIProject/fkst-hosted` | [`feat/local-qa-runtime@c79d11d`](https://github.com/ChronoAIProject/fkst-hosted/commit/c79d11d99ba854d14ce41b2849ba0bbf5c50e522) | 审计 `apps/local-qa-runtime`、相关 contracts，以及 proposed Hosted Authorization/Artifact 边界 | Runtime 组件 walking skeleton 已存在；真实执行主链未闭合，Hosted owner 决策和候选能力也未完成 |
 
-`feat/local-qa-runtime` 已从初始审计的 `4b173897` 推进到 `c79d11d`，但仍是相对 `develop` 明显分叉的 Candidate。复核确认 `PassingExecutor`、inert admission、Journal v4 reopen 和 local-only Evidence 等关键阻断仍存在；本文档中的 Runtime 结论不得外推为 `develop` 或主线已交付能力。
+`feat/local-qa-runtime` 已继续推进到 live candidate `bd2a52b`，但仍相对 `develop` 明显分叉。`#6009` issue 已 closed/completed，但 issue 状态和 Candidate 不能替代 R0 Journal reopen Gate；在 live code、fresh/migration/v4-reopen tests 和增量复审通过前，该正确性验证项仍必须执行。当前 implementation 第一阻断点已转为 production wiring、真实 executor、strict admission、Testing Packages Runner invocation、cancel/reconcile 和 Artifact delivery。本文档中的 Runtime 结论不得外推为 `develop` 或主线已交付能力。
 
 ## 3. 活动 Gap 文档
 
 | 模块 | 文档 | 当前第一阻断点 |
 | --- | --- | --- |
-| Testing Packages | [fkst-packages-testing 详细缺口](fkst-packages-testing-gap-analysis.zh-CN.md) | 缺少可发布 runner manifest/invocation 和跨 route conformance |
-| Product Quality Loop | [product-quality-loop 详细缺口](product-quality-loop-gap-analysis.zh-CN.md) | 缺少生产 `TestingToolClient`、NyxID transport 和 `TestingRunRecord` reconcile |
-| Talos | [talos 详细缺口](talos-gap-analysis.zh-CN.md) | 缺少 `kind=testing`、QARun Tool API 和 attempt/generation/fence 语义 |
-| Local QA Runtime | [local-qa-runtime 详细缺口](local-qa-runtime-gap-analysis.zh-CN.md) | production 仍使用 `PassingExecutor`，且 Journal schema v4 无法正常 reopen |
+| Testing Packages | [fkst-packages-testing 详细缺口](fkst-packages-testing-gap-analysis.zh-CN.md) | 缺少 trusted package/current-claim/executor resolver、唯一 invocation envelope、可发布 Runner 和跨 route conformance |
+| Product Quality Loop | [product-quality-loop 详细缺口](product-quality-loop-gap-analysis.zh-CN.md) | 缺少生产 `TestingToolClient`、NyxID transport、Compiler adapter 和 `TestingRunRecord` reconcile |
+| Talos | [talos 详细缺口](talos-gap-analysis.zh-CN.md) | main 缺少 Testing Tool；PR #10 是未合入 Candidate，仍缺 owning-branch merge/deploy 和跨仓 canary |
+| Local QA Runtime | [local-qa-runtime 详细缺口](local-qa-runtime-gap-analysis.zh-CN.md) | 需复核 live head；先统一 `local_qa_agent_mvp` capability，再接通 strict admission、真实 executor、Runner invocation、cancel/reconcile 与 Evidence/Cleanup |
 | Hosted MVP 候选依赖（Decision pending） | [fkst-hosted 详细缺口](fkst-hosted-gap-analysis.zh-CN.md) | 先接受 owner/认证/storage 决策，再实现 operation-specific authorization 与 Artifact `prepare/commit/lookup`、receipt 和 lost-ack reconcile |
 
 `fkst-hosted` 文档同时包含三类内容：Authorization 和最小 ArtifactStore 是 Browser MVP 的 **候选依赖**，owner/认证/storage 边界等待架构决策；Final Quality、Report、Publication、Settlement 和 HostedQualityFeedback 是 Post-MVP；旧版 Hosted-owned scheduler/QARun 内容只保留为历史迁移对照，禁止拆成当前实现任务。
@@ -90,9 +102,10 @@ talos.testing.cancel
 | 对象 / 事实 | 权威模块 | 说明 |
 | --- | --- | --- |
 | `ProjectPackSnapshot`、`TestSelection`、产品侧 `TestingRunRecord` | PQL | 决定为什么测、测什么并保存用户侧运行关联 |
-| `StructuredPlan`、typed action、`AssertionResult`、`CaseResultSet`、`EvidenceManifest` | Testing Packages | 定义测试语义；是库/runner，不是机器调度服务 |
+| `StructuredPlan` | Testing Packages Compiler | 由 PQL approved input 编译；是派生执行计划，不是独立测试语义来源 |
+| typed action、`AssertionResult`、`CaseResultSet`、`EvidenceManifest` | Testing Packages Runner | 由 Local QA Runtime 加载执行；不拥有机器、QARun 或本地资源 |
 | `QARun` snapshot/events/cancel | Talos Testing Tool | 对外 operational run authority |
-| `TestingTask`、`TestingAttempt`、placement、lease、generation、fence | Talos Scheduler / worker | 决定在哪里、何时执行 |
+| `TestingTask`、`TestingAttempt`、placement、lease、generation、fence | Talos Scheduler / worker | Scheduler 决定在哪里、何时执行；worker 在指定 machine 上 claim 和回传 |
 | operation-specific `LocalQARequestAuthorization`、签名 key lifecycle | Proposed Hosted Authorization Authority（Decision pending） | 提议在 reservation 后签发绑定 run/attempt/lease claim/machine/generation/fence/request digest 的业务授权；不拥有调度 |
 | workspace、process、port、Chromium、local Evidence、Cleanup | Local QA Runtime Journal | 本机 effect 和资源 ownership 权威 |
 | Artifact grant、`prepare/commit/lookup`、ingest receipt、lost-ack | Proposed Hosted ArtifactStore（Decision pending） | Browser MVP 的候选 Evidence 交付依赖；提议复用已有 object-storage adapter，但不复用 session-log 领域语义；不拥有 CaseResult 或 QARun |
@@ -108,33 +121,26 @@ upload_outcome
 cleanup_outcome
 ```
 
-Talos task `completed` 只表示 attempt 已闭合，不表示 Case passed、Evidence 已摄取、Cleanup 完成或 Final Quality passed。
+Talos task `completed` 只表示 attempt 已闭合，不表示 Case passed、Evidence 已摄取、Cleanup 完成或 Final Quality passed。PQL 必须先保存 TestingRunRecord，并校验 CaseResult / Evidence / Cleanup 完整性；最终 Product Quality、Report、Release/Publication 和 Settlement 属于 Hosted Post-MVP quality/report 领域。
 
-## 5. 时序图 19 步覆盖与强制补充链路
+## 5. V2 时序阶段覆盖与强制补充链路
 
-| # | Target 交互 | Target owner | Baseline 状态 | Gap 文档 |
-| ---: | --- | --- | --- | --- |
-| 1 | 用户/Agent 提出测试需求 | PQL | 已实现多种 CLI/PR/nightly/heartbeat 入口 | [PQL](product-quality-loop-gap-analysis.zh-CN.md) |
-| 2 | PQL 请求编译测试计划 | PQL + Testing Packages | 两边各有计划模型；生产跨 repo 调用未闭合 | [PQL](product-quality-loop-gap-analysis.zh-CN.md)、[Testing](fkst-packages-testing-gap-analysis.zh-CN.md) |
-| 3 | 返回 `StructuredPlan` | Testing Packages | 已有 digest-bound `testing-structured-plan.v2`；PQL 联合消费未验证 | [Testing](fkst-packages-testing-gap-analysis.zh-CN.md) |
-| 4 | PQL 经 NyxID 提交 Tool 请求 | PQL | 缺失生产 client/transport | [PQL](product-quality-loop-gap-analysis.zh-CN.md) |
-| 5 | NyxID 验证并转发 | NyxID + Talos | Talos 已有 NyxID JWT 基础；Testing Tool route 缺失 | [Talos](talos-gap-analysis.zh-CN.md) |
-| 6 | 创建/幂等重放 `QARun` | Talos Testing Tool | 通用 Task 可复用；无 testing QARun contract | [Talos](talos-gap-analysis.zh-CN.md) |
-| 7 | 分配 `TestingTask` 和机器 | Talos Scheduler | 通用 capability/pool scheduler 已实现；testing attempt/fence 缺失 | [Talos](talos-gap-analysis.zh-CN.md) |
-| 8 | worker 调用 Runtime 准备环境和 Chromium | worker + Runtime | 两边各有底层组件；没有 `LocalQARuntimeAdapter` 产品接线 | [Talos](talos-gap-analysis.zh-CN.md)、[Runtime](local-qa-runtime-gap-analysis.zh-CN.md) |
-| 9 | Runtime 读取下一条 typed action | Runtime + Testing Packages | Testing runner 有 agentic loop；Runtime 当前固定 smoke 未接入 | [Testing](fkst-packages-testing-gap-analysis.zh-CN.md)、[Runtime](local-qa-runtime-gap-analysis.zh-CN.md) |
-| 10 | 返回 `BrowserAction` / `AssertionSpec` | Testing Packages | typed Browser action 已有；可发布 invocation ABI 缺失 | [Testing](fkst-packages-testing-gap-analysis.zh-CN.md) |
-| 11 | 执行 Browser action | Runtime Browser Executor | Talos 和 Runtime 都有 Browser 基础；Runtime production Host 未调用 | [Runtime](local-qa-runtime-gap-analysis.zh-CN.md) |
-| 12 | 返回 Observation / screenshot | Browser Executor | 组件级已实现；产品 result/evidence 绑定未闭合 | [Runtime](local-qa-runtime-gap-analysis.zh-CN.md) |
-| 13 | 根据 Observation 计算断言 | Testing Packages | runner 中已有判定能力；Runtime fixed worker 仍重复硬编码判定 | [Testing](fkst-packages-testing-gap-analysis.zh-CN.md)、[Runtime](local-qa-runtime-gap-analysis.zh-CN.md) |
-| 14 | 返回 `AssertionResult` / `CaseResult` | Testing Packages | Browser candidate 已有；Browser production writer 与 consumer 未验证，CLI/HTTP 全量迁移不阻塞首个 MVP | [Testing](fkst-packages-testing-gap-analysis.zh-CN.md) |
-| 15 | 返回结果、Evidence 引用和 Cleanup | Runtime | 三类组件分别存在但未集成；Evidence 仍 local-only | [Runtime](local-qa-runtime-gap-analysis.zh-CN.md) |
-| 16 | worker 回传 bounded terminal result | talos-worker | 通用 worker result API 已有；testing ABI 缺失 | [Talos](talos-gap-analysis.zh-CN.md) |
-| 17 | 更新 `QARun` snapshot/events | Talos Testing Tool | 只有通用 Task 状态；无 testing event cursor/orthogonal outcomes | [Talos](talos-gap-analysis.zh-CN.md) |
-| 18 | PQL `get/events` 轮询 | PQL + Talos | 两端均缺生产 Testing Tool 对接 | [PQL](product-quality-loop-gap-analysis.zh-CN.md)、[Talos](talos-gap-analysis.zh-CN.md) |
-| 19 | PQL 展示测试结果 | PQL | 本地报告能力已存在；Talos terminal projection consumer 缺失 | [PQL](product-quality-loop-gap-analysis.zh-CN.md) |
+V2 不再把 Gap 映射绑定到 Mermaid 自动编号；消息编号会随图调整而变化。Gap 以稳定阶段和权威边界追踪：
 
-`pql-testing-simple-flow` 是 overview，不是完整安全协议。详细 Target 提出以下两条不能从完整 Browser MVP 中省略的链路；其中 Hosted owner 和接口只有在 [边界决策提案](../design-proposals/hosted-authorization-artifact-boundary-decision.zh-CN.md) 被接受后才成为 Active implementation target：
+| 阶段 | Target 交互 | Target owner | Baseline / Candidate 状态 | Gap 文档 |
+| --- | --- | --- | --- | --- |
+| 计划 | ProjectPackSnapshot / TestSelection -> Compiler -> StructuredPlan | PQL + Testing Packages Compiler | 两边已有计划模型；生产 Compiler adapter、package identity 和联合 conformance 未闭合 | [PQL](product-quality-loop-gap-analysis.zh-CN.md)、[Testing](fkst-packages-testing-gap-analysis.zh-CN.md) |
+| 能力协商 | `get_capabilities` 校验 profile/runtime/backend/limits | PQL + Talos Testing Tool | main 缺生产 client；PR #10 已有 Candidate operation | [PQL](product-quality-loop-gap-analysis.zh-CN.md)、[Talos](talos-gap-analysis.zh-CN.md) |
+| QARun | submit、幂等 QARun、TestingTask/Attempt | Talos Testing Tool | main 缺失；PR #10 Candidate 已实现主要合同 | [Talos](talos-gap-analysis.zh-CN.md) |
+| Placement/Auth | submit placement policy/capacity check；claim-time machine reservation、lease/generation/fence、operation-specific authorization | Talos Scheduler + Authorization Authority | Talos Candidate 已实现 placement/reservation/current-claim；Hosted issuer owner 仍 decision pending | [Talos](talos-gap-analysis.zh-CN.md)、[Hosted](fkst-hosted-gap-analysis.zh-CN.md) |
+| Dispatch | worker outbound claim/heartbeat、TestingTask dispatch | talos-worker + Talos | PR #10 Candidate 已实现 worker control path | [Talos](talos-gap-analysis.zh-CN.md) |
+| Runtime handshake | worker 调 Runtime `getCapabilities`，校验 profile/runtime/Runner package/limits，再 submit 并回传 `local_accept` | talos-worker + Local QA Runtime + Talos | PR #10 Candidate 已实现 worker adapter；Runtime production peer 未闭合 | [Talos](talos-gap-analysis.zh-CN.md)、[Runtime](local-qa-runtime-gap-analysis.zh-CN.md) |
+| Execution | Runtime 加载 Runner，执行冻结 StructuredPlan，Runner 计算 Assertion/CaseResult | Local QA Runtime + Testing Packages Runner | Browser primitives 和语义片段存在；production invocation/resolver/runner 接线缺失 | [Testing](fkst-packages-testing-gap-analysis.zh-CN.md)、[Runtime](local-qa-runtime-gap-analysis.zh-CN.md) |
+| Terminal | CaseResult/Evidence/Cleanup refs -> worker -> QARun snapshot/events | Runtime + worker + Talos Testing Tool | PR #10 Candidate 已有 terminal projection；Artifact owner/receipt 仍 decision pending | [Talos](talos-gap-analysis.zh-CN.md)、[Runtime](local-qa-runtime-gap-analysis.zh-CN.md)、[Hosted](fkst-hosted-gap-analysis.zh-CN.md) |
+| Product projection | PQL 保存 TestingRunRecord 并展示执行结果 | PQL | 生产 Talos consumer/reconcile 缺失 | [PQL](product-quality-loop-gap-analysis.zh-CN.md) |
+| Post-MVP Quality | ReportInputSet、QualityEvaluation、Report/Release、反馈与资产提案 | Hosted Quality/Report + PQL | Post-MVP；不得从 task status 或不完整 refs 推断 | [Hosted](fkst-hosted-gap-analysis.zh-CN.md)、[PQL](product-quality-loop-gap-analysis.zh-CN.md) |
+
+`diagrams/V2/pql-testing-simple-flow` 是 overview，不是完整安全协议。详细 Target 提出以下两条不能从完整 Browser MVP 中省略的链路；其中 Hosted owner 和接口只有在 [边界决策提案](../../design-proposals/hosted-authorization-artifact-boundary-decision.zh-CN.md) 被接受后才成为 Active implementation target：
 
 ```text
 Talos reservation + exact attempt binding

@@ -1,4 +1,4 @@
-# talos 详细缺口清单
+# talos 详细缺口清单 V2
 
 > Repo：[ChronoAIProject/talos](https://github.com/ChronoAIProject/talos)
 >
@@ -6,9 +6,26 @@
 >
 > Baseline：[`main@a32e537f8ded5d52886cd6ebec0a1ea59aeb3ecb`](https://github.com/ChronoAIProject/talos/commit/a32e537f8ded5d52886cd6ebec0a1ea59aeb3ecb)
 >
-> Target：[PQL Testing 简化时序图](../design-proposals/diagrams/pql-testing-simple-flow.mmd) 与 [Talos Testing Tool 最小 MVP 设计](../design-proposals/talos-testing-tool-mvp-design.zh-CN.md)
+> Target：[PQL Testing 简化时序图](../../design-proposals/diagrams/V2/pql-testing-simple-flow.mmd) 与 [Talos Testing Tool 最小 MVP 设计](../../design-proposals/talos-testing-tool-mvp-design.zh-CN.md)
 >
-> Hosted decision gate：Authorization Authority 和最小 ArtifactStore 的 owner/认证/storage 边界为 **Proposed / Decision pending**，详见 [边界决策提案](../design-proposals/hosted-authorization-artifact-boundary-decision.zh-CN.md)。本文中的 Hosted 接线要求在决策接受前只冻结 Talos consumer contract，不代表 `fkst-hosted` 已接受 owner 责任。
+> Hosted decision gate：Authorization Authority 和最小 ArtifactStore 的 owner/认证/storage 边界为 **Proposed / Decision pending**，详见 [边界决策提案](../../design-proposals/hosted-authorization-artifact-boundary-decision.zh-CN.md)。本文中的 Hosted 接线要求在决策接受前只冻结 Talos consumer contract，不代表 `fkst-hosted` 已接受 owner 责任。
+
+## V2 Candidate 状态
+
+截至 2026-08-27，[Talos PR #10](https://github.com/ChronoAIProject/talos/pull/10) 是 open draft Candidate：已实现 `talos.testing` operations、QARun、TestingTask/Attempt、reservation、generation/fence、worker TestingExecutor、LocalQARuntimeAdapter、cancel/reconcile 和 terminal projection 的主要候选代码。它尚未合入 `main`、未部署、未通过 PQL + Testing Packages + Local QA Runtime 四仓 canary，因此本文的固定 Baseline 仍为 `main@a32e537f`，但状态不能再只写“完全缺失”。
+
+## V2 接入边界校正
+
+Talos 是 PQL 与 Local QA Runtime 之间的运行控制面，不是 Testing Packages 的语义执行方。Talos 接收 PQL 已编译的 StructuredPlan、testing package/runner refs 和 digests，写入 QARun/TestingTask，并由 worker 将冻结绑定传给 Local QA Runtime。
+
+```text
+PQL -> Testing Packages Compiler -> StructuredPlan + package digest
+PQL -> Talos Testing Tool -> QARun -> TestingTask
+TestingTask -> talos-worker -> Local QA Runtime
+Local QA Runtime -> Testing Packages Runner -> Assertion / CaseResult
+```
+
+Talos 不应编译 TestCase、生成 BrowserAction、解释 Assertion 或重新计算 CaseResult；package/version/digest 不匹配时由 worker/Runtime 在本地副作用前拒绝。
 
 ## 0. 2026-08-20 线上合同与 Tool 可行性校正
 
@@ -54,7 +71,7 @@ QARun -> TestingTask -> TestingAttempt -> fixed TestingExecutor -> LocalQARuntim
 
 Talos Baseline 已经具备通用异步任务控制面、pool/machine 调度、worker outbound claim、lease/heartbeat、interactive Browser action、NyxID JWT 和 artifact/callback 基础。这些能力可作为 Testing Tool 的底层平台。
 
-但当前实现没有 `kind=testing`，也没有目标时序图中的 Testing Tool/QARun contract：
+固定 `main` Baseline 没有 `kind=testing` 和目标 Testing Tool/QARun contract；PR #10 Candidate 已实现主要候选合同，但尚未成为 owning-branch 或部署事实：
 
 ```text
 get_capabilities
@@ -160,19 +177,19 @@ cancel 后，后续 heartbeat/worker API 会返回 `task_cancelled`。但：
 
 ## 4. 当前状态矩阵
 
-| Target 能力 | 状态 | Baseline 事实 | 主要缺口 |
+| Target 能力 | main Baseline | PR #10 Candidate | 主要剩余缺口 |
 | --- | --- | --- | --- |
-| Testing Tool facade | 缺失 | 只有通用 Task/Session HTTP API | 五个 operation、严格 request/response schema、版本协商 |
-| `QARun` | 缺失 | Task 可作为底层构件 | 产品 run 与内部 task/attempt 尚未分离 |
-| Testing placement | 部分实现 | 通用 pool/machine/capability scheduler 已有 | `kind=testing`、runtime capability、single-active local acceptance |
-| `TestingExecutor` | 缺失 | worker 有 Browser executor | 固定 testing executor 和 Runtime adapter |
-| lease/generation/fence | 部分实现 | lease/heartbeat 已有 | generation/fence/stale completion、post-acceptance no-rerun |
-| Runtime authorization | 缺失 | 只有 worker/lease token 边界 | decision-pending authorization issue/replay adapter、signed lease claim ref、current-claim resolver、start/cancel/reconcile operation binding |
-| bounded events | 缺失 | task GET + callback | immutable event sequence、cursor、snapshot resync |
-| testing result ABI | 缺失 | status/findings/artifacts/error | CaseResult/Evidence/Cleanup refs 与独立 outcomes |
-| Artifact delivery | 部分实现 | metadata refs 已有 | 先接受 owner/storage 决策，再实现 upload grant、digest/size/media validation、lost-ack reconcile |
-| cancel/cleanup | 部分实现 | cancel 可被 worker 后续调用观察 | action 中断、Runtime cleanup、ack 与 completion 分离 |
-| 多副本调度 | 未验证 | 当前 claim 非原子，要求单 replica | atomic reservation/claim/CAS |
+| Testing Tool facade | 缺失，仅通用 Task/Session API | 已有五个 bounded operation 和 versioned schemas | 合入 owning branch、部署、PQL client conformance |
+| `QARun` | 缺失 | 已有候选 QARun、snapshot/events/cancel | 合入与跨仓 lifecycle 验证 |
+| Testing placement | 通用 scheduler 部分可复用 | 已有 reservation、canary policy、single-active 和 local acceptance | 生产 pool/capability canary |
+| `TestingExecutor` | 缺失 | 已有 fixed TestingExecutor 和 LocalQARuntimeAdapter | 真实 Runtime production peer |
+| lease/generation/fence | 只有通用 lease/heartbeat | 已有 generation/fence/current-claim/stale rejection | 多副本和 failure injection 验证 |
+| Runtime authorization | 缺失 | 已有 decision-pending consumer contract 和 resolver path | 接受 Hosted owner 决策并接 production issuer |
+| bounded events | 缺失 | 已有 immutable event/cursor/snapshot Candidate | PQL consumer 和 cursor resync canary |
+| testing result ABI | 缺失 | 已有 orthogonal terminal projection Candidate | Runtime canonical refs 联合验证 |
+| Artifact delivery | 只有 metadata refs | 已冻结 decision-pending prepare/commit/lookup consumer contract | owner/storage 决策与 production adapter |
+| cancel/cleanup | 通用 cancel 基础 | 已有 active cancel/deadline/reconcile Candidate | Runtime cleanup terminal E2E |
+| 多副本调度 | 未验证 | repository contract 已加 CAS/real Mongo tests | 生产多副本 canary |
 
 ## 5. P0：Testing Tool API 和 QARun 模型
 
@@ -234,6 +251,7 @@ worker 应显式注册 `TestingExecutor`，而不是开放 generic plugin、shel
 它负责：
 
 - 验证 task kind/schema/version。
+- 在 submit Runtime 前调用 `getCapabilities`，校验 expected runtime capability、execution profile、Runner package ID/version/digest 和 bounded limits。
 - 将 attempt identity、signed lease claim ref、generation、fence、deadline 和完整 operation-specific authorization 投影给 Runtime adapter。
 - 调用本机 loopback/Unix socket `LocalQARuntimeAdapter`。
 - 维持 claim/heartbeat/cancel。
@@ -252,6 +270,7 @@ worker 应显式注册 `TestingExecutor`，而不是开放 generic plugin、shel
 需要版本化 adapter contract，至少覆盖：
 
 ```text
+get capabilities
 admit/submit
 get snapshot
 list events
@@ -363,9 +382,9 @@ Event stream 要求：
 - callback host allowlist fail closed；空 allowlist 不应默认允许任意 HTTP(S) host。
 - delivery repair 不触发 test rerun。
 
-## 10. Conditional P0（Decision pending）：MVP Artifact 和独立终态
+## 10. 核心正交终态 + Conditional P0 Artifact（Decision pending）
 
-### 10.1 Artifact contract
+### 10.1 Conditional P0 Artifact contract（Decision pending）
 
 当前 worker 自报 URI 不是可信 ingestion。Target 需要：
 
@@ -377,7 +396,7 @@ Event stream 要求：
 
 Talos result 只携带 refs/digests，Artifact bytes 不经过 heartbeat、findings 或 NyxID Tool response。
 
-### 10.2 正交 outcomes
+### 10.2 无条件核心：正交 outcomes
 
 Talos 需要分别表达：
 
@@ -421,14 +440,15 @@ cleanup_outcome
 3. `kind=testing` strict union。
 4. bounded `get/events`。
 
-### T2：Attempt correctness
+### T2：Placement、claim 和 Attempt correctness
 
-1. `TestingTask`/`TestingAttempt`。
-2. atomic placement/claim。
-3. generation/fence。
-4. signed lease claim ref 和 current-claim resolver。
-5. local acceptance/no-rerun boundary。
-6. stale writer tests。
+1. submit 时验证 placement policy、exact input tuple、pool visibility 和至少一个 eligible machine。
+2. worker outbound claim 时按 worker/machine capability 选择 submitted QARun。
+3. 为 claiming machine 原子创建 reservation，并 CAS QARun/attempt 到 reserved。
+4. 生成 attempt identity、lease、generation、fence 和 signed current-claim ref。
+5. exact attempt binding 冻结后请求 operation-specific authorization；失败时释放 reservation。
+6. 构造 TestingTask 并 CAS 到 claimed，worker 获取完整 task/lease/fence/authorization。
+7. local acceptance/no-rerun boundary 和 stale writer tests。
 
 ### T3：Worker/Runtime integration
 

@@ -4,7 +4,7 @@
 >
 > 本文记录 2026-08-12 时以 `fkst-hosted -> Local QA Host` 为中心的三 Repo 方案。它不再是当前 `PQL -> NyxID -> Talos -> Local QA Runtime` Target 的实施清单，也不得用于分配 operational QARun、TestingTask、机器调度或 cancel/events 权威。
 >
-> 当前实施范围、固定基线和 owning repo 以 [Repo Gap 文档索引](repo-gaps/README.zh-CN.md)、[Talos Testing Tool 最小 MVP 设计](design-proposals/talos-testing-tool-mvp-design.zh-CN.md) 和 [Talos 详细缺口](repo-gaps/talos-gap-analysis.zh-CN.md) 为准。当前 Target 明确包含 `ChronoAIProject/talos`，由 Talos Testing Tool 拥有 operational QARun 的 submit/get/events/cancel；Hosted 只保留业务授权以及 Artifact、Quality、Report、Publication、Settlement 等下游领域。
+> 当前实施范围、固定基线和 owning repo 以 [Repo Gap 文档索引](repo-gaps/V2/README.zh-CN.md)、[Talos Testing Tool 最小 MVP 设计](design-proposals/talos-testing-tool-mvp-design.zh-CN.md) 和 [Talos 详细缺口](repo-gaps/V2/talos-gap-analysis.zh-CN.md) 为准。当前 Target 明确包含 `ChronoAIProject/talos`，由 Talos Testing Tool 拥有 operational QARun 的 submit/get/events/cancel；Hosted 只保留业务授权以及 Artifact、Quality、Report、Publication、Settlement 等下游领域。
 >
 > 以下“实施 repo”“生产链路”和阶段划分只描述旧 direct-Host baseline，保留用于迁移和历史差异核对。
 >
@@ -17,9 +17,9 @@
 > `NyxID` 不修改代码，只复用现有 Cloud / Service / Node 通道。
 >
 > 详细文档：
-> - [fkst-packages-testing 详细缺口](repo-gaps/fkst-packages-testing-gap-analysis.zh-CN.md)
-> - [fkst-hosted 云端详细缺口](repo-gaps/fkst-hosted-gap-analysis.zh-CN.md)
-> - [local-qa-runtime 分支详细缺口](repo-gaps/local-qa-runtime-gap-analysis.zh-CN.md)
+> - [fkst-packages-testing 详细缺口](repo-gaps/V2/fkst-packages-testing-gap-analysis.zh-CN.md)
+> - [fkst-hosted 云端详细缺口](repo-gaps/V2/fkst-hosted-gap-analysis.zh-CN.md)
+> - [local-qa-runtime 分支详细缺口](repo-gaps/V2/local-qa-runtime-gap-analysis.zh-CN.md)
 
 ## 1. 总体结论
 
