@@ -1,4 +1,4 @@
-# fkst-packages-testing 详细缺口清单
+# fkst-packages-testing 详细缺口清单 V2
 
 > Repo：[ChronoAIProject/fkst-packages-testing](https://github.com/ChronoAIProject/fkst-packages-testing)
 >
@@ -8,26 +8,46 @@
 >
 > Historical comparison baseline：`dev@ac953ff0bb3f1c909728e66c3968cbb3ed5e3cf1`，仅用于解释本轮 canonical migration 前的状态。
 >
-> Live status overlay（2026-08-21）：当前远端与 Pinned Baseline 相同；`#666` 已合并，structured CLI/HTTP 已切换为 canonical ResultSet/EvidenceManifest 主写入路径；`#631`、`#662`、`#663`、`#664` 仍 open。`#677` 的 invocation walking skeleton 被拒绝，原因是当前没有可证明的 provider-neutral executor seam、trusted ref resolver 和规范化 entrypoint mapping。
+> Live status overlay（2026-08-27）：当前 `dev@39e9bd529ce96effe52555761084d0062ae52ee7`，已明显领先 Pinned Baseline `4ccb3c3a`。Pinned Baseline 保留用于本轮已读代码证据；live head 的 executor、machine-readable schema、trusted resolver 等新增能力必须单独复审后才能升级为 Baseline。`#666` 已合并，structured CLI/HTTP 已切换为 canonical ResultSet/EvidenceManifest 主写入路径。
 >
-> Target：[PQL Testing 简化时序图](../design-proposals/diagrams/pql-testing-simple-flow.mmd) 与 [Testing Packages 调整方案](../design-proposals/repo-adjustments/fkst-packages-testing-adjustments.zh-CN.md)
+> Target：[PQL Testing 简化时序图](../../design-proposals/diagrams/V2/pql-testing-simple-flow.mmd) 与 [Testing Packages 调整方案](../../design-proposals/repo-adjustments/fkst-packages-testing-adjustments.zh-CN.md)
+
+## V2 规范性执行边界
+
+> `local_qa_agent_mvp` 固定为 deterministic Runner 执行冻结 StructuredPlan，禁止 `LLM-generated-runtime-action`。本文后续继承内容中出现的 TestingAgentLoop、ModelInferencePort、AgentTurnLedger、model turn 或 live-provider canary，统一归入独立 **Future agentic execution profile**，不属于 Browser MVP P0、completion gate 或当前 Talos PR #10 接线要求。
+
+## V2 接入边界校正
+
+本 Repo 对外提供两个明确入口，但仍是同一套版本化 Testing Packages：
+
+- `testing-design / Compiler` 由 PQL 调用，消费 approved TestSelection/InputSet，生成 StructuredPlan。
+- `testing-runner` 由 Local QA Runtime 调用，消费 Talos 传入的 frozen package/plan refs 和 digests，执行 typed action、Observation、Assertion，并产生 CaseResultSet。
+
+Talos、NyxID 和 worker 只传递 package/version/digest、StructuredPlan ref/digest 和执行绑定，不调用或重定义测试语义。Runtime invocation 必须校验 package capability 与 frozen runner digest；缺失或不匹配时在 Browser effect 前 fail closed。
+
+```text
+PQL -> Compiler -> StructuredPlan
+Talos -> package/runner/plan refs + digests -> worker -> Runtime
+Runtime -> Runner -> AssertionReducer -> CaseResultSet
+```
 
 ## 0. 2026-08-20 Talos Tool 方向增量审计
 
 ### 0.1 结论
 
-`fkst-packages-testing` 的 Target 是 **AI 驱动的测试用例执行引擎**，不是脚本生成器、NyxID/Talos HTTP 服务、机器调度器或本地资源管理器。它直接读取 immutable structured TestCase，维护 TestingAgentLoop，调用严格的 typed tools，接收 bounded ModelObservation，并由 deterministic AssertionReducer 形成 CaseResult。
+`fkst-packages-testing` 的 Browser MVP Target 是 **版本化测试 Compiler、Runner 和唯一测试语义实现**，不是脚本生成器、NyxID/Talos HTTP 服务、机器调度器或本地资源管理器。Compiler 将 approved input 确定性编译为 StructuredPlan；Runner 确定性执行冻结计划、消费 bounded Observation，并由 AssertionReducer 形成 CaseResult。运行时 LLM 动态生成 action 属于独立 Future agentic profile，不进入 `local_qa_agent_mvp`。
 
 仓库发布的 data-only bundle/manifest 只是用例、schema、tool catalog、语义引擎身份和 allowlisted semantic entrypoint identity 的版本化制品，不携带用户脚本、生成代码、动态 plugin、任意 executable path 或运行时安装信息。
 
 ```text
-PQL approved structured TestCase
-  -> TestCaseExecutionEngine / TestingAgentLoop
-  -> ModelInferencePort
-  -> closed typed tool catalog
+PQL approved TestSelection / InputSet
+  -> Testing Packages Compiler
+  -> frozen StructuredPlan
+  -> Testing Packages deterministic Runner
+  -> closed typed action catalog
   -> Local QA Runtime capability broker
-  -> sanitized ModelObservation
-  -> next AI turn / evaluator
+  -> sanitized Observation / effect receipt
+  -> AssertionReducer
   -> CaseResultSet + EvidenceManifest + ResultAuthorityReceipt
   -> Talos bounded terminal projection
 ```
@@ -45,19 +65,19 @@ PQL approved structured TestCase
 
 ### 0.3 对 Talos 接入的直接缺口
 
-**P0：** structured TestCase/Step/Assertion schema、data-only bundle manifest、`testing-runner-invocation.v1`、TestingAgentLoop、ModelInferencePort、closed typed tool catalog、AgentTurnLedger、AssertionReducer、ResultAuthorityReceipt，以及共享 canonical contract/validator、Browser production writer 和 runner-side conformance fixture。
+**P0：** structured TestCase/Step/Assertion schema、data-only bundle manifest、`testing-runner-invocation.v1`、deterministic Runner、closed typed tool catalog、AssertionReducer、ResultAuthorityReceipt，以及共享 canonical contract/validator、Browser production writer 和 runner-side conformance fixture。
 
-**P1：** effective capability intersection、point-of-use cancel/deadline/fence、pre-model ModelObservation sanitization、monotonic AI/tool budgets、effect 后 assertion 前的 `lost/inconclusive`、CaseResultSet/EvidenceManifest binding、CLI/HTTP writer convergence、Artifact pointer/receipt conformance、publication 与 delivery repair 分离。Artifact grant 和 bytes 仍由 decision-accepted Artifact owner/Runtime 拥有。
+**P1：** effective capability intersection、point-of-use cancel/deadline/fence、Observation sanitization、monotonic action/tool budgets、effect 后 assertion 前的 `lost/inconclusive`、CaseResultSet/EvidenceManifest binding、CLI/HTTP writer convergence、Artifact pointer/receipt conformance、publication 与 delivery repair 分离。Artifact grant 和 bytes 仍由 decision-accepted Artifact owner/Runtime 拥有。
 
-**P2：** live provider canary、多 Browser Case、API/CLI/Mobile tool adapters、普通 UI exploration 和 mutation executor。它们不能阻塞 Browser infrastructure gate，也不得通过 `browse` fallback 实现。
+**P2 / Future profile：** TestingAgentLoop、ModelInferencePort、AgentTurnLedger、live provider canary、多 Browser Case、API/CLI/Mobile adapters、普通 UI exploration 和 mutation executor。它们需要独立 execution profile 和安全合同，不能阻塞 Browser MVP，也不得通过 `browse` fallback 偷渡。
 
 ### 0.4 执行模型约束
 
-- AI 直接解释结构化 TestCase，不解释自由文本 `goal`。
-- AI 只能从固定 tool catalog 选择工具；tool schema 是 strict closed union，禁止运行时动态注册。
-- 工具执行只返回 bounded sanitized ModelObservation 和 effect receipt。
+- Browser MVP Runner 只解释冻结 StructuredPlan，不接受自由文本 `goal`，也不允许 LLM 动态生成 runtime action。
+- Runner 只能从固定 typed action catalog 选择计划中已批准的动作；tool schema 是 strict closed union，禁止运行时动态注册。
+- 工具执行只返回 bounded sanitized Observation 和 effect receipt。
 - 不生成、保存或执行中间测试脚本、generated code、interpreter eval、runtime package install、dynamic plugin 或 arbitrary shell/argv。
-- 模型文本、hidden reasoning、HTTP 200、process exit 0 或 Browser action success 都不能直接建立 passed；最终结果由 AssertionReducer 和 canonical binding 确定。
+- HTTP 200、process exit 0 或 Browser action success 都不能直接建立 passed；最终结果由 AssertionReducer 和 canonical binding 确定。
 
 ## 1. 执行摘要
 
@@ -74,16 +94,18 @@ Testing Packages Baseline 已有较完整的测试设计、StructuredPlan、CLI/
 
 ## 2. Target 职责与非职责
 
+本 Repo 在 V2 链路中提供两个接入面：PQL 使用 `testing-design / Compiler` 生成 StructuredPlan；Local QA Runtime 使用 `testing-runner` 执行 StructuredPlan、处理 Observation 并计算 CaseResult。Talos 只传递 package/runner/plan refs 和 digests，不执行本 Repo 的测试语义。
+
 本 Repo 应负责：
 
 - 结构化 TestCase/Step/Assertion 输入验证、repository/requirement/traceability 分析。
-- `TestCaseExecutionEngine` 和 `TestingAgentLoop` 的测试语义、turn 状态、tool selection 和终态协调。
-- prompt/system policy/tool catalog 语义及 immutable identity/digest。
-- provider-neutral `ModelInferencePort` 请求/响应 contract，不保存 provider secret。
-- typed action、bounded ModelObservation、effect receipt 和 Assertion evaluation。
-- deterministic evaluator、model-judged evaluator 和 deterministic `AssertionReducer`。
+- Compiler、deterministic `TestingPackageExecutor` / Runner、typed action progression 和终态协调。
+- StructuredPlan、action catalog、Assertion policy 及 immutable identity/digest。
+- typed action、bounded Observation、effect receipt 和 Assertion evaluation。
+- deterministic evaluator 和 deterministic `AssertionReducer`。
 - `AssertionResult`、`CaseResult`、`CaseResultSet`、`EvidenceManifest`、`ResultAuthorityReceipt`。
-- AgentTurnLedger、execution replay、point-of-use policy enforcement 和 conformance fixtures。
+- execution replay、point-of-use policy enforcement 和 conformance fixtures。
+- Future agentic profile 才拥有 TestingAgentLoop、prompt/model identity、ModelInferencePort 和 AgentTurnLedger。
 - PQL input adapter、Runtime tool-broker interface 和 pointer-only Hosted projection adapter。
 
 本 Repo 不应负责：
@@ -119,7 +141,7 @@ Testing Packages Baseline 已有较完整的测试设计、StructuredPlan、CLI/
 
 ### 3.2 StructuredPlan
 
-已实现 `testing-structured-plan.v2`。Baseline 的 StructuredPlan 是声明式执行计划，不是用户需要编写或维护的测试脚本；Target 将由 TestCaseExecutionEngine 直接消费结构化 TestCase，并把 StructuredPlan 作为内部可重建的 plan identity：
+已实现 `testing-structured-plan.v2`。Baseline 的 StructuredPlan 是声明式执行计划，不是用户需要编写或维护的测试脚本。Browser MVP 必须由 Runner 执行 admission 已冻结的 exact StructuredPlan；approved TestCaseAsset/TestSelection 是上游 intent/lineage，不能在 Runtime 侧重建、替换或绕过该 Plan：
 
 - 绑定 module plan、case catalog、Environment receipt 和 Browser readiness。
 - 只选择经过 review 且经 Host catalog 授权的 Case。
@@ -136,11 +158,12 @@ Testing Packages Baseline 已有较完整的测试设计、StructuredPlan、CLI/
 
 当前文档同时使用 `structured TestCase` 和 `StructuredPlan`，但这两个对象不能成为两个可独立修改的测试定义。MVP 必须冻结以下关系：
 
-- PQL approved TestCase/TestCaseAsset 是测试语义、Assertion、Asset lineage 和 Requirement lineage 的唯一权威。
+- PQL approved TestCaseAsset 是 approved test intent、Asset lineage 和 Requirement lineage 的唯一权威；Testing Packages contract 是可执行 TestCase/Action/Assertion/CaseResult 语义与验证规则的唯一权威。
 - `StructuredPlan` 是由 approved input、execution profile、package manifest 和 capability policy 确定性编译出的派生执行投影，不是用户脚本，也不是另一套可以独立编辑的 Case catalog。
-- 如果 Runtime invocation 同时携带 TestCaseSet 与 StructuredPlan ref/digest，admission 必须校验 case identity、asset/version/digest、source revision、plan digest 和 package manifest binding 的闭合关系。
-- stale、未批准、未 promotion 或与 TestCase digest 不匹配的 StructuredPlan 必须在任何 Browser/HTTP/CLI effect 前拒绝。
-- Runtime 可以缓存或传递 StructuredPlan，但不能通过它重新定义 TestCase 语义；CaseResult 必须同时保留 TestCase lineage 和 Plan identity。
+- Runtime invocation 必须携带 exact StructuredPlan ref/digest；TestCaseSet/Asset 只能作为 lineage ref，不是可替代的执行入口。
+- admission 必须校验 asset/version/digest、source revision、plan digest 和 package manifest binding 的闭合关系。
+- stale、未批准、未 promotion 或 lineage/digest 不匹配的 StructuredPlan 必须在任何 Browser/HTTP/CLI effect 前拒绝。
+- Runtime 可以缓存或传递 StructuredPlan，但不能重建或替换它；CaseResult 必须同时保留 TestCase lineage 和 Plan identity。
 - `runner_entry_ref` 若出现在 Runtime fixture 中，只能表示 Runtime/environment 的受控入口引用，不能被解释成 TestCase、Assertion 或 StructuredPlan 的语义入口。
 
 因此，Testing Packages standalone MVP 的执行顺序应明确为：
@@ -232,20 +255,20 @@ intake
 | CLI/HTTP execution | canonical-first 主路径，保留 v1 compatibility projection | `#631` 父 Issue 仍 open | downstream consumer inventory、route equivalence 和 legacy telemetry 清零 |
 | Browser execution | typed action、bounded observation、canonical output 基础 | Browser hardening 未闭环 | provider-neutral invocation、point-of-use cancel/deadline/fence、lost/inconclusive、真实 Runtime E2E |
 | publication | CAS/replay/GitHub/filesystem adapter、共享 canonical validator 基础 | legacy `product-defect`/compat projection 仍存在 | 降为 adapter，不拥有私有 result schema 或 Final Quality |
-| TestCaseExecutionEngine / TestingAgentLoop | Baseline partial，已有 agentic Browser 片段 | proposed interface 未形成可调用 seam，`#677` walking skeleton 被拒绝 | 直接读取 TestCase，多轮 ModelInference/tool loop、终止和结果归并 |
-| ModelInferencePort | 无 Target contract | 无 | provider-neutral inference request/response、refusal/timeout/truncation/usage |
+| deterministic TestingPackageExecutor / Runner | Baseline partial，已有 structured execution 与 Browser action 片段 | proposed interface 未形成稳定可调用 seam | exact StructuredPlan 执行、typed action progression、终止和结果归并 |
+| Future TestingAgentLoop / ModelInferencePort | agentic Browser 研究片段 | 非 Browser MVP Candidate | 独立 Future execution profile、refusal/timeout/truncation/usage contract |
 | tool catalog/schema | typed action 和 capability 基础 | 无 immutable catalog | closed union、strict schema、allowlist、quota、point-of-use policy |
-| AgentTurnLedger | replay/step receipt 片段 | 无 | append-only model/tool/observation/evaluator ledger |
-| evaluator/reducer | 部分 assertion/result writer | 无统一 AI-aware reducer | deterministic/model-judged evaluator + deterministic AssertionReducer |
+| Future AgentTurnLedger | replay/step receipt 片段 | 非 Browser MVP Candidate | append-only model/tool/observation/evaluator ledger |
+| evaluator/reducer | 部分 assertion/result writer | deterministic reducer 尚未统一 | approved Assertion + Observation/effect receipts -> canonical AssertionResult/CaseResult |
 | package/data-bundle identity | manifest contract、Lua validator 和 tests 已存在 | 无已验证 release bundle/admission | signed/data-only release、exact bundle、resolver、install/cache/rollback policy |
-| Runtime/AI session invocation | event/runner 与 generic-host composition 基础 | `#662` open；opaque refs 无 trusted resolver | 唯一 production envelope、schema、resolver、model/tool/harness identity + budgets |
+| Runtime Runner invocation | event/runner 与 generic-host composition 基础 | `#662` open；opaque refs 无 trusted resolver | Browser MVP 唯一 production envelope、schema、resolver、Runner/action/reducer identity + budgets；model/prompt 扩展仅 Future |
 | resolver/entrypoint/executor seam | 低层 ports 和 package validator 片段 | `#664` open；entrypoint mapping 不规范 | package/current-claim/executor resolver、唯一 symbolic entrypoint、fake/Runtime conformance |
 | PQL input | generic approved pointers | adjustment draft | `pql.testing-design-input-set.v1` adapter |
 | Talos integration | 无 | 无 | 由 Talos/Runtime adapter 实现；本 Repo 不提供 Talos transport |
 | local resources | Environment Factory/Generic Host 当前直接拥有 | 迁移设计 | ownership 移交 Local QA Runtime |
-| no-script execution | 仅有部分禁止项 | 无 Target gate | TestCase 直接解释；禁止生成/运行脚本和动态代码 |
+| no-script execution | 仅有部分禁止项 | 无完整 Target gate | Runner 执行 frozen StructuredPlan；禁止生成/运行脚本和动态代码 |
 
-Issue #656 已于 2026-08-18 closed/not planned。其历史 helper/compat/hardening 不能作为当前 active delivery track；structured CLI/HTTP canonical 主路径已由后继 `#666` 合并到 live dev。当前 live baseline 应以 `4ccb3c3a71dbd1005ff1a88d71dda6aa8133cbd5` 为准。
+Issue #656 已于 2026-08-18 closed/not planned。其历史 helper/compat/hardening 不能作为当前 active delivery track；structured CLI/HTTP canonical 主路径已由后继 `#666` 合并到 live dev。当前 pinned audit baseline 为 `4ccb3c3a71dbd1005ff1a88d71dda6aa8133cbd5`；live candidate 为 `39e9bd529ce96effe52555761084d0062ae52ee7`，完成增量复审前不得把两者互换。
 
 ### 4.1 MVP layers 与证据等级
 
@@ -288,16 +311,13 @@ testing-evidence-manifest.v1
 - unsupported major fail closed。
 - canonicalization profile 和 digest encoding 显式登记。
 
-### 5.2 AI-aware Browser MVP 生产写入顺序
+### 5.2 Deterministic Browser MVP 生产写入顺序
 
 ```text
-immutable structured TestCase
--> TestCaseExecutionEngine
--> pre-model sanitized ModelObservation
--> TestingAgentLoop / ModelInferencePort
--> closed typed tool call
--> Runtime effect receipt
--> next sanitized observation / evaluator
+approved TestSelection / InputSet
+-> Compiler 生成 frozen StructuredPlan
+-> deterministic Runner 读取下一条 approved typed action
+-> Runtime effect receipt + bounded sanitized Observation
 -> deterministic AssertionReducer
 -> CaseResultSet proposal + EvidenceManifest proposal
 -> ResultAuthorityReceipt validation
@@ -305,7 +325,7 @@ immutable structured TestCase
 -> publication consumes canonical output
 ```
 
-模型可以提出工具调用和结构化 verdict，但不能直接写入最终 CaseResult。
+Browser action success、HTTP 200 或 process exit 0 不能直接写入最终 CaseResult。TestingAgentLoop / ModelInferencePort 只属于 Future agentic profile。
 
 规则：
 
@@ -326,7 +346,7 @@ immutable structured TestCase
 - Runtime/Artifact 只拥有 raw quarantine、sanitized staging、bytes、object ref 和 delivery receipt；不能通过 delivery 状态改写已冻结的 CaseResultSet。
 - publication 只读取 canonical refs/digests，不能重新解释 raw executor result、拥有私有 CaseResult schema 或生成 Final Quality。
 - `execution_outcome`、`evidence_outcome`、`cleanup_outcome`、Case/Plan/Source/Package identity 和 effect lineage 属于 Testing/Runtime execution facts；`upload_outcome`、publication receipt 和 delivery repair 可以在不重跑测试的情况下单调推进。
-- ResultAuthorityReceipt 必须绑定 TestCase identity、StructuredPlan identity、Run/Attempt、package/engine、AgentTurnLedger terminal digest、CaseResultSet 和 EvidenceManifest；任何一个 binding 不一致都不得提交 terminal result。
+- Browser MVP ResultAuthorityReceipt 必须绑定 TestCase identity、StructuredPlan identity、Run/Attempt、package/Runner、action/effect receipt lineage、CaseResultSet 和 EvidenceManifest；任何 binding 不一致都不得提交 terminal result。Future agentic profile 再额外绑定 AgentTurnLedger terminal digest。
 
 在 writer owner、bytes owner 和 receipt owner 没有分开冻结前，不得让 Runtime adapter 通过“临时 canonical helper”形成第二 authority。
 
@@ -426,32 +446,30 @@ Admission 规则：
 
 因此，当前状态应写成“manifest contract/validator 已有，release bundle、可信发布、安装和 admission 仍缺失”，不能把 manifest validator 当成 package 已可发布的证据。
 
-## 7. P0：AI testing session input contract
+## 7. P0：Browser MVP Runner invocation contract
 
-新增 `testing-runner-invocation.v1`，作为 Local QA Runtime 把结构化 TestCase 交给 AI 测试执行引擎的唯一 production envelope。`ai-testing-session-input.v1` 只能作为早期 draft/显式 decode-only compatibility alias，不能继续接收新的 production effect：
+新增 `testing-runner-invocation.v1`，作为 Local QA Runtime 把 frozen StructuredPlan 交给 deterministic Testing Packages Runner 的唯一 Browser MVP production envelope。`ai-testing-session-input.v1` 和任何 model/prompt 字段只能作为 Future agentic profile 的独立 major 或显式 decode-only compatibility alias，不能进入当前 production effect：
 
 ```text
-session_input_id
+invocation_id
 qa_run_ref
 opaque_attempt_ref
-structured_case_set_ref/digest
+approved_test_case_lineage_ref/digest
+structured_plan_ref/digest（唯一执行入口）
 source_ref/digest
 environment_profile_ref/digest
 bundle_manifest_ref/digest
-engine_id/version
-executor_id/version/capability_digest
-model_provider/model_id/model_revision
-prompt_bundle_ref/digest
-tool_catalog_ref/digest
-harness_ref/version/digest
-evaluator/reducer_ref/version/digest
+runner_id/version/capability_digest
+typed_action_catalog_ref/digest
+assertion_reducer_ref/version/digest
 approval_policy_ref/digest
-inference_egress_policy_ref/digest
-budgets
+action/effect/observation budgets
 deadline
 producer/version
 request_digest
 ```
+
+Future agentic profile 必须使用独立 versioned extension，才能增加 `model_provider`、`prompt_bundle`、`harness`、`inference_egress_policy` 和 AgentTurnLedger binding。
 
 这些字段用于 provenance、admission、replay 和结果审计，不允许携带 provider secret、token、cookie、raw prompt payload、host path 或脚本内容。
 
@@ -464,7 +482,7 @@ request_digest
 - raw Secret、cookie、browser storage 或 env dump。
 - 任意 shell、argv、script、generated code、interpreter eval、dynamic plugin/import、runtime package install 或未声明 entrypoint。
 
-本 Repo 定义 provider-neutral `ModelInferencePort` 和 `TestCaseExecutionEngine / TestingAgentLoop` 语义；Runtime 实现独立的 local tool broker、ModelInference adapter 和 capability ports。TestingAgentLoop 在每个 typed tool call 前验证 tool catalog、approval scope、cancel/deadline/fence、budget 和 case binding，但不保存或解释 Talos lease/generation。
+Browser MVP 不启用 `ModelInferencePort`。本 Repo 定义 deterministic `TestingPackageExecutor` / Runner 语义；Runtime 实现独立 local tool broker 和 capability ports。Runner 在每个 typed tool call 前验证 plan action、tool catalog、approval scope、cancel/deadline/fence、budget 和 case binding，但不保存或解释 Talos lease/generation。Provider-neutral ModelInference adapter 只属于 Future agentic profile。
 
 ### 7.1 Resolver、Entrypoint 与 Executor seam
 
@@ -497,9 +515,9 @@ Talos worker TestingExecutor
 
 退出标准：同一个 canonical invocation 经过 fake Runtime、MVP Runtime 和后续 Runtime adapter 时，产生相同的 Case/Assertion 语义；不同 adapter 只能改变 producer/capability metadata，不能改变 contract 含义。
 
-## 8. P0：Provider-neutral capability ports
+## 8. P0：MVP typed capability ports；Future agentic profile 才包含 ModelInference
 
-Runtime 应提供受限 capability ports，例如：
+Runtime 对 Browser MVP 应提供受限 typed effect、Observation、cancel/fence/budget 和 artifact ports。以下 `ModelInference` port 仅属于 Future agentic profile，不是 `local_qa_agent_mvp` completion gate：
 
 ```text
 get_model_capabilities
@@ -525,14 +543,15 @@ TestCase requested
 
 边界：
 
-- Testing Packages 定义 TestCase、AI loop、tool semantics、evaluator 和 CaseResult 语义。
-- Runtime 提供具体 ModelInference adapter、provider egress/privacy policy、本机 effect broker、资源 ownership 和 Cleanup。
+- Browser MVP 中，Testing Packages 定义 TestCase/StructuredPlan、Runner、tool semantics、evaluator 和 CaseResult 语义。
+- Runtime 提供本机 typed effect broker、bounded Observation、资源 ownership 和 Cleanup。
+- Future agentic profile 才增加 TestingAgentLoop、ModelInference adapter、provider egress/privacy policy 和 model budgets。
 - Talos 只负责 dispatch、attempt、lease/fence 和 bounded projection。
 - effect receipt 证明动作发生，不自动表示 assertion passed。
 - stale fence、cancel、deadline、budget 或 tool catalog mismatch 必须在 point of use 被拒绝。
 - adapter/provider 变化不能改变 Case/Assertion 语义。
 
-## 9. P0：AI Engine、Evaluator、Ledger 和 Result Authority
+## 9. P0：Deterministic Runner、Evaluator 和 Result Authority；AI Engine/Ledger 为 Future profile
 
 ### 9.1 `TestCaseExecutionEngine / TestingAgentLoop`
 
@@ -675,66 +694,57 @@ GitHub/filesystem publication 应：
 
 ## 14. 建议实施顺序
 
-### T1：TestCase、Plan authority 和 release identity
+### T1：Test intent、Plan authority 和 release identity
 
-1. 冻结 structured TestCase/Step/Assertion/Evidence/Cleanup schemas，并规定 TestCase 是语义 authority。
+1. 冻结 PQL approved TestCaseAsset/TestSelection lineage，以及 Testing Packages TestCase/Step/Assertion/Evidence/Cleanup executable schemas。
 2. 冻结 StructuredPlan 的确定性派生关系、case/asset/source/plan digest binding 和 mismatch fail-closed 规则。
-3. 发布 data-only bundle manifest、locked dependency identity、machine-readable schemas 和 engine/tool catalog identity。
+3. 发布 data-only bundle manifest、locked dependency identity、machine-readable schemas、Runner identity 和 typed action catalog。
 4. 定义 release authority、signed exact bundle、manifest/content/schema digest、compatibility matrix、symbolic entrypoint 和 Runtime admission 顺序。
-5. 冻结 `testing-runner-invocation.v1` 为唯一 production invocation envelope；`ai-testing-session-input.v1` 只允许 decode-only compatibility，并定义 trusted package/current-claim/executor resolvers。
-6. 发布 `ModelInferencePort`、strict tool schemas、effective capability intersection 和 durable budget contract。
-7. 定义 AgentTurnLedger、ResultAuthorityReceipt、AssertionReducer 和 CaseResult/Evidence binding。
+5. 冻结 `testing-runner-invocation.v1` 为唯一 Browser MVP production invocation envelope，并定义 trusted package/current-claim/executor resolvers。
 
-### T2：AI execution and Browser infrastructure gates
+### T2：Deterministic Runner 和 Browser production gate
 
-1. TestingAgentLoop 直接读取 TestCase，使用 deterministic/fake inference 运行多轮 tool loop。
-2. pre-model ModelObservation sanitization、inference egress policy 和 strict tool schema。
-3. Browser fixed smoke 作为 infrastructure gate；Browser production route 原生写 canonical pair 并完成 hardening。
-4. Runtime adapter、AI engine 和 Browser writer 共用公共 validator/digest fixtures。
-5. 未知工具、malformed args、prompt injection、refusal/truncation、budget exhaustion 和 no-script negative tests。
-6. canonical CaseResult/Evidence/ResultAuthorityReceipt 原子写入；publication 只消费公共 canonical validator。
-7. 消费 `#666` 已交付的 CLI/HTTP canonical-first 基础，并完成 `#631` 剩余 publication、compatibility、equivalence 和跨 route conformance；该项不阻塞 Browser-only canary，但仍是 upstream owning repo 的 open residual。
-8. legacy output 只由单一 compatibility adapter 派生。
+1. Compiler 从 approved input 生成 frozen StructuredPlan。
+2. Runner 只执行计划中批准的 closed typed actions，并消费 bounded sanitized Observation。
+3. Browser production route 原生写 canonical CaseResultSet/EvidenceManifest/ResultAuthorityReceipt。
+4. Runtime adapter、Runner 和 Browser writer 共用公共 validator/digest fixtures。
+5. unknown action、malformed args、budget exhaustion、stale/cancel/deadline、no-script 和 digest mismatch 全部 fail closed。
+6. 消费 `#666` 已交付的 CLI/HTTP canonical-first 基础，并完成 `#631` 剩余 publication、compatibility、equivalence 和跨 route conformance。
 
 ### T3：Runtime integration
 
-1. Runtime generic tool broker、ModelInference adapter port 和 fake Executor。
+1. Runtime generic typed tool broker、bounded Observation 和 fake Executor。
 2. Trusted package/current-claim/executor resolvers，以及唯一 symbolic entrypoint mapping。
-3. Local QA Runtime invocation/session adapter fixture。
-4. cancel/deadline/fence point-of-use tests。
-5. AgentTurnLedger replay、no-rerun、monotonic budget 和 cleanup/recovery fixtures。
-6. 资源 ownership 从 Generic Host/Environment Factory production path 迁出。
+3. Local QA Runtime invocation adapter fixture。
+4. local acceptance、cancel/deadline/fence、no-rerun 和 cleanup/recovery fixtures。
+5. 资源 ownership 从 Testing Packages production path 移交 Runtime owning modules。
 
 ### T4：Cross-repo conformance
 
-1. PQL approved input fixture。
+1. PQL approved input / Compiler fixture。
 2. Talos testing request/task/result fixture。
-3. Runtime happy/failure/cancel/crash fixture。
-4. package/version mismatch 和 unsupported major negative tests。
+3. Runtime + Runner happy/failure/cancel/crash fixture。
+4. package/version/plan mismatch 和 unsupported major negative tests。
+5. Future agentic profile 单独规划，不计入上述 Browser MVP gate。
 
 ## 15. 完成标准
 
-本 Repo 对 Talos Testing MVP 的职责完成时应满足：
+本 Repo 对 Talos Browser Testing MVP 的职责完成时应满足：
 
-- production path 直接读取 immutable structured TestCase，不生成、保存或执行测试脚本/代码/plugin。
-- TestCaseExecutionEngine/TestingAgentLoop 只调用 closed strict typed tools，并消费 bounded sanitized ModelObservation。
-- Browser MVP production route 原生写唯一 CaseResultSet/EvidenceManifest pair；共享 schema/validator/digest profile 不依赖 route。
-- ModelInferencePort 是 provider-neutral contract；provider secret、SDK object 和 raw observation 不进入业务 wire/Evidence/log。
-- model/provider/prompt/tool catalog/harness/evaluator identity 以 immutable refs/digests 绑定 session、AgentTurnLedger 和 ResultAuthorityReceipt。
-- deterministic/model-judged assertions 由 deterministic AssertionReducer 生成最终 AssertionResult/CaseResult；模型文本不能直接建立 passed。
-- CaseResultSet、EvidenceManifest 和 ResultAuthorityReceipt 形成同 Run/Attempt/Plan/bundle 的闭合 digest binding。
-- AgentTurnLedger replay 不重复 inference 或 effect；budget 在 restart/replay/repair 中单调消耗。
-- Runtime 只通过版本化 `testing-runner-invocation.v1` 与 capability ports 支持执行，不解释测试语义；早期 `ai-testing-session-input.v1` 不能作为新的 production effect envelope。
-- Testing Packages 不拥有 machine、lease、workspace、process、port、Chrome、provider credential 或 cleanup。
-- CLI/HTTP 的 compatibility/publication/conformance 收口不得改变已冻结的 Browser Case/Assertion 语义；完整 convergence 后所有 route 输出等价 canonical facts。
-- PQL asset lineage 能保留到 CaseResult。
-- stale/cancel/deadline/tool mismatch/approval denial 在 point of use fail closed。
-- interrupted side effect 为 `lost/inconclusive`，不自动重跑或开启替代 model turn。
+- Compiler 从 approved input 确定性生成 StructuredPlan，不生成用户脚本或自由执行入口。
+- deterministic Runner 只执行 frozen plan 中的 closed typed actions，并消费 bounded sanitized Observation。
+- Browser production route 原生写唯一 CaseResultSet/EvidenceManifest/ResultAuthorityReceipt；共享 schema/validator/digest profile 不依赖 route。
+- AssertionReducer 根据 approved Assertion、Observation 和 effect receipts 生成最终 AssertionResult/CaseResult；Browser action success 不能直接建立 passed。
+- CaseResultSet、EvidenceManifest 和 ResultAuthorityReceipt 形成同 Run/Attempt/TestCase/Plan/bundle 的闭合 digest binding。
+- Runtime 只通过版本化 `testing-runner-invocation.v1` 与 capability ports 支持执行，不解释或改写测试语义。
+- Testing Packages 不拥有 machine、lease、workspace、process、port、Chrome、credential 或 Cleanup。
+- PQL approved asset/requirement lineage 能保留到 CaseResult，但 executable Assertion/CaseResult contract 仍由 Testing Packages 唯一 author。
+- stale/cancel/deadline/action mismatch/approval denial 在 point of use fail closed。
+- interrupted side effect 为 `lost/inconclusive`，不自动重跑。
 - publication/Artifact delivery repair 不重复执行测试。
-- TestCase 与 StructuredPlan 的 identity、lineage、source、asset 和 plan digest mismatch 会在 effect 前 fail closed。
-- package manifest、package bytes、schema、symbolic entrypoint、capability 和 dependency digest 全部经过 Runtime admission 验证；manifest validator 单独存在不算 release/admission 完成。
-- 一个 invocation 只能解析到唯一 semantic executor/entrypoint；缺少 trusted resolver、mapping 不唯一或 resolver 不可用时零 effect。
-- fake executor、MVP Runtime adapter 和后续 Runtime adapter 使用同一 provider-neutral seam，并产生等价 Case/Assertion 语义。
-- resolver/admission receipt 可被 ResultAuthorityReceipt、AgentTurnLedger 和 replay ledger 追溯；same-key/same-digest replay 不重复 install、inference、effect 或 canonical write。
-- CLI/HTTP canonical-first 基础来自 `#666`，只有 publication、compatibility、equivalence、consumer inventory 和跨 route conformance 完成后，才算完整 convergence。
+- package manifest、package bytes、schema、symbolic entrypoint、capability 和 dependency digest 全部经过 Runtime admission 验证。
+- 一个 invocation 只能解析到唯一 semantic executor/entrypoint；resolver 不可用或 mapping 不唯一时零 effect。
+- fake executor、MVP Runtime adapter 和后续 Runtime adapter 使用同一 Runner seam，并产生等价 Case/Assertion 语义。
+- CLI/HTTP canonical-first 基础来自 `#666`，publication、compatibility、consumer inventory 和跨 route conformance 完成后才算完整 convergence。
+- ModelInferencePort、TestingAgentLoop、AgentTurnLedger 和 live-provider canary 只属于独立 Future agentic profile，不是 Browser MVP 完成条件。
 - Baseline、Candidate、Live status 和 Target 不再互相冒充。

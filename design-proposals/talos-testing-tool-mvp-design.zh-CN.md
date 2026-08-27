@@ -4,7 +4,7 @@
 >
 > **日期：** 2026-08-18
 >
-> **当前外部基线：** product-quality-loop HEAD e540127388981c0d3e3249f7a43aa569350abb5b、talos-worker-setup v1.1、Talos OpenAPI 0.1.0
+> **当前外部基线：** product-quality-loop `main@5096cde5349c66fa9725b39e4008951887b17cd0`、talos-worker-setup v1.1、Talos OpenAPI 0.1.0
 >
 > **首发范围：** PQL ProjectPackSnapshot/TestSelection/TestingToolClient；Browser-only；macOS arm64 canary pool；每台 machine 同时最多一个 Testing Run；无 Secret；本机 allowlisted Chrome executable + 临时 Profile；只产生 bounded JSON 与 PNG Evidence。
 >
@@ -14,7 +14,7 @@
 >
 > **Hosted 边界状态：** Hosted Authorization Authority 和最小 ArtifactStore 的 owner/MVP 必需性为 **Proposed / Decision pending**，详见 [Hosted Authorization 与 MVP ArtifactStore 边界决策](hosted-authorization-artifact-boundary-decision.zh-CN.md)。Talos 负责 QARun、placement、lease、generation 和 fence；在该决策被接受前，Hosted 接口只是 consumer contract。
 >
-> **流程图：** [Talos Testing MVP 流程图](./diagrams/talos-testing-mvp-flow.mmd)
+> **当前 Target 时序图：** [PQL Testing V2 时序图](./diagrams/V2/pql-testing-simple-flow.mmd)。历史 V1 流程图保留在 [`diagrams/V1/`](./diagrams/V1/)。
 
 ---
 
@@ -260,7 +260,7 @@ MVP 固定使用仓库：
 
 ~~~text
 https://github.com/YueZh127/product-quality-loop
-baseline = e540127388981c0d3e3249f7a43aa569350abb5b
+baseline = 5096cde5349c66fa9725b39e4008951887b17cd0
 ~~~
 
 PQL 首版必须产出：
@@ -365,42 +365,59 @@ Talos owning repo 可以调整 path，但不得改变 operation 的异步、幂�
   "schema_version": "talos.testing-tool-request/v1",
   "idempotency_key": "snapshot:selection:revision:plan:environment:policy",
   "display_goal": "验证登录后进入首页",
-  "planning_provenance": {
+  "inputs": {
+    "schema_version": "talos.testing-input-references/v1",
     "project_pack_snapshot": {
+      "schema": "pql.project-pack-snapshot/v1",
       "ref": "artifact://pql/project-pack-snapshot/snapshot_01",
       "digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111"
     },
     "test_selection": {
+      "schema": "pql.test-selection/v1",
       "ref": "artifact://pql/test-selection/selection_01",
       "digest": "sha256:2222222222222222222222222222222222222222222222222222222222222222"
     },
     "testing_design_input_set": {
+      "schema": "pql.testing-design-input-set.v1",
       "ref": "artifact://pql/testing-design-input-set/input_01",
       "digest": "sha256:3333333333333333333333333333333333333333333333333333333333333333"
+    },
+    "source_revision": {
+      "repository_id": "repo_example",
+      "exact_revision": "0123456789abcdef0123456789abcdef01234567",
+      "ref": "artifact://source/source_01",
+      "digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    },
+    "structured_plan": {
+      "schema": "testing-structured-plan.v2",
+      "ref": "artifact://plans/plan_01",
+      "digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+    },
+    "environment_profile": {
+      "ref": "artifact://environments/env_01",
+      "digest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+    },
+    "testing_package": {
+      "package_id": "testing-browser-runner",
+      "version": "1.0",
+      "digest": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
     }
-  },
-  "source": {
-    "repository_id": "repo_example",
-    "exact_revision": "0123456789abcdef0123456789abcdef01234567",
-    "ref": "artifact://source/source_01",
-    "digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
-  },
-  "structured_plan": {
-    "ref": "artifact://plans/plan_01",
-    "digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
-  },
-  "environment_profile": {
-    "ref": "artifact://environments/env_01",
-    "digest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
-  },
-  "runner": {
-    "package_id": "testing-browser-runner",
-    "version": "1.0",
-    "digest": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
   },
   "execution_profile": "local_qa_agent_mvp",
   "placement_requirements": {
     "testing_runtime": "local-qa-mvp/v1"
+  },
+  "policy_binding": {
+    "policy": {
+      "schema": "talos.testing-execution-policy/v1",
+      "ref": "artifact://talos/testing-policy/policy_01",
+      "digest": "sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+    },
+    "budgets": {
+      "schema": "talos.testing-budgets/v1",
+      "ref": "artifact://talos/testing-budgets/budgets_01",
+      "digest": "sha256:ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+    }
   },
   "policy": {
     "network_scope": "environment_owned_loopback_exact_origins",
@@ -438,6 +455,8 @@ Talos owning repo 可以调整 path，但不得改变 operation 的异步、幂�
   }
 }
 ~~~
+
+`policy_binding.policy.digest` 必须等于 canonical `policy` projection digest，`policy_binding.budgets.digest` 必须等于 `policy.budgets` digest；上例中的 digest 仅为格式占位，生产 fixture 必须使用真实计算值。
 
 请求禁止出现：
 
@@ -1490,7 +1509,7 @@ PQL + Talos Testing Tool MVP 只有在以下条件全部满足时完成：
 - [Talos 有界 Testing 工具与本地 QA 执行架构设计提案](./talos-bounded-testing-tool-architecture.zh-CN.md)
 - [PQL Testing 模块职责总结](./pql-testing-module-responsibilities.zh-CN.md)
 - [FKST Local QA Host MVP 设计](../local-qa-host-mvp-design.zh-CN.md)
-- [Local QA Runtime 实现缺口](../repo-gaps/local-qa-runtime-gap-analysis.zh-CN.md)
+- [Local QA Runtime 实现缺口](../repo-gaps/V2/local-qa-runtime-gap-analysis.zh-CN.md)
 - [Testing Packages 调整方案](./repo-adjustments/fkst-packages-testing-adjustments.zh-CN.md)
 - [product-quality-loop](https://github.com/YueZh127/product-quality-loop)
 - [product-quality-loop 调整方案](./repo-adjustments/product-quality-loop-adjustments.zh-CN.md)

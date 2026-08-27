@@ -6,7 +6,7 @@
 >
 > Baseline：[`main@5096cde5349c66fa9725b39e4008951887b17cd0`](https://github.com/YueZh127/product-quality-loop/commit/5096cde5349c66fa9725b39e4008951887b17cd0)
 >
-> Target：[PQL Testing 简化时序图](../design-proposals/diagrams/pql-testing-simple-flow.mmd) 与 [Talos Testing Tool 最小 MVP 设计](../design-proposals/talos-testing-tool-mvp-design.zh-CN.md)
+> Target：[PQL Testing 简化时序图](../../design-proposals/diagrams/V1/pql-testing-simple-flow.mmd) 与 [Talos Testing Tool 最小 MVP 设计](../../design-proposals/talos-testing-tool-mvp-design.zh-CN.md)
 
 ## 0. 2026-08-20 Talos Tool 方向增量审计
 
@@ -37,7 +37,7 @@ PQL 应作为 Testing 的产品语义和质量决策层，通过 NyxID 调用 Ta
 
 **P0：** `pql.testing-design-input-set.v1`、approved Snapshot/Selection/Asset ref+digest 闭合、provider-neutral `TestingToolClient`（`get_capabilities/submit/get/events/cancel`）、`TestingRunRecord` 和 lost-ack/idempotency/error fixtures。
 
-**P1：** Talos terminal snapshot/event reconcile、opaque cursor resync、execution/evidence/upload/cleanup 正交展示、禁止 Tool 不可用时 silent fallback 到 direct executor；MVP Artifact refs/receipt 状态消费依赖 [Hosted owner/认证/storage decision gate](../design-proposals/hosted-authorization-artifact-boundary-decision.zh-CN.md) 被接受。
+**P1：** Talos terminal snapshot/event reconcile、opaque cursor resync、execution/evidence/upload/cleanup 正交展示、禁止 Tool 不可用时 silent fallback 到 direct executor；MVP Artifact refs/receipt 状态消费依赖 [Hosted owner/认证/storage decision gate](../../design-proposals/hosted-authorization-artifact-boundary-decision.zh-CN.md) 被接受。
 
 **Post-MVP：** Hosted Final Quality/Report 和 HostedQualityFeedback ingestion/checkpoint；这些不阻塞首个 Browser execution。完整 Artifact 闭环属于 decision-pending MVP 候选依赖，不能与 Final Quality/Report 一起延期，也不能从 task status 或不完整 result 推断。
 
